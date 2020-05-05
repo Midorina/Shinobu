@@ -7,10 +7,8 @@ with open('config.json') as f:
     config = json.load(f)
 
 
-def get_cooldown(user, cd_type: str) -> int:
+def get_cooldown_remaining(user, cd_type: str) -> int:
     cooldowns = config['cooldowns']
-
-    last_time_in_db = None
 
     if cd_type == "xp":
         last_time_in_db = user.last_xp_gain_date
@@ -18,19 +16,16 @@ def get_cooldown(user, cd_type: str) -> int:
     elif cd_type == "daily":
         last_time_in_db = user.last_daily_claim_date
 
-    if last_time_in_db is None:
-        return 0
-
-    current_time = datetime.now(timezone.utc)
-
-    time_difference = current_time - last_time_in_db
-
-    time_difference_in_seconds = time_difference / timedelta(seconds=1)
-
-    if time_difference_in_seconds < cooldowns[cd_type]:
-        return cooldowns[cd_type] - time_difference_in_seconds
     else:
         return 0
+
+    if not last_time_in_db:
+        return 0
+
+    time_difference_in_seconds = (datetime.now(timezone.utc) - last_time_in_db) / timedelta(seconds=1)
+
+    # return time difference.
+    return cooldowns[cd_type] - time_difference_in_seconds
 
 
 def parse_seconds(remaining: int) -> str:

@@ -74,18 +74,12 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def stats(self, ctx):
-        owner = self.bot.get_user(90076279646212096)
+        owner = self.bot.get_user(self.bot.config['owners'][0])
 
         uptime = self.bot.uptime
         days = 0
         hours = 0
         minutes = 0
-
-        # total_shards = len(self.bot.shard_ids)
-        # if ctx.guild:
-        #     current_shard = ctx.guild.shard_id
-        # else:
-        #     current_shard = 0
 
         current_time = datetime.utcnow()
         time_difference = current_time - uptime
@@ -136,9 +130,6 @@ class Misc(commands.Cog):
                               f"{hours} hours\n"
                               f"{minutes} minutes",
                         inline=True)
-        # embed.add_field(name="Shard",
-        #                 value=f"#{current_shard} / {total_shards}",
-        #                 inline=True)
 
         await ctx.send(embed=embed)
 
@@ -154,14 +145,6 @@ class Misc(commands.Cog):
                     self.bot.load_extension(f"cogs.{name}")
 
         await ctx.send("Successfully reloaded all cogs!")
-
-    @commands.command()
-    async def servers(self, ctx):
-        msg = ""
-        for guild in self.bot.guilds:
-            msg += f"{str(guild)} \n"
-
-        await ctx.send(msg)
 
 
 def setup(bot):

@@ -121,7 +121,6 @@ async def yes_no(bot, author_id, msg):
         reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=30.0)
 
     except asyncio.TimeoutError:
-        # await msg.clear_reactions()
         return None
 
     else:

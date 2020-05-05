@@ -6,6 +6,5 @@ class Searches(commands.Cog):
         self.bot = bot
 
 
-
 def setup(bot):
     bot.add_cog(Searches(bot))

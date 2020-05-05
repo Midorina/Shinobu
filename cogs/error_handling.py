@@ -1,7 +1,7 @@
-from discord.ext import commands
 import traceback
+
 import discord
-import sys
+from discord.ext import commands
 
 
 class Errors(commands.Cog):
@@ -33,7 +33,7 @@ class Errors(commands.Cog):
                 await ctx.send(
                     "I don't have required permissions! "
                     "Please check if I have permission to add reactions and see the message history of channels.")
-            except:
+            except discord.Forbidden:
                 pass
 
         elif isinstance(error, commands.BotMissingPermissions):
@@ -74,21 +74,22 @@ class Errors(commands.Cog):
                         "I don't have permission to use external emojis! Please give me permission to use them.")
 
             embed = discord.Embed(
-                description="**A fatal error has occured.** Please be patient for a solution to be found.")
+                description="**A fatal error has occured!** Please be patient for a solution to be found.")
             await ctx.send(embed=embed)
 
-            self.bot.logger.error('Ignoring exception in command {}:'.format(ctx.command))
-            traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
+            # self.bot.logger.error('Ignoring exception in command {}:'.format(ctx.command))
+            # traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
             error_msg = "\n".join(traceback.format_exception(type(error), error, error.__traceback__))
+            self.bot.logger.error(error_msg)
 
             if isinstance(ctx.channel, discord.DMChannel):
                 used_in = f"DM {ctx.channel.id}"
             else:
                 used_in = f"{ctx.channel.name}({ctx.channel.id}), guild {ctx.guild.name}({ctx.guild.id})"
 
-            traceback_embed = discord.Embed(title="Traceback", description=f"```{error_msg}```",
-                                            timestamp=ctx.message.created_at)
+            traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg}```",
+                                            timestamp=ctx.message.created_at, color=discord.Colour.red())
 
             await self.bot.log_channel.send(f"""
             ***ERROR ALERT*** <@90076279646212096>
