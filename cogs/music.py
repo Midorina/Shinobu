@@ -6,7 +6,7 @@ import random
 
 import discord
 import youtube_dl
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 
 class VoiceError(Exception):
@@ -505,6 +505,8 @@ class Music(commands.Cog):
 
                 await ctx.voice_state.songs.put(song)
                 await ctx.send('Queued {}'.format(str(source)))
+
+    # TODO: playlist support, test stuff
 
 
 def setup(bot):

@@ -1,15 +1,15 @@
+import json
 import logging
 import os
-import discord
-import json
-import asyncpg
-
-from discord.ext import commands
-from discord.ext.commands import AutoShardedBot
 from datetime import datetime
 
+import asyncpg
+import discord
+from discord.ext import commands
+from discord.ext.commands import AutoShardedBot
+
 from db import db_funcs
-from services.context import Context
+from services import context
 
 
 async def _get_prefix(_bot, msg: discord.Message):
@@ -74,20 +74,21 @@ class MidoBot(AutoShardedBot):
 
         await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
+    async def process_commands(self, message):
+        ctx = await self.get_context(message, cls=context.Context)
+
+        if ctx.command is None:
+            return
+
+        await ctx.attach_db_objects()
+        await self.invoke(ctx)
+
     async def on_message(self, message):
         if not self.is_ready() or message.author.bot:
             return
 
         self.message_counter += 1
         await self.process_commands(message)
-
-    async def process_commands(self, message):
-        ctx = await self.get_context(message, cls=Context)
-
-        if ctx.command is None:
-            return
-
-        await self.invoke(ctx)
 
     async def on_guild_join(self, guild):
         await db_funcs.insert_new_guild(self.db, guild.id)

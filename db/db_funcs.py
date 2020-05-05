@@ -1,5 +1,6 @@
-import asyncpg
 import json
+
+import asyncpg
 
 from db.db_models import UserDB, GuildDB
 
@@ -40,7 +41,7 @@ async def get_guild_db(db: asyncpg.pool.Pool, guild_id: int) -> GuildDB:
         if not guild_db:  # if not exists insert guild
             await insert_new_guild(db, guild_id)
 
-    return GuildDB(guild_db)
+    return GuildDB(guild_db, db)
 
 
 

@@ -1,6 +1,7 @@
 from discord.ext import commands
-from db.db_models import UserDB, GuildDB
+
 from db import db_funcs
+from db.db_models import UserDB, GuildDB
 
 
 class Context(commands.Context):
@@ -10,8 +11,6 @@ class Context(commands.Context):
 
         self.author_db: UserDB = None
         self.guild_db: GuildDB = None
-
-        self.bot.loop.create_task(self.attach_db_objects())
 
     async def attach_db_objects(self):
         self.author_db = await db_funcs.get_user_db(self.db, self.author.id)

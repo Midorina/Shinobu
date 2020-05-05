@@ -1,10 +1,29 @@
-from discord.ext import commands
-import discord
-import time
+import ast
 import os
-from services import checks
+import time
 from datetime import datetime, timedelta
+
+import discord
 import psutil
+from discord.ext import commands
+
+from services import checks, context
+
+
+def insert_returns(body):
+    # insert return stmt if the last expression is a expression statement
+    if isinstance(body[-1], ast.Expr):
+        body[-1] = ast.Return(body[-1].value)
+        ast.fix_missing_locations(body[-1])
+
+    # for if statements, we insert returns into the body and the orelse
+    if isinstance(body[-1], ast.If):
+        insert_returns(body[-1].body)
+        insert_returns(body[-1].orelse)
+
+    # for with blocks, again we insert returns into the body
+    if isinstance(body[-1], ast.With):
+        insert_returns(body[-1].body)
 
 
 class Misc(commands.Cog):
@@ -12,7 +31,56 @@ class Misc(commands.Cog):
         self.bot = bot
 
     @commands.command()
-    async def ping(self, ctx):
+    @checks.owner_only()
+    async def eval(self, ctx, *, cmd):
+        """Evaluates input.
+        Input is interpreted as newline seperated statements.
+        If the last statement is an expression, that is the return value.
+        Usable globals:
+          - `bot`: the bot instance
+          - `discord`: the discord module
+          - `commands`: the discord.ext.commands module
+          - `ctx`: the invokation context
+          - `__import__`: the builtin `__import__` function
+        Such that `>eval 1 + 1` gives `2` as the result.
+        The following invokation will cause the bot to send the text '9'
+        to the channel of invokation and return '3' as the result of evaluating
+        >eval ```
+        a = 1 + 2
+        b = a * 2
+        await ctx.send(a + b)
+        a
+        ```
+        """
+        fn_name = "_eval_expr"
+
+        cmd = cmd.strip("`py ")
+
+        # add a layer of indentation
+        cmd = "\n".join(f"    {i}" for i in cmd.splitlines())
+
+        # wrap in async def body
+        body = f"async def {fn_name}():\n{cmd}"
+
+        parsed = ast.parse(body)
+        body = parsed.body[0].body
+
+        insert_returns(body)
+
+        env = {
+            'bot': ctx.bot,
+            'discord': discord,
+            'commands': commands,
+            'ctx': ctx,
+            '__import__': __import__
+        }
+        exec(compile(parsed, filename="<ast>", mode="exec"), env)
+
+        result = (await eval(f"{fn_name}()", env))
+        await ctx.send(result)
+
+    @commands.command()
+    async def ping(self, ctx: context.Context):
         if ctx.guild:
             color = ctx.guild.me.top_role.color
         else:
@@ -28,48 +96,26 @@ class Misc(commands.Cog):
 
         await message.edit(embed=new_embed_msg)
 
-    @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.command()
-    async def prefix(self, ctx, *, prefix: str = None):
-        if prefix:
-            await self.bot.db.execute(
-                """UPDATE guilds SET prefix=$1 where id=$2""", prefix, ctx.guild.id
-            )
-
-            await ctx.send(f"The prefix has been successfully changed to **{prefix}**")
-            return
+    async def prefix(self, ctx: context.Context, *, prefix: str = None):
+        if prefix and ctx.author.guild_permissions.administrator:
+            await ctx.guild_db.change_prefix(prefix)
+            return await ctx.send(f"The prefix has been successfully changed to `{prefix}`")
 
         else:
-            prefix = await self.bot.db.fetchrow(
-                """select prefix from guilds where id=$1""", ctx.guild.id
-            )
-
-            await ctx.send(f"Current prefix for this server: **{prefix['prefix']}**")
-            return
+            return await ctx.send(f"Current prefix for this server: `{ctx.prefix}`")
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
-    async def delete_commands(self, ctx):
-        status = await self.bot.db.fetchrow(
-            """SELECT * from guilds where id=$1""", ctx.guild.id
-        )
+    async def delete_commands(self, ctx: context.Context):
+        new_delete_cmds_status = await ctx.guild_db.toggle_delete_commands()
 
-        status = status["delete_commands"]
-
-        if status is False:
-            await self.bot.db.execute(
-                """UPDATE guilds SET delete_commands=$1 where id=$2""", True, ctx.guild.id
-            )
-
+        if new_delete_cmds_status is True:
             await ctx.send(f"The successful commands will be deleted from now on.")
 
         else:
-            await self.bot.db.execute(
-                """UPDATE guilds SET delete_commands=$1 where id=$2""", False, ctx.guild.id
-            )
-
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
     @commands.command()
@@ -145,6 +191,9 @@ class Misc(commands.Cog):
                     self.bot.load_extension(f"cogs.{name}")
 
         await ctx.send("Successfully reloaded all cogs!")
+
+    # TODO: eval cmd
+    # TODO: info/about
 
 
 def setup(bot):

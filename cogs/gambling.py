@@ -1,8 +1,10 @@
-from discord.ext import commands
-import discord
 import random
-from services import checks, context
+
+import discord
+from discord.ext import commands
+
 from db import db_funcs
+from services import checks, context
 
 
 class GamblingError(Exception):
@@ -20,26 +22,26 @@ class Gambling(commands.Cog):
         # coin variables
         self.coin_sides = {
             "heads": {
-                "aliases": ['h', 'heads', 'head'],
-                "images": {
-                    1: "https://i.imgur.com/gA7NWyL.png",
-                    0.5: "https://i.imgur.com/PjnLpfk.png",
-                    0.25: "https://i.imgur.com/MzP2cqs.png",
-                    0.10: "https://i.imgur.com/3JfgyEP.png",
-                    0.05: "https://i.imgur.com/x7krykG.png",
-                    0.01: "https://i.imgur.com/CDO1lBA.png",
-                }
+                "aliases": ['heads', 'head', 'h'],
+                "images": [
+                    "https://i.imgur.com/gA7NWyL.png",  # 1
+                    "https://i.imgur.com/PjnLpfk.png",  # 0.50
+                    "https://i.imgur.com/MzP2cqs.png",  # 0.25
+                    "https://i.imgur.com/3JfgyEP.png",  # 0.10
+                    "https://i.imgur.com/x7krykG.png",  # 0.05
+                    "https://i.imgur.com/CDO1lBA.png"   # 0.01
+                ]
             },
             "tails": {
-                "aliases": ['t', 'tails', 'tail'],
-                "images": {
-                    1: "https://i.imgur.com/rOxePah.png",
-                    0.5: "https://i.imgur.com/C1LkEY4.png",
-                    0.25: "https://i.imgur.com/pPDQ1xj.png",
-                    0.10: "https://i.imgur.com/0vLHUSr.png",
-                    0.05: "https://i.imgur.com/7BotKnp.png",
-                    0.01: "https://i.imgur.com/bsU71r6.png",
-                }
+                "aliases": ['tails', 'tail', 't'],
+                "images": [
+                    "https://i.imgur.com/rOxePah.png",  # 1
+                    "https://i.imgur.com/C1LkEY4.png",  # 0.50
+                    "https://i.imgur.com/pPDQ1xj.png",  # 0.25
+                    "https://i.imgur.com/0vLHUSr.png",  # 0.10
+                    "https://i.imgur.com/7BotKnp.png",  # 0.05
+                    "https://i.imgur.com/bsU71r6.png"   # 0.01
+                ]
             }
         }
 
@@ -70,7 +72,7 @@ class Gambling(commands.Cog):
         if not actual_guessed_side:
             raise commands.BadArgument("Incorrect coin side!")
 
-        random_side = random.choice(self.coin_sides)
+        random_side = random.choice(list(self.coin_sides.values()))
 
         e = discord.Embed()
         e.set_image(url=random.choice(random_side['images']))
@@ -79,12 +81,12 @@ class Gambling(commands.Cog):
             await ctx.author_db.add_cash(amount * 2)
 
             e.title = "Congratulations!"
-            e.description = f"You flipped {random_side} and won **{amount * 2}**!"
+            e.description = f"You flipped {random_side['aliases'][0]} and won **{amount * 2}**!"
             e.colour = self.success_color
 
         else:
             e.title = "I'm sorry..."
-            e.description = f"You flipped {random_side} and lost **{amount}**."
+            e.description = f"You flipped {random_side['aliases'][0]} and lost **{amount}**."
             e.colour = self.fail_color
 
         e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.author_db.cash}")
