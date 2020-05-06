@@ -231,7 +231,7 @@ class VoiceState:
 
     @volume.setter
     def volume(self, value: float):
-        self._volume, self.current.source.volume = value
+        self._volume = self.current.source.volume = value
 
     @property
     def is_playing(self):
