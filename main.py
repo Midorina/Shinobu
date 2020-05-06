@@ -11,18 +11,13 @@ from db import db_funcs
 from services import context
 
 
-# TODO: prefix cache
-
-
 async def _get_prefix(_bot, msg: discord.Message):
-    if msg.guild is None:
-        prefix = _bot.config["default_prefix"]
-
-    else:
-        guild_db = await db_funcs.get_guild_db(_bot.db, msg.guild.id)
-        prefix = guild_db.prefix
-
-    return commands.when_mentioned_or(prefix)(_bot, msg)
+    # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
+    try:
+        return commands.when_mentioned_or(_bot.prefix_cache.get(msg.guild.id, _bot.config["default_prefix"]))(_bot, msg)
+    # if in guild
+    except AttributeError:
+        return commands.when_mentioned_or(_bot.config["default_prefix"])(_bot, msg)
 
 
 class MidoBot(commands.AutoShardedBot):
@@ -44,6 +39,8 @@ class MidoBot(commands.AutoShardedBot):
         self.message_counter = 0
         self.command_counter = 0
         self.uptime = None
+
+        self.prefix_cache = {}
 
     async def close(self):
         await self.db.close()
@@ -69,6 +66,10 @@ class MidoBot(commands.AutoShardedBot):
 
         if self.first_time:
             await self.prepare_db()
+
+            # prefix cache
+            self.prefix_cache = await db_funcs.get_prefix_dict(self.db)
+
             self.load_cogs()
             self.uptime = datetime.now(timezone.utc)
             self.log_channel = self.get_channel(self.config['log_channel'])

@@ -8,6 +8,10 @@ with open('config.json') as f:
     config = json.load(f)
 
 
+async def get_prefix_dict(db: asyncpg.pool.Pool) -> dict:
+    return dict(await db.fetch("""SELECT id, prefix FROM guilds;"""))
+
+
 async def insert_new_user(db: asyncpg.pool.Pool, user_id: int):
     await db.execute(
         """INSERT INTO users (id) values($1) ON CONFLICT DO NOTHING;""", user_id)

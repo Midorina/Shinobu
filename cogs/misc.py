@@ -101,6 +101,10 @@ class Misc(commands.Cog):
     async def prefix(self, ctx: context.Context, *, prefix: str = None):
         if prefix and ctx.author.guild_permissions.administrator:
             await ctx.guild_db.change_prefix(prefix)
+            
+            # update cache
+            self.bot.prefix_cache[ctx.guild.id] = prefix
+
             return await ctx.send(f"The prefix has been successfully changed to `{prefix}`")
 
         else:
@@ -131,7 +135,7 @@ class Misc(commands.Cog):
         embed = discord.Embed(color=discord.Colour.green())
 
         embed.description = f"I'm a general purpose bot that features various stuff! " \
-                            f"Type `{ctx.prefix}help` to learn more.\n" \
+                            f"Type `{ctx.prefix}help` to learn more.\n\n" \
                             f"[Click here to invite me to your server!]({self.bot.config['invite_link']})"
 
         embed.set_author(name=f"{self.bot.user}",
