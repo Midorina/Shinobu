@@ -5,11 +5,12 @@ from discord.ext import commands
 
 from db import db_funcs
 from db.db_models import UserDB, GuildDB
-from services import context
+from main import MidoBot
+from services import context, checks
 
 
 class XP(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
     def get_xp_embed(self, user: discord.Member, user_db: UserDB) -> discord.Embed:
@@ -99,7 +100,19 @@ class XP(commands.Cog):
         else:
             await ctx.send("You've successfully enabled level up notifications in this server!")
 
-    # TODO: add xp, remove xp
+    @commands.command(name="addxp")
+    @checks.owner_only()
+    async def add_xp(self, ctx, member: discord.Member, amount: int):
+        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        await member_db.add_xp(amount)
+        await ctx.send("Success!")
+
+    @commands.command(name="removexp", aliases=['remxp'])
+    @checks.owner_only()
+    async def remove_xp(self, ctx, member: discord.Member, amount: int):
+        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        await member_db.remove_xp(amount)
+        await ctx.send("Success!")
 
 
 def setup(bot):

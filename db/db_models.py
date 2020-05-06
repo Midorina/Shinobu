@@ -25,12 +25,12 @@ class UserDB:
 
     @property
     def can_gain_xp_remaining(self) -> Tuple[bool, int]:
-        remaining = time_stuff.get_cooldown_remaining(self, "xp")
+        remaining = time_stuff.get_time_difference(self, "xp")
         return remaining <= 0, remaining
 
     @property
     def can_claim_daily_remaining(self) -> Tuple[bool, int]:
-        remaining = time_stuff.get_cooldown_remaining(self, "daily")
+        remaining = time_stuff.get_time_difference(self, "daily")
         return remaining <= 0, remaining
 
     async def add_xp(self, amount: int) -> int:

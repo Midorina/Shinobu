@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from db import db_funcs
+from main import MidoBot
 from services import checks, context
 
 
@@ -12,7 +13,7 @@ class GamblingError(Exception):
 
 
 class Gambling(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
         # general gambling variables
@@ -29,7 +30,7 @@ class Gambling(commands.Cog):
                     "https://i.imgur.com/MzP2cqs.png",  # 0.25
                     "https://i.imgur.com/3JfgyEP.png",  # 0.10
                     "https://i.imgur.com/x7krykG.png",  # 0.05
-                    "https://i.imgur.com/CDO1lBA.png"   # 0.01
+                    "https://i.imgur.com/CDO1lBA.png"  # 0.01
                 ]
             },
             "tails": {
@@ -40,7 +41,7 @@ class Gambling(commands.Cog):
                     "https://i.imgur.com/pPDQ1xj.png",  # 0.25
                     "https://i.imgur.com/0vLHUSr.png",  # 0.10
                     "https://i.imgur.com/7BotKnp.png",  # 0.05
-                    "https://i.imgur.com/bsU71r6.png"   # 0.01
+                    "https://i.imgur.com/bsU71r6.png"  # 0.01
                 ]
             }
         }

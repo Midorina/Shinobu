@@ -8,6 +8,8 @@ import discord
 import youtube_dl
 from discord.ext import commands
 
+from main import MidoBot
+
 
 class VoiceError(Exception):
     pass
@@ -197,7 +199,7 @@ class SongQueue(asyncio.Queue):
 
 
 class VoiceState:
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
         self.current = None
@@ -273,7 +275,7 @@ class VoiceState:
 
 
 class Music(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
         self.voice_states = {}

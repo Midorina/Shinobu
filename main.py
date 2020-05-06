@@ -1,15 +1,17 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import asyncpg
 import discord
 from discord.ext import commands
-from discord.ext.commands import AutoShardedBot
 
 from db import db_funcs
 from services import context
+
+
+# TODO: prefix cache
 
 
 async def _get_prefix(_bot, msg: discord.Message):
@@ -23,7 +25,7 @@ async def _get_prefix(_bot, msg: discord.Message):
     return commands.when_mentioned_or(prefix)(_bot, msg)
 
 
-class MidoBot(AutoShardedBot):
+class MidoBot(commands.AutoShardedBot):
     def __init__(self):
         super().__init__(
             command_prefix=_get_prefix,
@@ -63,12 +65,14 @@ class MidoBot(AutoShardedBot):
                     self.logger.exception(e)
 
     async def on_ready(self):
+        self.logger.debug("on_ready is called.")
+
         if self.first_time:
             await self.prepare_db()
             self.load_cogs()
-            self.uptime = datetime.utcnow()
+            self.uptime = datetime.now(timezone.utc)
             self.log_channel = self.get_channel(self.config['log_channel'])
-            self.logger.error(f"{self.user} is ready.")
+            self.logger.info(f"{self.user} is ready.")
             self.first_time = False
             await self.log_channel.send("I'm ready!")
 

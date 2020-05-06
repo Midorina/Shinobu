@@ -1,13 +1,13 @@
 import ast
 import os
 import time
-from datetime import datetime, timedelta
 
 import discord
 import psutil
 from discord.ext import commands
 
-from services import checks, context
+from main import MidoBot
+from services import checks, context, time_stuff
 
 
 def insert_returns(body):
@@ -27,7 +27,7 @@ def insert_returns(body):
 
 
 class Misc(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
     @commands.command()
@@ -118,40 +118,28 @@ class Misc(commands.Cog):
         else:
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
-    @commands.command()
-    async def stats(self, ctx):
-        owner = self.bot.get_user(self.bot.config['owners'][0])
+    @commands.command(aliases=['info', 'stats'])
+    async def about(self, ctx):
+        mido = self.bot.get_user(self.bot.config['owners'][0])
 
-        uptime = self.bot.uptime
-        days = 0
-        hours = 0
-        minutes = 0
+        uptime = time_stuff.get_time_difference(self.bot, "uptime")
 
-        current_time = datetime.utcnow()
-        time_difference = current_time - uptime
-        time_difference_in_minutes = time_difference / timedelta(minutes=1)
+        messages_per_sec = self.bot.message_counter / uptime
 
-        messages_per_sec = self.bot.message_counter / (60 * time_difference_in_minutes)
+        memory = psutil.virtual_memory()[3] >> 20
 
-        if time_difference_in_minutes > 1440:
-            days += int(time_difference_in_minutes // 1440)
-            time_difference_in_minutes -= days * 1440
+        embed = discord.Embed(color=discord.Colour.green())
 
-        if time_difference_in_minutes > 60:
-            hours += int(time_difference_in_minutes // 60)
-            time_difference_in_minutes -= hours * 60
+        embed.description = f"I'm a general purpose bot that features various stuff! " \
+                            f"Type `{ctx.prefix}help` to learn more.\n" \
+                            f"[Click here to invite me to your server!]({self.bot.config['invite_link']})"
 
-        minutes += int(time_difference_in_minutes)
-
-        memory = psutil.virtual_memory()[3]
-        memory = memory >> 20
-
-        embed = discord.Embed()
         embed.set_author(name=f"{self.bot.user}",
-                         icon_url=self.bot.user.avatar_url)
+                         icon_url=self.bot.user.avatar_url,
+                         url=self.bot.config['website'])
 
         embed.add_field(name="Owner",
-                        value=f"{str(owner)}\n"
+                        value=f"{str(mido)}\n"
                               f"(439632807770325012)",
                         inline=True)
 
@@ -172,10 +160,11 @@ class Misc(commands.Cog):
                         inline=True)
 
         embed.add_field(name="Uptime",
-                        value=f"{days} days\n"
-                              f"{hours} hours\n"
-                              f"{minutes} minutes",
+                        value=time_stuff.parse_seconds(uptime).replace(" ", "\n"),
                         inline=True)
+
+        embed.set_footer(icon_url=mido.avatar_url,
+                         text=f"Made by {mido} with love ♥")
 
         await ctx.send(embed=embed)
 
@@ -191,9 +180,6 @@ class Misc(commands.Cog):
                     self.bot.load_extension(f"cogs.{name}")
 
         await ctx.send("Successfully reloaded all cogs!")
-
-    # TODO: eval cmd
-    # TODO: info/about
 
 
 def setup(bot):

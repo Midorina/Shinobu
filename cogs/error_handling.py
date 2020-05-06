@@ -3,9 +3,11 @@ import traceback
 import discord
 from discord.ext import commands
 
+from main import MidoBot
+
 
 class Errors(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
     @commands.Cog.listener()

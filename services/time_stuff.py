@@ -1,13 +1,12 @@
-import math
 import json
-
+import math
 from datetime import datetime, timezone, timedelta
 
 with open('config.json') as f:
     config = json.load(f)
 
 
-def get_cooldown_remaining(user, cd_type: str) -> int:
+def get_time_difference(user, cd_type: str) -> int:
     cooldowns = config['cooldowns']
 
     if cd_type == "xp":
@@ -16,16 +15,19 @@ def get_cooldown_remaining(user, cd_type: str) -> int:
     elif cd_type == "daily":
         last_time_in_db = user.last_daily_claim_date
 
-    else:
-        return 0
+    elif cd_type == "uptime":
+        last_time_in_db = user.uptime
 
-    if not last_time_in_db:
+    else:
         return 0
 
     time_difference_in_seconds = (datetime.now(timezone.utc) - last_time_in_db) / timedelta(seconds=1)
 
     # return time difference.
-    return cooldowns[cd_type] - time_difference_in_seconds
+    if cd_type == "uptime":
+        return time_difference_in_seconds
+    else:
+        return cooldowns[cd_type] - time_difference_in_seconds
 
 
 def parse_seconds(remaining: int) -> str:
