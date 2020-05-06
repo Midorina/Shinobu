@@ -51,20 +51,18 @@ class Errors(commands.Cog):
             await ctx.send(str(error))
 
         elif isinstance(error, commands.MissingRequiredArgument):
-            prefix = await self.bot.get_server_prefix(ctx.message)
             await ctx.send(
                 f"You are missing required arguments!\n"
                 f"`{error}`\n\n"
                 f"Command usage:\n"
-                f"**{prefix}{ctx.command.name} {ctx.command.signature}**")
+                f"**{ctx.prefix}{ctx.command.name} {ctx.command.signature}**")
 
         elif isinstance(error, commands.BadArgument):
-            prefix = await self.bot.get_server_prefix(ctx.message)
             await ctx.send(
                 f"One of your arguments is incorrect!\n"
                 f"`{error}`\n\n"
                 f"Command usage:\n"
-                f"**{prefix}{ctx.command.name} {ctx.command.signature}**")
+                f"**{ctx.prefix}{ctx.command.name} {ctx.command.signature}**")
 
         else:
             if isinstance(error, discord.HTTPException):
