@@ -1,20 +1,22 @@
 import asyncio
 import math
+from copy import deepcopy
+
+import discord
 
 
-async def paginate(bot, ctx, embed, text, field_title=None, footer_text=None):
+async def paginate(bot, ctx, embed: discord.Embed, blocks, item_per_page: int = 6,
+                   add_page_info_to: str = 'footer',
+                   reactions: bool = True):
     arrows = [
+        "⏪",
         "◀",
-        "<:left_button:593065354670899210>",
-        "<:right_button:593065366146514944>",
-        "▶"
+        "▶",
+        "⏩"
     ]
 
-    text_list = text.split('\n')
-    text_list = list(filter(None, text_list))
-
     def reaction_check(_reaction, _user):
-        if _user.id == ctx.author.id:
+        if _user == ctx.author:
             if _reaction.message.id == message.id:
                 if str(_reaction.emoji) in arrows:
                     return True
@@ -23,52 +25,63 @@ async def paginate(bot, ctx, embed, text, field_title=None, footer_text=None):
         if m.author == ctx.author:
             if m.channel == ctx.channel:
                 try:
-                    int(m.content)
-                    return True
+                    return int(m.content)
                 except ValueError:
                     pass
 
     async def update_message(msg=None):
         msg_for_embed = ""
+        # get a copy of the embed
+        _e = discord.Embed.from_dict(deepcopy(embed.to_dict()))
 
-        for i in range(page * 10 - 10, page * 10):
+        for i in range(page * item_per_page - item_per_page, page * item_per_page):
             try:
-                msg_for_embed += f"{text_list[i]}\n"
-
+                msg_for_embed += f"{blocks[i]}\n"
             except IndexError:
                 break
-        if footer_text:
-            embed.set_footer(text=footer_text.format(page, total_pages))
-        else:
-            embed.set_footer(
-                text=f"Floor {page} / {total_pages} | In the elevator, type what floor you'd like to visit.")
 
-        embed.clear_fields()
-        if field_title:
-            embed.add_field(name=field_title, value=msg_for_embed)
-        else:
-            embed.add_field(name="⠀", value=msg_for_embed)
+        if add_page_info_to == 'footer':
+            try:
+                _e._footer['text'] += f"Page {page}/{total_pages}"
+            except AttributeError:
+                _e.set_footer(text=f"Page {page}/{total_pages}")
+
+        elif add_page_info_to == 'title':
+            _e.title += f"Page {page}/{total_pages}"
+
+        elif add_page_info_to == 'author':
+            try:
+                _e._author['name'] += f"Page {page}/{total_pages}"
+            except AttributeError:
+                _e.set_author(name=f"Page {page}/{total_pages}")
+
+        _e.description = msg_for_embed
 
         if not msg:
-            return await ctx.send(embed=embed)
+            return await ctx.send(embed=_e)
         else:
-            await msg.edit(embed=embed)
+            await msg.edit(embed=_e)
 
     page = 1
-    total_pages = math.ceil(len(text_list) / 10)
+    total_pages = math.ceil(len(blocks) / item_per_page)
 
     message = await update_message()
 
-    for arrow in arrows:
-        await message.add_reaction(arrow)
+    if len(blocks) <= item_per_page:
+        return
+
+    if reactions:
+        for arrow in arrows:
+            await message.add_reaction(arrow)
 
     while True:
         done, pending = await asyncio.wait([
             bot.wait_for('reaction_add', timeout=60, check=reaction_check),
             bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
-
         try:
-            stuff = done.pop().result()
+            stuff = done.pop()
+            stuff.exception()  # this is to retrieve exceptions
+            stuff = stuff.result()
 
         except asyncio.TimeoutError:
             await message.clear_reactions()
@@ -76,32 +89,39 @@ async def paginate(bot, ctx, embed, text, field_title=None, footer_text=None):
 
         else:
             if isinstance(stuff, tuple):
-                reaction = stuff[0]
+                if not reactions:
+                    continue
 
-                if str(reaction.emoji) == "◀":
+                arrow, user = stuff
+
+                if str(arrow.emoji) == arrows[0]:
                     if page != 1:
                         page = 1
                         await update_message(message)
 
-                elif str(reaction.emoji) == "<:left_button:593065354670899210>":
+                elif str(arrow.emoji) == arrows[1]:
                     if page > 1:
                         page -= 1
                         await update_message(message)
 
-                elif str(reaction.emoji) == "<:right_button:593065366146514944>":
+                elif str(arrow.emoji) == arrows[2]:
                     if page < total_pages:
                         page += 1
                         await update_message(message)
 
-                if str(reaction.emoji) == "▶":
+                elif str(arrow.emoji) == arrows[3]:
                     if page != total_pages:
                         page = total_pages
                         await update_message(message)
 
+                await arrow.remove(user)
+
             else:
-                if int(stuff.content) <= total_pages:
+                if 0 < int(stuff.content) <= total_pages:
                     page = int(stuff.content)
                     await update_message(message)
+
+                await stuff.delete()
 
         for future in pending:
             future.cancel()
