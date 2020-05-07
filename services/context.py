@@ -15,6 +15,8 @@ class Context(commands.Context):
     async def attach_db_objects(self):
         self.author_db = await db_funcs.get_user_db(self.db, self.author.id)
 
-        if self.guild:
+        try:
             self.guild_db = await db_funcs.get_guild_db(self.db, self.guild.id)
             self.prefix = self.guild_db.prefix
+        except AttributeError:
+            pass
