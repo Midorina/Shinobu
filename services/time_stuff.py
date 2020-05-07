@@ -9,6 +9,7 @@ with open('config.json') as f:
 def get_time_difference(user, cd_type: str) -> int:
     cooldowns = config['cooldowns']
 
+    last_time_in_db = None
     if cd_type == "xp":
         last_time_in_db = user.last_xp_gain_date
 
@@ -18,7 +19,7 @@ def get_time_difference(user, cd_type: str) -> int:
     elif cd_type == "uptime":
         last_time_in_db = user.uptime
 
-    else:
+    if not last_time_in_db:
         return 0
 
     time_difference_in_seconds = (datetime.now(timezone.utc) - last_time_in_db) / timedelta(seconds=1)
