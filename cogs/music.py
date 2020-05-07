@@ -6,6 +6,7 @@ import random
 
 import discord
 import youtube_dl
+from async_timeout import timeout
 from discord.ext import commands
 
 from main import MidoBot
@@ -203,7 +204,7 @@ class VoiceState:
         self.bot = bot
 
         self.current = None
-        self.voice = None
+        self.voice: discord.VoiceClient = None
         self.exists = True
         self.next = asyncio.Event()
         self.songs = SongQueue()
@@ -242,11 +243,12 @@ class VoiceState:
             self.next.clear()
 
             if not self.loop:
-                self.current = None
-                while not self.current:
-                    # it waits until it gets a song so this loop is fine.
-                    # this is to make sure we have a current song.
-                    self.current = await self.songs.get()
+                try:
+                    async with timeout(60):
+                        self.current = await self.songs.get()
+                except asyncio.TimeoutError:
+                    self.bot.loop.create_task(self.stop())
+                    return
 
             self.current.source.volume = self._volume
             self.voice.play(self.current.source, after=self.play_next_song)
@@ -280,7 +282,7 @@ class Music(commands.Cog):
 
         self.voice_states = {}
 
-    def get_voice_state(self, guild_id: int):
+    def get_voice_state(self, guild_id: int) -> VoiceState:
         state = self.voice_states.get(guild_id)
 
         if not state or not state.exists:
@@ -302,18 +304,6 @@ class Music(commands.Cog):
     async def cog_before_invoke(self, ctx: commands.Context):
         ctx.voice_state = self.get_voice_state(ctx.guild.id)
 
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member: discord.Member, before, after):
-        vc = member.guild.get_channel(self.bot.config['music_vc_id'])
-
-        # if they left the music vc
-        if before and before == vc:
-            # if only lester is there
-            if len(vc.members) == 1:
-                vs = self.get_voice_state(member.guild.id)
-                vs.songs.clear()
-                vs.skip()
-
     @commands.command(name='connect')
     async def _join(self, ctx: commands.Context):
         if not ctx.author.voice or not ctx.author.voice.channel:
@@ -325,23 +315,28 @@ class Music(commands.Cog):
 
         destination = ctx.author.voice.channel
         if ctx.voice_state.voice:
-            await ctx.voice_state.voice.move_to(destination)
-            return
+            return await ctx.voice_state.voice.move_to(destination)
 
         ctx.voice_state.voice = await destination.connect()
+        await ctx.message.add_reaction('👍')
 
     @commands.command(name='disconnect', aliases=['destroy', 'd'])
-    async def _leave(self, ctx):
-        if not ctx.voice_state.voice:
-            await ctx.send("I'm not currently playing any music!")
-            return
+    async def _leave(self, ctx: commands.Context):
+        if ctx.voice_client:
+            await ctx.voice_client.disconnect(force=True)
+            try:
+                await ctx.voice_state.stop()
+                del self.voice_states[ctx.guild.id]
+            except Exception as e:
+                print(e)
 
-        await ctx.voice_state.stop()
-        del self.voice_states[ctx.guild.id]
-        await ctx.send("I've successfully left the voice channel.")
+            await ctx.send("I've successfully left the voice channel.")
+
+        else:
+            return await ctx.send("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['v'])
-    async def _volume(self, ctx, volume: int = None):
+    async def _volume(self, ctx: commands.Context, volume: int = None):
         if not ctx.voice_state.is_playing:
             return await ctx.send('Nothing being played at the moment.')
 
