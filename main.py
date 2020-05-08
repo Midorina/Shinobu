@@ -41,6 +41,7 @@ class MidoBot(commands.AutoShardedBot):
         self.uptime = None
 
         self.prefix_cache = {}
+        self.main_color = 0x15a34a
 
     async def close(self):
         await self.db.close()

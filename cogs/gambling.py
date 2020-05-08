@@ -48,11 +48,11 @@ class Gambling(commands.Cog):
 
     @commands.command()
     async def cash(self, ctx: context.Context, *, user: discord.Member = None):
-        await ctx.send(f"**{user}** has **{ctx.author_db.cash}$**!")
+        await ctx.send(f"**{user}** has **{ctx.user_db.cash}$**!")
 
     @commands.command()
     async def daily(self, ctx: context.Context):
-        can_claim, remaining = ctx.author_db.can_claim_daily_remaining
+        can_claim, remaining = ctx.user_db.can_claim_daily_remaining
 
         if not can_claim:
             return await ctx.send(
@@ -60,7 +60,7 @@ class Gambling(commands.Cog):
 
         else:
             daily_amount = self.bot.config['daily_amount']
-            await ctx.author_db.add_cash(daily_amount, daily=True)
+            await ctx.user_db.add_cash(daily_amount, daily=True)
             await ctx.send(f"You've successfully claimed your daily **{daily_amount}$**!")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
@@ -79,7 +79,7 @@ class Gambling(commands.Cog):
         e.set_image(url=random.choice(random_side['images']))
 
         if guessed_side == random_side:
-            await ctx.author_db.add_cash(amount * 2)
+            await ctx.user_db.add_cash(amount * 2)
 
             e.title = "Congratulations!"
             e.description = f"You flipped {random_side['aliases'][0]} and won **{amount * 2}**!"
@@ -90,7 +90,7 @@ class Gambling(commands.Cog):
             e.description = f"You flipped {random_side['aliases'][0]} and lost **{amount}**."
             e.colour = self.fail_color
 
-        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.author_db.cash}")
+        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash}")
 
         return await ctx.send(embed=e)
 
@@ -124,14 +124,14 @@ class Gambling(commands.Cog):
     async def ensure_not_broke(self, ctx: context.Context):
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
-        if bet_amount > ctx.author_db.cash:
+        if bet_amount > ctx.user_db.cash:
             raise commands.BadArgument("You can't bet more than you have!")
 
         elif bet_amount <= 0:
             raise commands.BadArgument("The bet amount can not be less than 0!")
 
         else:
-            await ctx.author_db.remove_cash(bet_amount)
+            await ctx.user_db.remove_cash(bet_amount)
 
 
 def setup(bot):

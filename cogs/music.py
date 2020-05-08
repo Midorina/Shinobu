@@ -422,7 +422,7 @@ class Music(commands.Cog):
                           f"{song.requester}`")
             duration += song.source.data.get('duration')
 
-        embed = (discord.Embed(color=discord.Colour.green())
+        embed = (discord.Embed(color=self.bot.main_color)
                  .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
                  .set_footer(text=f"{int(current.source.volume * 100)}% | "
                                   f"{len(ctx.voice_state.songs)} Songs | "
@@ -489,12 +489,12 @@ class Music(commands.Cog):
 
                 # if its a playlist
                 if len(songs) > 1:
-                    await msg.edit(content=f'Queued the playlist! Type `{ctx.prefix}queue` to see the queue.')
+                    await msg.edit(content=f'Queued your playlist! Type `{ctx.prefix}queue` to see the queue.')
                 else:
                     await msg.edit(content=f'Queued **{s_obj.source.title}**! '
                                            f'Type `{ctx.prefix}queue` to see the queue.')
 
-        # TODO: there are still missing stuff.
+        # TODO: remaining info to m.np
 
 
 def setup(bot):

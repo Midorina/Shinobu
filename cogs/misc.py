@@ -132,7 +132,7 @@ class Misc(commands.Cog):
 
         memory = psutil.virtual_memory()[3] >> 20
 
-        embed = discord.Embed(color=discord.Colour.green())
+        embed = discord.Embed(color=self.bot.main_color)
 
         embed.description = f"I'm a general purpose bot that features various stuff! " \
                             f"Type `{ctx.prefix}help` to learn more.\n\n" \

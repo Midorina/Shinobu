@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 
 from db import db_funcs
-from db.db_models import UserDB, GuildDB
+from db.db_models import MemberDB
 from main import MidoBot
 from services import context, checks
 
@@ -13,52 +13,74 @@ class XP(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-    def get_xp_embed(self, user: discord.Member, user_db: UserDB) -> discord.Embed:
-        level, current_xp, required_xp_to_lvl_up = self.calculate_user_xp_data(user_db.xp)
+    async def get_xp_embed(self, user_or_member, db) -> discord.Embed:
+        e = discord.Embed(color=self.bot.main_color,
+                          title=str(user_or_member))
 
-        e = discord.Embed(color=discord.Colour.blurple(),
-                          title=str(user),
-                          description=f"**Level**: {level}\n"
-                                      f"**Total XP**: {user_db.xp}\n"
-                                      f"**Level Progress**: {current_xp}/{required_xp_to_lvl_up}")
+        # if in guild
+        if isinstance(user_or_member, discord.Member):
+            e.add_field(name='**Server Stats**',
+                        value=f"**Level**: {db.level}\n"
+                              f"**Total XP**: {db.total_xp}\n"
+                              f"**Level Progress**: {db.progress}/{db.required_xp_to_level_up}\n"
+                              f"**Server Rank**: #{await db.get_xp_rank()}")
 
-        e.set_thumbnail(url=user.avatar_url)
-        e.set_footer(text=user.guild.name,
-                     icon_url=user.guild.icon_url)
+            db = db.user
+
+        e.add_field(name='**Global Stats**',
+                    value=f"**Level**: {db.level}\n"
+                          f"**Total XP**: {db.total_xp}\n"
+                          f"**Level Progress**: {db.progress}/{db.required_xp_to_level_up}\n"
+                          f"**Global Rank**: #{await db.get_xp_rank()}"
+                    )
+
+        e.set_thumbnail(url=user_or_member.avatar_url)
         e.timestamp = datetime.utcnow()
 
         return e
 
+    def get_leaderboard_embed(self, top_10, title: str):
+        e = discord.Embed(color=self.bot.main_color,
+                          title=title)
+
+        e.timestamp = datetime.utcnow()
+        e.description = ""
+
+        for i, user in enumerate(top_10, 1):
+            user_obj = self.bot.get_user(user.id)
+
+            # if its the #1 user
+            if i == 1 and user_obj:
+                e.set_thumbnail(url=user_obj.avatar_url)
+
+            e.description += f"`#{i}` **{str(user_obj) if user_obj else user.id}**\n" \
+                             f"Level: **{user.level}** | Total XP: **{user.total_xp}**\n\n"
+
+        return e
+
     @staticmethod
-    def calculate_user_xp_data(user_xp: int):
-        base_xp = 30
-        total_xp = 0
-        lvl = 1
+    async def check_for_level_up(message: discord.Message, member_db: MemberDB, guild_name: str, added=0,
+                                 added_globally=False):
+        lvld_up_in_guild = member_db.progress < added
+        lvld_up_globally = member_db.user.progress < added
 
-        while True:
-            required_xp_to_level_up = int(base_xp + base_xp / 3.0 * (lvl - 1))
+        if not lvld_up_globally or not lvld_up_in_guild:
+            return
 
-            if required_xp_to_level_up + total_xp > user_xp:
-                break
+        msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
+        if lvld_up_in_guild:
+            msg += f"You just have leveled up to **{member_db.level}** in {guild_name}!\n"
 
-            total_xp += required_xp_to_level_up
-            lvl += 1
+        # this is to prevent bugs
+        if lvld_up_globally and added_globally:
+            msg += f"You just have leveled up to **{member_db.user.level}** globally!"
 
-        return lvl, user_xp - total_xp, required_xp_to_level_up
+        # if silent
+        if member_db.guild.level_up_notifs_silenced:
+            await message.author.send(msg)
 
-    async def check_for_level_up(self, message: discord.Message, user_db: UserDB, guild_db: GuildDB, added=0):
-        level, current_xp, required_xp_to_lvl_up = self.calculate_user_xp_data(user_db.xp)
-
-        # if leveled up
-        if current_xp < added:
-            # if silent
-            if guild_db.level_up_notifs_silenced:
-                return await message.author.send(f"🎉 **Congratulations {message.author.mention}!** "
-                                                 f"You just have leveled up to **{level}**! 🎉")
-
-            else:
-                return await message.channel.send(f"🎉 **Congratulations {message.author.mention}!** "
-                                                  f"You just have leveled up to **{level}**! 🎉")
+        else:
+            await message.channel.send(msg)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -66,26 +88,55 @@ class XP(commands.Cog):
             return False
 
         if message.guild is not None:
-            user_db = await db_funcs.get_user_db(self.bot.db, message.author.id)
-            can_gain_xp, remaining = user_db.can_gain_xp_remaining
+            member_db = await db_funcs.get_member_db(self.bot.db, message.guild.id, message.author.id)
+
+            can_gain_xp, remaining = member_db.can_gain_xp_remaining
+            can_gain_xp_global, remaining_global = member_db.user.can_gain_xp_remaining
 
             # if on cooldown
-            if not can_gain_xp:
+            if not can_gain_xp and not can_gain_xp_global:
                 return
 
-            await user_db.add_xp(amount=3)
+            if can_gain_xp:
+                await member_db.add_xp(amount=3)
+
+            if can_gain_xp_global:
+                await member_db.user.add_xp(amount=3)
+
+            await self.check_for_level_up(message, member_db, str(message.guild), added=3,
+                                          added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
-    @commands.guild_only()
-    async def show_rank(self, ctx: context.Context, _user: discord.Member = None):
-        if _user:
-            user = _user
-            user_db = await db_funcs.get_user_db(ctx.db, _user.id)
+    async def show_rank(self, ctx: context.Context, _member: discord.Member = None):
+        if _member:
+            user = _member
+            user_db = await db_funcs.get_member_db(ctx.db, ctx.guild.id, _member.id)
         else:
             user = ctx.author
-            user_db = ctx.author_db
+            if ctx.guild:
+                user_db = ctx.member_db
+            else:
+                user_db = ctx.user_db
 
-        e = self.get_xp_embed(user, user_db)
+        e = await self.get_xp_embed(user, user_db)
+
+        await ctx.send(embed=e)
+
+    @commands.command(name='leaderboard', aliases=['lb', 'xplb'])
+    @commands.guild_only()
+    async def show_leaderboard(self, ctx: context.Context):
+        top_10 = await ctx.guild_db.get_top_10()
+
+        e = self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
+
+        await ctx.send(embed=e)
+
+    @commands.command(name='gleaderboard', aliases=['globalleaderboard', 'glb', 'xpglb'])
+    @commands.guild_only()
+    async def show_global_leaderboard(self, ctx: context.Context):
+        top_10 = await ctx.user_db.get_top_10()
+
+        e = self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
 
         await ctx.send(embed=e)
 

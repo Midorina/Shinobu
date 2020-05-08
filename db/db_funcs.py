@@ -2,7 +2,7 @@ import json
 
 import asyncpg
 
-from db.db_models import UserDB, GuildDB
+from db.db_models import UserDB, GuildDB, MemberDB
 
 with open('config.json') as f:
     config = json.load(f)
@@ -15,6 +15,11 @@ async def get_prefix_dict(db: asyncpg.pool.Pool) -> dict:
 async def insert_new_user(db: asyncpg.pool.Pool, user_id: int):
     await db.execute(
         """INSERT INTO users (id) values($1) ON CONFLICT DO NOTHING;""", user_id)
+
+
+async def insert_new_member(db: asyncpg.pool.Pool, guild_id: int, member_id: int):
+    await db.execute(
+        """INSERT INTO members (guild_id, user_id) values($1, $2) ON CONFLICT DO NOTHING;""", guild_id, member_id)
 
 
 async def insert_new_guild(db: asyncpg.pool.Pool, guild_id: int):
@@ -33,6 +38,28 @@ async def get_user_db(db: asyncpg.pool.Pool, user_id: int) -> UserDB:
             await insert_new_user(db, user_id)
 
     return UserDB(user_db, db)
+
+
+async def get_member_db(db: asyncpg.pool.Pool, guild_id: int, member_id: int) -> MemberDB:
+    member_db = None
+
+    while not member_db:
+        # not using inner join cuz it complicates things
+        member_db = await db.fetchrow(
+            """
+            SELECT
+                *
+            FROM 
+                members 
+            WHERE 
+                guild_id=$1 and user_id=$2;""", guild_id, member_id)
+
+        if not member_db:  # if not exists insert user
+            await insert_new_member(db, guild_id, member_id)
+
+    m = MemberDB(member_db, db)
+    await m.assign_user_and_guild_objs()
+    return m
 
 
 async def get_guild_db(db: asyncpg.pool.Pool, guild_id: int) -> GuildDB:
