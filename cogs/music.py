@@ -1,4 +1,5 @@
 import asyncio
+import audioop
 import functools
 import itertools
 import math
@@ -36,7 +37,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
         'audioformat': 'mp3',
         'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
         'restrictfilenames': True,
-        # 'noplaylist': True,
         'playlistend': 100,
         'nocheckcertificate': True,
         'ignoreerrors': False,
@@ -77,6 +77,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.likes = data.get('like_count')
         self.dislikes = data.get('dislike_count')
         self.stream_url = data.get('url')
+        self._played_duration = 0
 
     def __str__(self):
         return '**{0.title}** by **{0.uploader}**'.format(self)
@@ -95,7 +96,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 for song in processed_info['entries']]
 
     @staticmethod
-    def parse_duration(duration: int, short: bool = True):
+    def parse_duration(duration: int, short: bool = True) -> str:
+        duration = int(duration)
         minutes, seconds = divmod(duration, 60)
         hours, minutes = divmod(minutes, 60)
         days, hours = divmod(hours, 24)
@@ -120,6 +122,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         return duration
 
+    @property
+    def played_duration(self) -> str:
+        return self.parse_duration(self._played_duration)
+
+    def read(self):
+        self._played_duration += 0.02
+        ret = self.original.read()
+        return audioop.mul(ret, 2, min(self._volume, 2.0))
+
 
 class Song:
     __slots__ = ('ctx', 'source', 'requester')
@@ -136,8 +147,8 @@ class Song:
             icon_url="https://cdn.discordapp.com/attachments/244405453948321792/707797956295655434/PngItem_2087614.png",
             name="Now Playing",
             url=self.source.url)
+        e.add_field(name='Duration', value=f"{self.source.played_duration}/{self.source.duration}")
         e.add_field(name='Requested by', value=self.requester.mention)
-        e.add_field(name='Duration', value=self.source.duration if self.source.duration else 'Unknown')
         e.add_field(name='Uploader', value='[{0.source.uploader}]({0.source.uploader_url})'.format(self))
         e.add_field(name="Upload Date", value=self.source.upload_date)
         e.add_field(name="View Count", value='{:,}'.format(self.source.views))
@@ -191,6 +202,7 @@ class VoiceState:
         self._volume = 0.1
         self.skip_votes = []
 
+        self.played_duration = 0
         self.audio_player = bot.loop.create_task(self.audio_player_task())
 
     def __del__(self):
@@ -322,13 +334,13 @@ class Music(commands.Cog):
             return await ctx.send('Nothing being played at the moment.')
 
         if not volume:
-            return await ctx.send(f'Current volume: {ctx.voice_state.volume * 100}%')
+            return await ctx.send(f'Current volume: **{ctx.voice_state.volume * 100}**%')
 
         if 0 > volume > 100:
             return await ctx.send('Volume must be between 0 and 100')
 
         ctx.voice_state.volume = volume / 100
-        await ctx.send(f'Volume of the player set to {volume}%')
+        await ctx.send(f'Volume of the player set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now(self, ctx: context.Context):
