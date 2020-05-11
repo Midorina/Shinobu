@@ -17,8 +17,6 @@ class Errors(commands.Cog):
 
         ignored = (
             commands.CommandNotFound,
-            commands.CheckFailure,
-
             discord.NotFound,
         )
 
@@ -45,7 +43,7 @@ class Errors(commands.Cog):
             await ctx.send("This command is currently disabled and can not be used.")
 
         elif isinstance(error, commands.CheckFailure):
-            await ctx.send(":lock: You don't have enough permissions to run this command!")
+            await ctx.send(":lock: You don't have required permissions to do that!")
 
         elif isinstance(error, commands.CommandOnCooldown):
             await ctx.send(str(error))
