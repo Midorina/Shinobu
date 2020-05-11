@@ -277,6 +277,8 @@ class Misc(commands.Cog):
 
         await ctx.send("Successfully reloaded all cogs!")
 
+    # TODO: add required perm info to command help
+
 
 def setup(bot):
     bot.add_cog(Misc(bot))

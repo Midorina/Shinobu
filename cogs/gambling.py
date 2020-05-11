@@ -6,6 +6,7 @@ from discord.ext import commands
 from db import db_funcs
 from main import MidoBot
 from services import checks, context, time_stuff
+from services.converters import BetterMemberconverter
 
 
 class GamblingError(Exception):
@@ -47,10 +48,14 @@ class Gambling(commands.Cog):
         }
 
     @commands.command(aliases=['$', 'money'])
-    async def cash(self, ctx: context.Context, *, user: discord.Member = None):
+    async def cash(self, ctx: context.Context, *, user: BetterMemberconverter() = None):
         """Check the cash status of you or someone else."""
         user = user or ctx.author
-        await ctx.send(f"**{user}** has **{ctx.user_db.cash}$**!")
+        if user:
+            user_db = await db_funcs.get_user_db(ctx.db, user.id)
+        else:
+            user_db = ctx.user_db
+        await ctx.send(f"**{user}** has **{user_db.cash}$**!")
 
     @commands.command()
     async def daily(self, ctx: context.Context):
@@ -73,29 +78,29 @@ class Gambling(commands.Cog):
         Sides and Aliases:
         **Heads**: `heads`, `head`, `h`
         **Tails**: `tails`, `tail`, `t`"""
-        actual_guessed_side = None
-        for side in self.coin_sides.values():
-            if guessed_side.lower() in side['aliases']:
-                actual_guessed_side = side
+        actual_guessed_side_name = None
+        for side_name, properties in self.coin_sides.items():
+            if guessed_side.lower() in properties['aliases']:
+                actual_guessed_side_name = side_name
 
-        if not actual_guessed_side:
+        if not actual_guessed_side_name:
             raise commands.BadArgument("Incorrect coin side!")
 
-        random_side = random.choice(list(self.coin_sides.values()))
+        random_side_name = random.choice(list(self.coin_sides.keys()))
 
         e = discord.Embed()
-        e.set_image(url=random.choice(random_side['images']))
+        e.set_image(url=random.choice(self.coin_sides[random_side_name]['images']))
 
-        if guessed_side == random_side:
+        if actual_guessed_side_name == random_side_name:
             await ctx.user_db.add_cash(amount * 2)
 
             e.title = "Congratulations!"
-            e.description = f"You flipped {random_side['aliases'][0]} and won **{amount * 2}**!"
+            e.description = f"You flipped {random_side_name} and won **{amount * 2}**!"
             e.colour = self.success_color
 
         else:
             e.title = "I'm sorry..."
-            e.description = f"You flipped {random_side['aliases'][0]} and lost **{amount}**."
+            e.description = f"You flipped {random_side_name} and lost **{amount}**."
             e.colour = self.fail_color
 
         e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash}")
@@ -104,7 +109,7 @@ class Gambling(commands.Cog):
 
     @commands.command(name="give")
     @commands.guild_only()
-    async def give_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
+    async def give_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
         """Give a specific amount of cash to someone else."""
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 
@@ -113,7 +118,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
-    async def add_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
+    async def add_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
@@ -122,7 +127,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
-    async def remove_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
+    async def remove_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)

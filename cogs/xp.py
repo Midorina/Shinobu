@@ -7,6 +7,7 @@ from db import db_funcs
 from db.db_models import MemberDB
 from main import MidoBot
 from services import context, checks
+from services.converters import BetterMemberconverter
 
 
 class XP(commands.Cog):
@@ -107,7 +108,7 @@ class XP(commands.Cog):
                                           added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
-    async def show_rank(self, ctx: context.Context, _member: discord.Member = None):
+    async def show_rank(self, ctx: context.Context, _member: BetterMemberconverter() = None):
         """See your or someone else's XP rank."""
         if _member:
             user = _member
@@ -158,28 +159,28 @@ class XP(commands.Cog):
 
     @commands.command(name="addxp", hidden=True)
     @checks.owner_only()
-    async def add_xp(self, ctx, member: discord.Member, amount: int):
+    async def add_xp(self, ctx, member: BetterMemberconverter(), amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @checks.owner_only()
-    async def add_gxp(self, ctx, member: discord.Member, amount: int):
+    async def add_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @checks.owner_only()
-    async def remove_xp(self, ctx, member: discord.Member, amount: int):
+    async def remove_xp(self, ctx, member: BetterMemberconverter(), amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @checks.owner_only()
-    async def remove_gxp(self, ctx, member: discord.Member, amount: int):
+    async def remove_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
