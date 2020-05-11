@@ -7,7 +7,7 @@ class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-    # TODO: nsfw, google, urban dictionary
+    # TODO: google, urban dictionary
 
 
 def setup(bot):

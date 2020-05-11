@@ -108,6 +108,7 @@ class XP(commands.Cog):
 
     @commands.command(name="rank", aliases=['xp', 'level'])
     async def show_rank(self, ctx: context.Context, _member: discord.Member = None):
+        """See your or someone else's XP rank."""
         if _member:
             user = _member
             user_db = await db_funcs.get_member_db(ctx.db, ctx.guild.id, _member.id)
@@ -125,6 +126,7 @@ class XP(commands.Cog):
     @commands.command(name='leaderboard', aliases=['lb', 'xplb'])
     @commands.guild_only()
     async def show_leaderboard(self, ctx: context.Context):
+        """See the XP leaderboard of the server."""
         top_10 = await ctx.guild_db.get_top_10()
 
         e = self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
@@ -134,6 +136,7 @@ class XP(commands.Cog):
     @commands.command(name='gleaderboard', aliases=['globalleaderboard', 'glb', 'xpglb'])
     @commands.guild_only()
     async def show_global_leaderboard(self, ctx: context.Context):
+        """See the global XP leaderboard."""
         top_10 = await ctx.user_db.get_top_10()
 
         e = self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
@@ -144,6 +147,8 @@ class XP(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def silence_level_up_notifs(self, ctx: context.Context):
+        """Silence level up notifications in this server.
+        You need Manage Guild permission to use this command."""
         just_silenced = await ctx.guild_db.toggle_level_up_notifs()
 
         if just_silenced:
@@ -151,16 +156,30 @@ class XP(commands.Cog):
         else:
             await ctx.send("You've successfully enabled level up notifications in this server!")
 
-    @commands.command(name="addxp")
+    @commands.command(name="addxp", hidden=True)
     @checks.owner_only()
     async def add_xp(self, ctx, member: discord.Member, amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
-    @commands.command(name="removexp", aliases=['remxp'])
+    @commands.command(name="addgxp", hidden=True)
+    @checks.owner_only()
+    async def add_gxp(self, ctx, member: discord.Member, amount: int):
+        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        await member_db.add_xp(amount)
+        await ctx.send("Success!")
+
+    @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @checks.owner_only()
     async def remove_xp(self, ctx, member: discord.Member, amount: int):
+        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        await member_db.remove_xp(amount)
+        await ctx.send("Success!")
+
+    @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
+    @checks.owner_only()
+    async def remove_gxp(self, ctx, member: discord.Member, amount: int):
         member_db = await db_funcs.get_user_db(ctx.db, member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")

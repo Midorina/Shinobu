@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from db import db_funcs
 from main import MidoBot
-from services import checks, context
+from services import checks, context, time_stuff
 
 
 class GamblingError(Exception):
@@ -46,17 +46,20 @@ class Gambling(commands.Cog):
             }
         }
 
-    @commands.command()
+    @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: context.Context, *, user: discord.Member = None):
+        """Check the cash status of you or someone else."""
+        user = user or ctx.author
         await ctx.send(f"**{user}** has **{ctx.user_db.cash}$**!")
 
     @commands.command()
     async def daily(self, ctx: context.Context):
+        """Claim 250$ for free every 24 hours."""
         can_claim, remaining = ctx.user_db.can_claim_daily_remaining
 
         if not can_claim:
             return await ctx.send(
-                f"You're on cooldown! Try again after **{self.bot.remaining_string(remaining)}**.")
+                f"You're on cooldown! Try again after **{time_stuff.parse_seconds(remaining)}**.")
 
         else:
             daily_amount = self.bot.config['daily_amount']
@@ -65,6 +68,11 @@ class Gambling(commands.Cog):
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
     async def coin_flip(self, ctx: context.Context, amount: int, guessed_side: str):
+        """A coin flip game. You'll earn the double amount of what you bet if you predict correctly.
+
+        Sides and Aliases:
+        **Heads**: `heads`, `head`, `h`
+        **Tails**: `tails`, `tail`, `t`"""
         actual_guessed_side = None
         for side in self.coin_sides.values():
             if guessed_side.lower() in side['aliases']:
@@ -97,13 +105,14 @@ class Gambling(commands.Cog):
     @commands.command(name="give")
     @commands.guild_only()
     async def give_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
+        """Give a specific amount of cash to someone else."""
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
         await ctx.send(f"**{ctx.author}** has just sent **{amount}$** to **{member.mention}**!")
 
     @checks.owner_only()
-    @commands.command(name="award")
+    @commands.command(name="award", hidden=True)
     async def add_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 
@@ -112,7 +121,7 @@ class Gambling(commands.Cog):
         await ctx.send(f"You've successfully awarded {member} with **{amount}$**!")
 
     @checks.owner_only()
-    @commands.command(name="punish", aliases=['withdraw'])
+    @commands.command(name="punish", aliases=['withdraw'], hidden=True)
     async def remove_cash(self, ctx: context.Context, amount: int, *, member: discord.Member):
         other_usr = await db_funcs.get_user_db(ctx.db, member.id)
 

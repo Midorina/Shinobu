@@ -73,10 +73,13 @@ class UserDB:
         self.cash -= amount
         return self.cash
 
-    async def add_xp(self, amount: int) -> int:
+    async def add_xp(self, amount: int, owner=False) -> int:
         can_gain, remaining = self.can_gain_xp_remaining
 
-        if can_gain:
+        if not can_gain and not owner:
+            raise OnCooldown(f"You're still on cooldown! "
+                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
+        else:
             await self._db.execute(
                 """UPDATE users SET xp = xp + $1, last_xp_gain = $2 where id=$3""",
                 amount, datetime.now(timezone.utc), self.id)
@@ -85,9 +88,6 @@ class UserDB:
             # im just too lazy
             self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
             return self.total_xp
-        else:
-            raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
 
     async def remove_xp(self, amount: int) -> int:
         await self._db.execute(
@@ -143,21 +143,21 @@ class MemberDB:
         remaining = time_stuff.get_time_difference(self, "xp")
         return remaining <= 0, remaining
 
-    async def add_xp(self, amount: int) -> int:
+    async def add_xp(self, amount: int, owner=False) -> int:
         can_gain, remaining = self.can_gain_xp_remaining
 
-        if can_gain:
+        if not can_gain and not owner:
+            raise OnCooldown(f"You're still on cooldown! "
+                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
+        else:
             await self._db.execute(
-                """UPDATE members SET xp = xp + $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4;""",
+                """UPDATE members SET xp = xp + $1, last_xp_gain = $2 where guild_id=$3 and user_id=$4""",
                 amount, datetime.now(timezone.utc), self.guild.id, self.id)
 
             self.total_xp += amount
             # im just too lazy
             self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
             return self.total_xp
-        else:
-            raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
 
     async def remove_xp(self, amount: int) -> int:
         await self._db.execute(

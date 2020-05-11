@@ -1,4 +1,5 @@
 import ast
+import itertools
 import os
 import time
 
@@ -7,7 +8,85 @@ import psutil
 from discord.ext import commands
 
 from main import MidoBot
-from services import checks, context, time_stuff
+from services import checks, time_stuff, context, base_embed
+
+
+class MyHelpCommand(commands.HelpCommand):
+    def __init__(self):
+        super().__init__(command_attrs={
+            'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
+            'help': 'Shows help about the bot, a command, or a category.',
+            'aliases': ['h']
+        })
+
+    async def on_help_command_error(self, ctx: context.Context, error):
+        if isinstance(error, commands.CommandInvokeError):
+            await ctx.send(str(error.original))
+
+    def get_command_signature(self, command):
+        parent = command.full_parent_name
+        if len(command.aliases) > 0:
+            aliases = '|'.join(command.aliases)
+            fmt = f'[{command.name}|{aliases}]'
+            if parent:
+                fmt = f'{parent} {fmt}'
+            alias = fmt
+        else:
+            alias = command.name if not parent else f'{parent} {command.name}'
+        return f'{alias} {command.signature}'
+
+    async def send_bot_help(self, mapping):
+        def key(c):
+            return c.cog_name or '\u200bNo Category'
+
+        entries = await self.filter_commands(self.context.bot.commands, sort=True, key=key)
+        total = 0
+
+        e = base_embed.BaseEmbed(self.context.bot, title='MidoBot Commands')
+        for cog, _commands in itertools.groupby(entries, key=key):
+            _commands = sorted(_commands, key=lambda c: c.name)
+            if len(_commands) == 0:
+                continue
+
+            total += len(_commands)
+            e.add_field(name=f"**{str(cog)}**",
+                        value=", ".join([f'`{c.name}`' for c in _commands]),
+                        inline=False)
+
+        await self.context.send(embed=e)
+
+    # async def send_cog_help(self, cog):
+    #     entries = await self.filter_commands(cog.get_commands(), sort=True)
+    #     pages = HelpPaginator(self, self.context, entries)
+    #     pages.title = f'{cog.qualified_name} Commands'
+    #     pages.description = cog.description
+    #
+    #     await self.context.release()
+    #     await pages.paginate()
+
+    def common_command_formatting(self, page_or_embed, command):
+        page_or_embed.title = self.context.prefix + self.get_command_signature(command)
+        if command.description:
+            page_or_embed.description = f'{command.description}\n\n{command.help}'
+        else:
+            page_or_embed.description = command.help or 'No help found...'
+
+    async def send_command_help(self, command):
+        embed = base_embed.BaseEmbed(self.context.bot)
+        self.common_command_formatting(embed, command)
+        await self.context.send(embed=embed)
+
+    # async def send_group_help(self, group):
+    #     subcommands = group.commands
+    #     if len(subcommands) == 0:
+    #         return await self.send_command_help(group)
+    #
+    #     entries = await self.filter_commands(subcommands, sort=True)
+    #     pages = HelpPaginator(self, self.context, entries)
+    #     self.common_command_formatting(pages, group)
+    #
+    #     await self.context.release()
+    #     await pages.paginate()
 
 
 def insert_returns(body):
@@ -29,8 +108,14 @@ def insert_returns(body):
 class Misc(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
+        self.old_help_command = bot.help_command
+        bot.help_command = MyHelpCommand()
+        bot.help_command.cog = self
 
-    @commands.command()
+    def cog_unload(self):
+        self.bot.help_command = self.old_help_command
+
+    @commands.command(hidden=True)
     @checks.owner_only()
     async def eval(self, ctx, *, cmd):
         """Evaluates input.
@@ -76,11 +161,12 @@ class Misc(commands.Cog):
         }
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 
-        result = (await eval(f"{fn_name}()", env))
+        result = await eval(f"{fn_name}()", env)
         await ctx.send(result)
 
     @commands.command()
     async def ping(self, ctx: context.Context):
+        """Ping me to check the latency!"""
         if ctx.guild:
             color = ctx.guild.me.top_role.color
         else:
@@ -99,9 +185,10 @@ class Misc(commands.Cog):
     @commands.guild_only()
     @commands.command()
     async def prefix(self, ctx: context.Context, *, prefix: str = None):
+        """Change or see the prefix. (Administrator permission is required to change the prefix.)"""
         if prefix and ctx.author.guild_permissions.administrator:
             await ctx.guild_db.change_prefix(prefix)
-            
+
             # update cache
             self.bot.prefix_cache[ctx.guild.id] = prefix
 
@@ -114,6 +201,7 @@ class Misc(commands.Cog):
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
     async def delete_commands(self, ctx: context.Context):
+        """Enable or disable the deletion of commands after completion."""
         new_delete_cmds_status = await ctx.guild_db.toggle_delete_commands()
 
         if new_delete_cmds_status is True:
@@ -124,6 +212,7 @@ class Misc(commands.Cog):
 
     @commands.command(aliases=['info', 'stats'])
     async def about(self, ctx):
+        """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owners'][0])
 
         uptime = time_stuff.get_time_difference(self.bot, "uptime")
@@ -172,7 +261,7 @@ class Misc(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.command(hidden=True)
     @checks.owner_only()
     async def reload(self, ctx):
         for file in os.listdir("cogs"):

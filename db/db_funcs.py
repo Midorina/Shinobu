@@ -18,6 +18,7 @@ async def insert_new_user(db: asyncpg.pool.Pool, user_id: int):
 
 
 async def insert_new_member(db: asyncpg.pool.Pool, guild_id: int, member_id: int):
+    await insert_new_user(db, member_id)
     await db.execute(
         """INSERT INTO members (guild_id, user_id) values($1, $2) ON CONFLICT DO NOTHING;""", guild_id, member_id)
 

@@ -132,5 +132,5 @@ class MidoBot(commands.AutoShardedBot):
         self.command_counter += 1
 
     def run(self):
-        self.remove_command("help")
+        # self.remove_command("help")
         super().run(self.config["token"])
