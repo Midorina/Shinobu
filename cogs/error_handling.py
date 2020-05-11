@@ -57,7 +57,7 @@ class Errors(commands.Cog):
                 f"Command usage:\n"
                 f"**{ctx.prefix}{ctx.command.name} {ctx.command.signature}**")
 
-        elif isinstance(error, commands.BadArgument):
+        elif isinstance(error, (commands.BadArgument, commands.ExpectedClosingQuoteError)):
             await ctx.send(
                 f"One of your arguments is incorrect!\n"
                 f"`{error}`\n\n"
