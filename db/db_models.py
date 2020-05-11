@@ -231,5 +231,5 @@ class GuildDB:
         return self.level_up_notifs_silenced
 
     async def get_top_10(self) -> List[MemberDB]:
-        top_10 = await self._db.fetch("""SELECT * FROM members ORDER BY xp DESC LIMIT 10;""")
+        top_10 = await self._db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""", self.id)
         return [MemberDB(user, self._db) for user in top_10]
