@@ -148,7 +148,7 @@ class Song:
             name="Now Playing",
             url=self.source.url)
         e.add_field(name='Duration', value=f"{self.source.played_duration}/{self.source.duration}")
-        e.add_field(name='Requested by', value=self.requester.mention)
+        e.add_field(name='Requester', value=self.requester.mention)
         e.add_field(name='Uploader', value='[{0.source.uploader}]({0.source.uploader_url})'.format(self))
         e.add_field(name="Upload Date", value=self.source.upload_date)
         e.add_field(name="View Count", value='{:,}'.format(self.source.views))
@@ -159,7 +159,10 @@ class Song:
             e.add_field(name="Like/Dislike Count",
                         value="{:,}/{:,}\n(**{:.2f}%**)".format(likes, dislikes, (likes * 100 / (likes + dislikes))))
 
-        e.set_footer(icon_url=self.ctx.guild.icon_url, text=self.ctx.guild.name)
+        # e.set_footer(icon_url=self.ctx.guild.icon_url,
+        #              text=f"{self.ctx.guild.name} | Volume: {int(self.source.volume * 100)}%")
+        e.set_footer(text=f"Volume: {int(self.source.volume * 100)}%",
+                     icon_url="https://i.imgur.com/T0532pn.png")
         e.set_thumbnail(url=self.source.thumbnail)
 
         return e
@@ -231,6 +234,7 @@ class VoiceState:
     async def audio_player_task(self):
         while True:
             self.next.clear()
+            self.current = None
 
             if not self.loop:
                 try:
@@ -328,19 +332,19 @@ class Music(commands.Cog):
             return await ctx.send("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['v'])
-    async def _volume(self, ctx: context.Context, volume: float = None):
-        """Change the volume."""
+    async def _volume(self, ctx: context.Context, volume: int = None):
+        """Change or see the volume."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send('Nothing being played at the moment.')
+            return await ctx.send('Nothing is being played at the moment.')
 
         if not volume:
-            return await ctx.send(f'Current volume: **{ctx.voice_state.volume * 100}**%')
+            return await ctx.send(f'Current volume: **{int(ctx.voice_state.volume * 100)}**%')
 
         if 0 > volume > 100:
-            return await ctx.send('Volume must be between 0 and 100')
+            return await ctx.send('Volume must be between 0 and 100!')
 
         ctx.voice_state.volume = volume / 100
-        await ctx.send(f'Volume of the player set to **{volume}**%')
+        await ctx.send(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now(self, ctx: context.Context):
@@ -528,8 +532,6 @@ class Music(commands.Cog):
                 else:
                     await msg.edit(content=f'Queued **{s_obj.source.title}**! '
                                            f'Type `{ctx.prefix}queue` to see the queue.')
-
-        # TODO: remaining info to m.np
 
 
 def setup(bot):
