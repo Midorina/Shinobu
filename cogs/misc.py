@@ -18,6 +18,7 @@ class MyHelpCommand(commands.HelpCommand):
             'help': 'Shows help about the bot, a command, or a category.',
             'aliases': ['h']
         })
+        self.verify_checks = False
 
     async def on_help_command_error(self, ctx: context.Context, error):
         if isinstance(error, commands.CommandInvokeError):
