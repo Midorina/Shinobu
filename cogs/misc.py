@@ -15,7 +15,7 @@ class MyHelpCommand(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
             'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
-            'help': 'Shows help about the bot, a command, or a category.',
+            'help': 'Shows help about the bot or a command.',
             'aliases': ['h']
         })
         self.verify_checks = False
@@ -187,14 +187,16 @@ class Misc(commands.Cog):
     @commands.command()
     async def prefix(self, ctx: context.Context, *, prefix: str = None):
         """Change or see the prefix. (Administrator permission is required to change the prefix.)"""
-        if prefix and ctx.author.guild_permissions.administrator:
+        if prefix:
+            if not ctx.author.guild_permissions.administrator:
+                raise commands.CheckFailure
+
             await ctx.guild_db.change_prefix(prefix)
 
             # update cache
             self.bot.prefix_cache[ctx.guild.id] = prefix
 
             return await ctx.send(f"The prefix has been successfully changed to `{prefix}`")
-
         else:
             return await ctx.send(f"Current prefix for this server: `{ctx.prefix}`")
 
