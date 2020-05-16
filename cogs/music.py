@@ -92,8 +92,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if processed_info is None:
             raise YTDLError('Couldn\'t find anything that matches `{}`'.format(search))
 
-        return [cls(ctx, discord.FFmpegPCMAudio(song['url'], **cls.FFMPEG_OPTIONS), data=song)
-                for song in processed_info['entries']]
+        # if we have a list of entries (most likely a playlist or a search)
+        if 'entries' in processed_info:
+            return [cls(ctx, discord.FFmpegPCMAudio(song['url'], **cls.FFMPEG_OPTIONS), data=song)
+                    for song in processed_info['entries']]
+        # if a song link is provided
+        else:
+            return [cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
 
     @staticmethod
     def parse_duration(duration: int, short: bool = True) -> str:
@@ -431,7 +436,8 @@ class Music(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     async def _force_skip(self, ctx: context.Context):
         """Skip the currently playing song without requiring votes.
-        You need the Manage Server permission to be able to use this command."""
+
+        You need the **Manage Server** permission to use this command."""
         if not ctx.voice_state.is_playing:
             return await ctx.send('Not playing any music right now...')
 
@@ -528,10 +534,11 @@ class Music(commands.Cog):
 
                 # if its a playlist
                 if len(songs) > 1:
-                    await msg.edit(content=f'Queued your playlist! Type `{ctx.prefix}queue` to see the queue.')
+                    await msg.edit(content=f'Added your playlist to the queue! '
+                                           f'You can type `{ctx.prefix}queue` to see it.')
                 else:
-                    await msg.edit(content=f'Queued **{s_obj.source.title}**! '
-                                           f'Type `{ctx.prefix}queue` to see the queue.')
+                    await msg.edit(content=f'Added **{s_obj.source.title}** to the queue! '
+                                           f'You can type `{ctx.prefix}queue` to see it.')
 
 
 def setup(bot):
