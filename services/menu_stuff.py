@@ -5,7 +5,11 @@ from copy import deepcopy
 import discord
 
 
-async def paginate(bot, ctx, embed: discord.Embed, blocks, item_per_page: int = 6,
+async def paginate(bot,
+                   ctx,
+                   embed: discord.Embed,
+                   blocks,
+                   item_per_page: int = 6,
                    add_page_info_to: str = 'footer',
                    reactions: bool = True):
     arrows = [
@@ -42,16 +46,16 @@ async def paginate(bot, ctx, embed: discord.Embed, blocks, item_per_page: int = 
 
         if add_page_info_to == 'footer':
             try:
-                _e._footer['text'] += f"Page {page}/{total_pages}"
+                _e._footer['text'] += f" Page {page}/{total_pages}"
             except AttributeError:
                 _e.set_footer(text=f"Page {page}/{total_pages}")
 
         elif add_page_info_to == 'title':
-            _e.title += f"Page {page}/{total_pages}"
+            _e.title += f" Page {page}/{total_pages}"
 
         elif add_page_info_to == 'author':
             try:
-                _e._author['name'] += f"Page {page}/{total_pages}"
+                _e._author['name'] += f" Page {page}/{total_pages}"
             except AttributeError:
                 _e.set_author(name=f"Page {page}/{total_pages}")
 
@@ -79,9 +83,10 @@ async def paginate(bot, ctx, embed: discord.Embed, blocks, item_per_page: int = 
             bot.wait_for('reaction_add', timeout=60, check=reaction_check),
             bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
         try:
-            stuff = done.pop()
-            stuff.exception()  # this is to retrieve exceptions
-            stuff = stuff.result()
+            for thing in done:
+                thing.exception()  # this is to retrieve exceptions
+
+            stuff = done.pop().result()
 
         except asyncio.TimeoutError:
             await message.clear_reactions()
