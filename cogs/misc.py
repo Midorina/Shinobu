@@ -65,12 +65,15 @@ class MyHelpCommand(commands.HelpCommand):
     #     await self.context.release()
     #     await pages.paginate()
 
-    def common_command_formatting(self, page_or_embed, command):
-        page_or_embed.title = self.context.prefix + self.get_command_signature(command)
+    def common_command_formatting(self, embed, command):
+        embed.title = self.context.prefix + self.get_command_signature(command)
         if command.description:
-            page_or_embed.description = f'{command.description}\n\n{command.help}'
+            embed.description = f'{command.description}\n\n{command.help}'
         else:
-            page_or_embed.description = command.help or 'No help found...'
+            if not command.help:
+                embed.description = 'There\'s no help information about this command...'
+            else:
+                embed.description = command.help
 
     async def send_command_help(self, command):
         embed = base_embed.BaseEmbed(self.context.bot)
@@ -186,7 +189,9 @@ class Misc(commands.Cog):
     @commands.guild_only()
     @commands.command()
     async def prefix(self, ctx: context.Context, *, prefix: str = None):
-        """Change or see the prefix. (Administrator permission is required to change the prefix.)"""
+        """See or change the prefix.
+
+        You need the **Administrator** permission to change the prefix."""
         if prefix:
             if not ctx.author.guild_permissions.administrator:
                 raise commands.CheckFailure
@@ -204,7 +209,9 @@ class Misc(commands.Cog):
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
     async def delete_commands(self, ctx: context.Context):
-        """Enable or disable the deletion of commands after completion."""
+        """Enable or disable the deletion of commands after completion.
+
+        You need the **Administrator** permission to use this command."""
         new_delete_cmds_status = await ctx.guild_db.toggle_delete_commands()
 
         if new_delete_cmds_status is True:
@@ -276,8 +283,6 @@ class Misc(commands.Cog):
                     self.bot.load_extension(f"cogs.{name}")
 
         await ctx.send("Successfully reloaded all cogs!")
-
-    # TODO: add required perm info to command help
 
 
 def setup(bot):
