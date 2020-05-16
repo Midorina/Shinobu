@@ -46,7 +46,7 @@ class Errors(commands.Cog):
             await ctx.send(":lock: You don't have required permissions to do that!")
 
         elif isinstance(error, commands.CommandOnCooldown):
-            await ctx.send(str(error))
+            await ctx.send("You're on cooldown!")
 
         elif isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(
