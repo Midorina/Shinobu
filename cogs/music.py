@@ -390,6 +390,7 @@ class Music(commands.Cog):
         ctx.voice_state.songs.clear()
 
         if ctx.voice_state.is_playing:
+            ctx.voice_state.skip()
             ctx.voice_state.voice.stop()
             await ctx.message.add_reaction('⏹')
         else:
@@ -521,6 +522,7 @@ class Music(commands.Cog):
             await ctx.invoke(self._join)
 
         msg = await ctx.send("I'm processing your request, please wait...")
+
         # checks
         async with ctx.typing():
             try:
