@@ -8,6 +8,8 @@ with open('config.json') as f:
     config = json.load(f)
 
 
+# these functions can be added to db models as classmethods but I'll do it later on
+
 async def get_prefix_dict(db: asyncpg.pool.Pool) -> dict:
     return dict(await db.fetch("""SELECT id, prefix FROM guilds;"""))
 
@@ -74,7 +76,3 @@ async def get_guild_db(db: asyncpg.pool.Pool, guild_id: int) -> GuildDB:
             await insert_new_guild(db, guild_id)
 
     return GuildDB(guild_db, db)
-
-
-
-

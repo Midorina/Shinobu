@@ -10,22 +10,29 @@ class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+        self.google: Google = Google()
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
 
+    @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     @commands.command(aliases=['g'])
     async def google(self, ctx: context.Context, *, search: str):
         """Makes a Google search."""
 
-        results = await Google().search(query=search)
+        results = await self.google.search(query=search)
         e = base_embed.BaseEmbed(self.bot)
+        e.set_author(icon_url="https://w7.pngwing.com/pngs/506/509/png-transparent-google-company-text-logo.png",
+                     name=f"Google: {search}")
 
-        for result in results[:10]:
-            e.add_field(name=result.title if result.title else "None",
-                        value=f"[{result.url}]({result.url})",
+        e.description = ""
+        for result in results[:5]:
+            e.add_field(name=result.url_simple,
+                        value=f"[{result.title}]({result.url})\n" \
+                              f"{result.description}\n‎\n",
                         inline=False)
 
         await ctx.send(embed=e)
 
+    @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
     @commands.command(aliases=['u', 'urbandictionary', 'ud'])
     async def urban(self, ctx: context.Context, *, search: str):
         """Searches the definition of a word on UrbanDictionary."""
