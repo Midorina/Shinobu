@@ -37,7 +37,7 @@ class Errors(commands.Cog):
                 pass
 
         elif isinstance(error, commands.BotMissingPermissions):
-            await ctx.send(f"Welp, this is awkward.\nI do not have enough permissions to run {ctx.command}!```error```")
+            await ctx.send(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
 
         elif isinstance(error, commands.DisabledCommand):
             await ctx.send("This command is currently disabled and can not be used.")
