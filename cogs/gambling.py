@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from db import db_funcs
 from main import MidoBot
-from services import checks, context, time_stuff
+from services import checks, context
 from services.converters import BetterMemberconverter
 
 
@@ -60,11 +60,11 @@ class Gambling(commands.Cog):
     @commands.command()
     async def daily(self, ctx: context.Context):
         """Claim 250$ for free every 24 hours."""
-        can_claim, remaining = ctx.user_db.can_claim_daily_remaining
+        daily_status = ctx.user_db.daily_date_status
 
-        if not can_claim:
+        if not daily_status.end_date_has_passed:
             return await ctx.send(
-                f"You're on cooldown! Try again after **{time_stuff.parse_seconds(remaining)}**.")
+                f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
         else:
             daily_amount = self.bot.config['daily_amount']

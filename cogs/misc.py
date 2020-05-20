@@ -2,13 +2,15 @@ import ast
 import itertools
 import os
 import time
+from datetime import timezone, datetime, timedelta
 
 import discord
 import psutil
 from discord.ext import commands
 
+from db.db_models import MidoTime
 from main import MidoBot
-from services import checks, time_stuff, context, base_embed
+from services import checks, context, base_embed
 
 
 class MyHelpCommand(commands.HelpCommand):
@@ -225,9 +227,9 @@ class Misc(commands.Cog):
         """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owners'][0])
 
-        uptime = time_stuff.get_time_difference(self.bot, "uptime")
+        uptime_in_seconds = (datetime.now(timezone.utc) - self.bot.uptime) / timedelta(seconds=1)
 
-        messages_per_sec = self.bot.message_counter / uptime
+        messages_per_sec = self.bot.message_counter / uptime_in_seconds
 
         memory = psutil.virtual_memory()[3] >> 20
 
@@ -263,7 +265,7 @@ class Misc(commands.Cog):
                         inline=True)
 
         embed.add_field(name="Uptime",
-                        value=time_stuff.parse_seconds(uptime).replace(" ", "\n"),
+                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds),
                         inline=True)
 
         embed.set_footer(icon_url=mido.avatar_url,

@@ -91,8 +91,8 @@ class XP(commands.Cog):
         if message.guild is not None:
             member_db = await db_funcs.get_member_db(self.bot.db, message.guild.id, message.author.id)
 
-            can_gain_xp, remaining = member_db.can_gain_xp_remaining
-            can_gain_xp_global, remaining_global = member_db.user.can_gain_xp_remaining
+            can_gain_xp = member_db.xp_date_status.end_date_has_passed
+            can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
 
             # if on cooldown
             if not can_gain_xp and not can_gain_xp_global:

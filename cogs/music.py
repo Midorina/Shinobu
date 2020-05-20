@@ -10,6 +10,7 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
+from db.db_models import MidoTime
 from main import MidoBot
 from services import menu_stuff, context
 
@@ -70,7 +71,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.title = data.get('title')
         self.thumbnail = data.get('thumbnail')
         self.description = data.get('description')
-        self.duration = self.parse_duration(int(data.get('duration')))
+        self.duration = MidoTime.parse_seconds_to_str(int(data.get('duration')), short=True)
         self.tags = data.get('tags')
         self.url = data.get('webpage_url')
         self.views = data.get('view_count')
@@ -100,36 +101,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         else:
             return [cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
 
-    @staticmethod
-    def parse_duration(duration: int, short: bool = True) -> str:
-        duration = int(duration)
-        minutes, seconds = divmod(duration, 60)
-        hours, minutes = divmod(minutes, 60)
-        days, hours = divmod(hours, 24)
-
-        duration = ""
-        if not short:
-            if days > 0:
-                duration += '{} days\n'.format(days)
-            if hours > 0:
-                duration += '{} hours\n'.format(hours)
-            if minutes > 0:
-                duration += '{} minutes\n'.format(minutes)
-            if seconds > 0:
-                duration += '{} seconds\n'.format(seconds)
-        else:
-            if days > 0:
-                duration += f'{days:02d}:'
-            if hours > 0:
-                duration += f'{hours:02d}:'
-
-            duration += f'{minutes:02d}:{seconds:02d}'
-
-        return duration
-
     @property
     def played_duration(self) -> str:
-        return self.parse_duration(self._played_duration)
+        return MidoTime.parse_seconds_to_str(self._played_duration, short=True)
 
     def read(self):
         self._played_duration += 0.02
@@ -238,8 +212,8 @@ class VoiceState:
 
     async def audio_player_task(self):
         while True:
+            # self.current = None
             self.next.clear()
-            self.current = None
 
             if not self.loop:
                 try:
@@ -469,7 +443,7 @@ class Music(commands.Cog):
                  .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
                  .set_footer(text=f"{int(current.source.volume * 100)}% | "
                                   f"{len(ctx.voice_state.songs)} Songs | "
-                                  f"{YTDLSource.parse_duration(duration)} in Total",
+                                  f"{MidoTime.parse_seconds_to_str(duration, short=True)} in Total",
                              icon_url="https://i.imgur.com/T0532pn.png")
                  )
         await menu_stuff.paginate(self.bot, ctx, embed, blocks, item_per_page=5, add_page_info_to='author')
