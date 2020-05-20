@@ -1,14 +1,77 @@
+import json
 from datetime import datetime, timezone
-from typing import Tuple, List
+from enum import Enum
+from typing import List
 
 from asyncpg import Record, pool
 
 from db import db_funcs
-from services import time_stuff
+from services.time import MidoTime
+
+with open('config.json') as f:
+    config = json.load(f)
 
 
 class OnCooldown(Exception):
     pass
+
+
+class ModLogType(Enum):
+    MUTE = 0
+    UNMUTE = 1
+    KICK = 1
+    BAN = 2
+    UNBAN = 3
+
+
+class ModLog:
+    def __init__(self, modlog_db: Record, db_conn: pool.Pool):
+        self._db = db_conn
+        self.data = modlog_db
+
+        self.id = modlog_db.get('id')
+
+        self.guild_id = modlog_db.get('guild_id')
+        self.user_id = modlog_db.get('user_id')
+
+        self.type = ModLogType(modlog_db.get('type'))
+        self.reason = modlog_db.get('reason')
+        self.executor_id = modlog_db.get('executor')
+
+        self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
+        self.date = modlog_db.get('date')
+        self.time_status = MidoTime.add_to_previous_date_and_get(self.date, modlog_db.get('length_in_seconds'))
+
+        self.done = modlog_db.get('done')
+
+    @classmethod
+    async def add_modlog(cls,
+                         db_conn: pool.Pool,
+                         guild_id: int,
+                         user_id: int,
+                         type: ModLogType,
+                         executor_id: int,
+                         reason: str = None,
+                         length: MidoTime = None,
+                         ):
+        new_modlog_db = await db_conn.fetchrow(
+            """INSERT INTO 
+            modlogs (guild_id, user_id, type, reason, executor_id, length_in_seconds, date) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *;""",
+            guild_id,
+            user_id,
+            type.value,
+            reason,
+            executor_id,
+            length.remaining_in_seconds,
+            datetime.now(timezone.utc)
+        )
+
+        return cls(new_modlog_db, db_conn)
+
+    async def delete_from_db(self):
+        await self._db.execute("""DELETE from modlogs WHERE id=$1;""", self.id)
 
 
 def calculate_xp_data(total_xp: int):
@@ -39,19 +102,11 @@ class UserDB:
 
         self.total_xp: int = user_db.get('xp')
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-        self.last_xp_gain_date = user_db.get('last_xp_gain')
+        self.xp_status = MidoTime.add_to_previous_date_and_get(
+            user_db.get('last_xp_gain'), config['cooldowns']['xp'])
 
-        self.last_daily_claim_date = user_db.get('last_daily_claim')
-
-    @property
-    def can_gain_xp_remaining(self) -> Tuple[bool, int]:
-        remaining = time_stuff.get_time_difference(self, "xp")
-        return remaining <= 0, remaining
-
-    @property
-    def can_claim_daily_remaining(self) -> Tuple[bool, int]:
-        remaining = time_stuff.get_time_difference(self, "daily")
-        return remaining <= 0, remaining
+        self.daily_date_status = MidoTime.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
+                                                                       config['cooldowns']['daily'])
 
     async def add_cash(self, amount: int, daily=False) -> int:
         if daily:
@@ -74,11 +129,9 @@ class UserDB:
         return self.cash
 
     async def add_xp(self, amount: int, owner=False) -> int:
-        can_gain, remaining = self.can_gain_xp_remaining
-
-        if not can_gain and not owner:
+        if not self.xp_status.end_date_has_passed and not owner:
             raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
+                             f"Try again after **{self.xp_status.remaining_string}**.")
         else:
             await self._db.execute(
                 """UPDATE users SET xp = xp + $1, last_xp_gain = $2 where id=$3""",
@@ -132,23 +185,17 @@ class MemberDB:
 
         self.total_xp: int = member_db.get('xp')
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-        self.last_xp_gain_date = member_db.get('last_xp_gain')
+        self.xp_date_status = MidoTime.add_to_previous_date_and_get(
+            member_db.get('last_xp_gain'), config['cooldowns']['xp'])
 
     async def assign_user_and_guild_objs(self):
         self.guild = await db_funcs.get_guild_db(self._db, self.data.get('guild_id'))
         self.user = await db_funcs.get_user_db(self._db, self.id)
 
-    @property
-    def can_gain_xp_remaining(self) -> Tuple[bool, int]:
-        remaining = time_stuff.get_time_difference(self, "xp")
-        return remaining <= 0, remaining
-
     async def add_xp(self, amount: int, owner=False) -> int:
-        can_gain, remaining = self.can_gain_xp_remaining
-
-        if not can_gain and not owner:
+        if not self.xp_date_status.end_date_has_passed and not owner:
             raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{time_stuff.parse_seconds(remaining)}**.")
+                             f"Try again after **{self.xp_date_status.remaining_string}**.")
         else:
             await self._db.execute(
                 """UPDATE members SET xp = xp + $1, last_xp_gain = $2 where guild_id=$3 and user_id=$4""",
@@ -231,5 +278,6 @@ class GuildDB:
         return self.level_up_notifs_silenced
 
     async def get_top_10(self) -> List[MemberDB]:
-        top_10 = await self._db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""", self.id)
+        top_10 = await self._db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
+                                      self.id)
         return [MemberDB(user, self._db) for user in top_10]
