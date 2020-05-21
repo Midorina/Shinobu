@@ -78,7 +78,10 @@ class XP(commands.Cog):
 
         # if silent
         if member_db.guild.level_up_notifs_silenced:
-            await message.author.send(msg)
+            try:
+                await message.author.send(msg)
+            except discord.Forbidden:
+                pass
 
         else:
             await message.channel.send(msg)
