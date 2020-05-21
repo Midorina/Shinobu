@@ -19,11 +19,16 @@ class MidoTime:
 
     @property
     def end_date_has_passed(self):
-        return self.end_date.date() <= datetime.now(timezone.utc).date()
+        return self.end_date <= datetime.now(timezone.utc)
 
     @property
     def remaining_in_seconds(self):
-        return (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
+        remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
+
+        if remaining_in_float < 0:
+            return 0
+        else:
+            return math.ceil(remaining_in_float)
 
     @property
     def remaining_string(self):
@@ -45,7 +50,7 @@ class MidoTime:
             return MidoTime(end_date=end_date)
 
     @staticmethod
-    def parse_seconds_to_str(total_seconds: float, short: bool = False, sep=' ') -> str:
+    def parse_seconds_to_str(total_seconds: float = 0, short: bool = False, sep=' ') -> str:
         def plural_check(n: int):
             return 's' if n > 1 else ''
 
@@ -93,6 +98,8 @@ class MidoTime:
 
     @classmethod
     async def convert(cls, ctx, argument):
+        """Converts a time length argument into MidoTime object.
+        """
         length_in_seconds = 0
 
         index = 0
@@ -105,11 +112,21 @@ class MidoTime:
                 if index == 0:
                     raise BadArgument("Invalid time format!")
 
-                length_in_seconds += int(argument[:index]) * time_multipliers[argument[index]]
+                # if its a month
+                if argument[index: index + 2] == 'mo':
+                    multiplier = time_multipliers['mo']
+                else:
+                    multiplier = time_multipliers[argument[index]]
 
-                argument = argument[index + 1:]
+                length_in_seconds += int(argument[:index]) * multiplier
+
+                # if its a month
+                if multiplier == time_multipliers['mo']:
+                    argument = argument[index + 2:]
+                else:
+                    argument = argument[index + 1:]
+
                 index = 0
-                continue
 
             else:
                 raise BadArgument("Invalid time format!")
