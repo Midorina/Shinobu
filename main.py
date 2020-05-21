@@ -32,7 +32,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.first_time = True
 
-        self.db = None
+        self.db: asyncpg.pool.Pool = None
         self.log_channel = None
         self.logger = logging.getLogger('MidoBot')
 
