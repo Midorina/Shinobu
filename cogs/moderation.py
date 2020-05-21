@@ -103,11 +103,42 @@ class Moderation(commands.Cog):
                                          length=length_or_reason)
 
         await ctx.send(f"`{modlog.id}` 🔨 "
-                       f"User {target.mention} has been **banned** "
-                       f"by {ctx.author.mention} for **{length.remaining_string}** "
-                       f"with reason: `{reason}`")
+                       f"User **{getattr(target, 'mention', target.id)}** "
+                       f"has been **banned** "
+                       f"by {ctx.author.mention} "
+                       f"for **{getattr(length_or_reason, 'remaining_string', 'permanently')}**"
+                       f"{self.get_reason_string(reason)}")
 
-    # TODO: moderation commands
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(ban_members=True)
+    @commands.bot_has_permissions(ban_members=True)
+    async def unban(self,
+                    ctx: Context,
+                    target: BetterMemberconverter(),
+                    *, reason: str = None):
+        """Unbans a banned user."""
+        user_is_banned = await ctx.guild.fetch_ban(target)
+        if not user_is_banned:
+            return await ctx.send("That user isn't banned.")
+
+        else:
+            await ctx.guild.unban(target, reason=f"User unbanned by {ctx.author}"
+                                                 f"{self.get_reason_string(reason)}")
+
+            await ModLog.add_modlog(db_conn=ctx.db,
+                                    guild_id=ctx.guild.id,
+                                    user_id=target.id,
+                                    type=ModLogType.UNBAN,
+                                    executor_id=ctx.author.id,
+                                    reason=reason)
+
+            await ctx.send(f"User **{getattr(target, 'mention', target.id)}** "
+                           f"has been **unbanned** "
+                           f"by {ctx.author.mention}"
+                           f"{self.get_reason_string(reason)}")
+
+# TODO: mute, unmute, logs
 
 
 def setup(bot):
