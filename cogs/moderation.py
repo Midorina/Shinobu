@@ -1,7 +1,11 @@
-from discord.ext import commands
+import typing
+
+import discord
+from discord.ext import commands, tasks
 
 from db.db_models import ModLogType, ModLog
 from main import MidoBot
+from services.context import Context
 from services.converters import BetterMemberconverter
 from services.time import MidoTime
 
@@ -9,6 +13,47 @@ from services.time import MidoTime
 class Moderation(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
+
+        self.check_modlogs.start()
+
+    @tasks.loop(seconds=30.0)
+    async def check_modlogs(self):
+        open_modlogs = await self.bot.db.fetch(
+            """
+            SELECT 
+                *
+            FROM 
+                modlogs 
+            WHERE 
+                length_in_seconds IS NOT NULL 
+                AND type = ANY($1) 
+                AND done IS NOT TRUE;""", [ModLogType.MUTE.value, ModLogType.BAN.value])
+
+        for modlog in open_modlogs:
+            # convert it to local obj
+            modlog = ModLog(modlog, self.bot.db)
+
+            # if its the time
+            if modlog.time_status.end_date_has_passed:
+                guild = self.bot.get_guild(modlog.guild_id)
+
+                if modlog.type == ModLogType.BAN:
+                    member = discord.Object(id=modlog.user_id)
+                    await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
+                    await modlog.complete()
+
+                # TODO: add mute
+
+    def cog_unload(self):
+        self.check_modlogs.cancel()
+
+    @check_modlogs.before_loop
+    async def before_modlog_checks(self):
+        await self.bot.wait_until_ready()
+
+    @staticmethod
+    def get_reason_string(reason = None):
+        return f' with reason: `{reason}`' if reason else '.'
 
     @commands.command()
     @commands.guild_only()
@@ -43,8 +88,8 @@ class Moderation(commands.Cog):
                                          user_id=target.id,
                                          reason=reason,
                                          executor_id=ctx.author.id,
-                                         type=ModLogType.KICK,
-                                         length=length)
+                                         type=ModLogType.BAN,
+                                         length=length_or_reason)
 
         await ctx.send(f"`{modlog.id}` 🔨 "
                        f"User {target.mention} has been **banned** "
