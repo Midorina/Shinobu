@@ -64,7 +64,7 @@ class ModLog:
             type.value,
             reason,
             executor_id,
-            length.remaining_in_seconds,
+            getattr(length, 'remaining_in_second', None),
             datetime.now(timezone.utc)
         )
 
@@ -72,6 +72,9 @@ class ModLog:
 
     async def delete_from_db(self):
         await self._db.execute("""DELETE from modlogs WHERE id=$1;""", self.id)
+
+    async def complete(self):
+        await self._db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
 
 
 def calculate_xp_data(total_xp: int):
