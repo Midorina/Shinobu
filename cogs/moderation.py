@@ -59,7 +59,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx, target: BetterMemberconverter(), reason: str = None):
+    async def kick(self, ctx, target: BetterMemberconverter(), *, reason: str = None):
         """Kicks a user."""
 
         await target.kick(reason=reason)
@@ -71,18 +71,29 @@ class Moderation(commands.Cog):
                                          type=ModLogType.KICK)
 
         await ctx.send(f"`{modlog.id}` 👢 "
-                       f"User {target.mention} has been **kicked** "
-                       f"by {ctx.author.mention} with reason: `{reason}`")
+                       f"User {getattr(target, 'mention', target.id)} has been **kicked** "
+                       f"by {ctx.author.mention}"
+                       f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
-    async def ban(self, ctx, target: BetterMemberconverter(), length: MidoTime = None, reason: str = None):
+    async def ban(self,
+                  ctx: Context,
+                  target: BetterMemberconverter(),
+                  length_or_reason: typing.Union[MidoTime, str] = None,
+                  *, reason: str = None):
         """Bans a user for a specified period of time or indefinitely."""
-        # await target.ban(reason=reason,
-        #                  delete_message_days=1)
-        print(length.end_date)
+
+        # if only reason is passed
+        if isinstance(length_or_reason, str) and reason:
+            reason = f"{length_or_reason} {reason}"
+            length_or_reason = None
+
+        await target.ban(reason=reason,
+                         delete_message_days=1)
+
         modlog = await ModLog.add_modlog(ctx.db,
                                          guild_id=ctx.guild.id,
                                          user_id=target.id,
