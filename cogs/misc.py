@@ -28,6 +28,7 @@ class MyHelpCommand(commands.HelpCommand):
 
     def get_command_signature(self, command):
         parent = command.full_parent_name
+
         if len(command.aliases) > 0:
             aliases = '|'.join(command.aliases)
             fmt = f'[{command.name}|{aliases}]'
@@ -36,6 +37,7 @@ class MyHelpCommand(commands.HelpCommand):
             alias = fmt
         else:
             alias = command.name if not parent else f'{parent} {command.name}'
+
         return f'{alias} {command.signature}'
 
     async def send_bot_help(self, mapping):
@@ -58,15 +60,6 @@ class MyHelpCommand(commands.HelpCommand):
 
         await self.context.send(embed=e)
 
-    # async def send_cog_help(self, cog):
-    #     entries = await self.filter_commands(cog.get_commands(), sort=True)
-    #     pages = HelpPaginator(self, self.context, entries)
-    #     pages.title = f'{cog.qualified_name} Commands'
-    #     pages.description = cog.description
-    #
-    #     await self.context.release()
-    #     await pages.paginate()
-
     def common_command_formatting(self, embed, command):
         embed.title = self.context.prefix + self.get_command_signature(command)
         if command.description:
@@ -75,24 +68,15 @@ class MyHelpCommand(commands.HelpCommand):
             if not command.help:
                 embed.description = 'There\'s no help information about this command...'
             else:
-                embed.description = command.help
+                embed.description = command.help.format(self.context)
 
     async def send_command_help(self, command):
+        if command.hidden:
+            raise commands.CommandInvokeError("That is a hidden command. Sorry.")
+
         embed = base_embed.BaseEmbed(self.context.bot)
         self.common_command_formatting(embed, command)
         await self.context.send(embed=embed)
-
-    # async def send_group_help(self, group):
-    #     subcommands = group.commands
-    #     if len(subcommands) == 0:
-    #         return await self.send_command_help(group)
-    #
-    #     entries = await self.filter_commands(subcommands, sort=True)
-    #     pages = HelpPaginator(self, self.context, entries)
-    #     self.common_command_formatting(pages, group)
-    #
-    #     await self.context.release()
-    #     await pages.paginate()
 
 
 def insert_returns(body):
@@ -124,24 +108,14 @@ class Misc(commands.Cog):
     @commands.command(hidden=True)
     @checks.owner_only()
     async def eval(self, ctx, *, cmd):
-        """Evaluates input.
-        Input is interpreted as newline seperated statements.
-        If the last statement is an expression, that is the return value.
-        Usable globals:
+        """A developer command that evaluates code.
+
+        Globals:
           - `bot`: the bot instance
           - `discord`: the discord module
           - `commands`: the discord.ext.commands module
           - `ctx`: the invokation context
           - `__import__`: the builtin `__import__` function
-        Such that `>eval 1 + 1` gives `2` as the result.
-        The following invokation will cause the bot to send the text '9'
-        to the channel of invokation and return '3' as the result of evaluating
-        >eval ```
-        a = 1 + 2
-        b = a * 2
-        await ctx.send(a + b)
-        a
-        ```
         """
         fn_name = "_eval_expr"
 
@@ -285,6 +259,13 @@ class Misc(commands.Cog):
                     self.bot.load_extension(f"cogs.{name}")
 
         await ctx.send("Successfully reloaded all cogs!")
+
+    @commands.command(hidden=True)
+    @checks.owner_only()
+    async def shutdown(self, ctx):
+        await ctx.send("Shutting down...")
+
+        await self.bot.logout()
 
 
 def setup(bot):
