@@ -14,4 +14,3 @@ class BaseEmbed(discord.Embed):
             self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
 
         self.timestamp = self.timestamp if self.timestamp else datetime.utcnow()
-

@@ -1,6 +1,7 @@
-from main import MidoBot
 import logging
 from logging.handlers import TimedRotatingFileHandler
+
+from main import MidoBot
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

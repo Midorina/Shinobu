@@ -159,4 +159,3 @@ async def yes_no(bot, author_id, msg):
 
         elif str(reaction.emoji) == emotes[1]:
             return False
-
