@@ -29,12 +29,17 @@ class Errors(commands.Cog):
             await ctx.send("This command can not be used through DMs!")
 
         elif isinstance(error, discord.Forbidden):
-            try:
-                await ctx.send(
-                    "I don't have required permissions! "
-                    "Please check if I have permission to add reactions and see the message history of channels.")
-            except discord.Forbidden:
-                pass
+            if error.code == 50013:
+                await ctx.send("I don't have Manage Messages permission!")
+
+            else:
+                print(error.code)
+                raise error
+
+            # else:
+            #     await ctx.send(
+            #         "I don't have required permissions! "
+            #         "Please check if I have permission to add reactions and see the message history of channels.")
 
         elif isinstance(error, commands.BotMissingPermissions):
             await ctx.send(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
@@ -93,7 +98,7 @@ class Errors(commands.Cog):
             ***ERROR ALERT*** <@90076279646212096>
 
 An error occurred during the execution of a command:
-`{error}`
+`{str(error)}`
 
 **Command:** `{ctx.invoked_with}`
 
@@ -103,7 +108,7 @@ An error occurred during the execution of a command:
 **Command used by:** {ctx.author.mention} | `{str(ctx.author)}` | `{ctx.author.id}`
 **Command used in:** `{used_in}`
 
-**Message id:** `{ctx.message.id}`
+**Message ID:** `{ctx.message.id}`
 **Message link:** {ctx.message.jump_url}
 **Message timestamp (UTC):** `{ctx.message.created_at}`
 
