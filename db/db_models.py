@@ -16,15 +16,14 @@ class OnCooldown(Exception):
     pass
 
 
-class ModLogType(Enum):
-    MUTE = 0
-    UNMUTE = 1
-    KICK = 1
-    BAN = 2
-    UNBAN = 3
-
-
 class ModLog:
+    class Type(Enum):
+        MUTE = 0
+        UNMUTE = 1
+        KICK = 1
+        BAN = 2
+        UNBAN = 3
+
     def __init__(self, modlog_db: Record, db_conn: pool.Pool):
         self._db = db_conn
         self.data = modlog_db
@@ -34,9 +33,9 @@ class ModLog:
         self.guild_id = modlog_db.get('guild_id')
         self.user_id = modlog_db.get('user_id')
 
-        self.type = ModLogType(modlog_db.get('type'))
+        self.type = ModLog.Type(modlog_db.get('type'))
         self.reason = modlog_db.get('reason')
-        self.executor_id = modlog_db.get('executor')
+        self.executor_id = modlog_db.get('executor_id')
 
         self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
         self.date = modlog_db.get('date')
@@ -49,7 +48,7 @@ class ModLog:
                          db_conn: pool.Pool,
                          guild_id: int,
                          user_id: int,
-                         type: ModLogType,
+                         type: Type,
                          executor_id: int,
                          reason: str = None,
                          length: MidoTime = None,
@@ -75,6 +74,14 @@ class ModLog:
 
     async def complete(self):
         await self._db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
+
+    @classmethod
+    async def get_logs(cls, db: pool.Pool, guild_id, user_id):
+        logs = await db.fetch(
+            """SELECT * FROM modlogs WHERE guild_id=$1 and user_id=$2 and hidden=FALSE ORDER BY date DESC;""",
+            guild_id, user_id)
+
+        return [cls(log, db) for log in logs]
 
 
 def calculate_xp_data(total_xp: int):
