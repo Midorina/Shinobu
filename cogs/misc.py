@@ -8,7 +8,7 @@ import discord
 import psutil
 from discord.ext import commands
 
-from db.db_models import MidoTime
+from db.models import MidoTime
 from main import MidoBot
 from services import checks, context, base_embed
 
@@ -16,11 +16,63 @@ from services import checks, context, base_embed
 class MyHelpCommand(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
-            'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
+            'cooldown': commands.Cooldown(rate=1, per=1.0, type=commands.BucketType.member),
             'help': 'Shows help about the bot or a command.',
             'aliases': ['h']
         })
         self.verify_checks = False
+
+    # overriding this for additional prefix check
+    async def command_callback(self, ctx, *, command=None):
+        await self.prepare_help_command(ctx, command)
+        bot = ctx.bot
+
+        if command is None:
+            mapping = self.get_bot_mapping()
+            return await self.send_bot_help(mapping)
+
+        # Check if it's a cog
+        cog = bot.get_cog(command)
+        if cog is not None:
+            return await self.send_cog_help(cog)
+
+        maybe_coro = discord.utils.maybe_coroutine
+
+        # If it's not a cog then it's a command.
+        # Since we want to have detailed errors when someone
+        # passes an invalid subcommand, we need to walk through
+        # the command group chain ourselves.
+        keys = command.split(' ')
+
+        # maybe it has a prefix at the beginning
+        prefix_length = len(self.context.prefix)
+        if keys[0][:prefix_length] == self.context.prefix:
+            keys[0] = keys[0][prefix_length:]
+
+        cmd = bot.all_commands.get(keys[0])
+        if cmd is None:
+            string = await maybe_coro(self.command_not_found, self.remove_mentions(keys[0]))
+            return await self.send_error_message(string)
+
+        for key in keys[1:]:
+            try:
+                found = cmd.all_commands.get(key)
+            except AttributeError:
+                string = await maybe_coro(self.subcommand_not_found, cmd, self.remove_mentions(key))
+                return await self.send_error_message(string)
+            else:
+                if found is None:
+                    string = await maybe_coro(self.subcommand_not_found, cmd, self.remove_mentions(key))
+                    return await self.send_error_message(string)
+                cmd = found
+
+        if isinstance(cmd, commands.Group):
+            return await self.send_group_help(cmd)
+        else:
+            return await self.send_command_help(cmd)
+
+    def command_not_found(self, string):
+        return f'Couldn\'t find any command called `{string}`'
 
     async def on_help_command_error(self, ctx: context.Context, error):
         if isinstance(error, commands.CommandInvokeError):
@@ -47,16 +99,19 @@ class MyHelpCommand(commands.HelpCommand):
         entries = await self.filter_commands(self.context.bot.commands, sort=True, key=key)
         total = 0
 
-        e = base_embed.BaseEmbed(self.context.bot, title='MidoBot Commands')
+        e = base_embed.BaseEmbed(self.context.bot,
+                                 title='MidoBot Commands',
+                                 description=f'You can type `{self.context.prefix}help <command>` '
+                                             f'to see additional info about a command.')
         for cog, _commands in itertools.groupby(entries, key=key):
             _commands = sorted(_commands, key=lambda c: c.name)
             if len(_commands) == 0:
                 continue
 
             total += len(_commands)
-            e.add_field(name=f"**{str(cog)}**",
-                        value=", ".join([f'`{c.name}`' for c in _commands]),
-                        inline=False)
+            e.add_field(name=f"**__{str(cog)}__**",
+                        value="\n".join([f'`{self.context.prefix}{c.name}`' for c in _commands]),
+                        inline=True)
 
         await self.context.send(embed=e)
 
@@ -167,7 +222,8 @@ class Misc(commands.Cog):
     async def prefix(self, ctx: context.Context, *, prefix: str = None):
         """See or change the prefix.
 
-        You need the **Administrator** permission to change the prefix."""
+        You need the **Administrator** permission to change the prefix.
+        """
         if prefix:
             if not ctx.author.guild_permissions.administrator:
                 raise commands.CheckFailure
@@ -187,7 +243,8 @@ class Misc(commands.Cog):
     async def delete_commands(self, ctx: context.Context):
         """Enable or disable the deletion of commands after completion.
 
-        You need the **Administrator** permission to use this command."""
+        You need the **Administrator** permission to use this command.
+        """
         new_delete_cmds_status = await ctx.guild_db.toggle_delete_commands()
 
         if new_delete_cmds_status is True:
@@ -198,7 +255,8 @@ class Misc(commands.Cog):
 
     @commands.command(aliases=['info', 'stats'])
     async def about(self, ctx):
-        """See some info and stats about me!"""
+        """See some info and stats about me!
+        """
         mido = self.bot.get_user(self.bot.config['owners'][0])
 
         uptime_in_seconds = (datetime.now(timezone.utc) - self.bot.uptime) / timedelta(seconds=1)
