@@ -3,7 +3,7 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from db.models import MemberDB, UserDB
+from db.models import MemberDB, UserDB, XpAnnouncement
 from main import MidoBot
 from services import context, checks
 from services.converters import BetterMemberconverter
@@ -61,6 +61,9 @@ class XP(commands.Cog):
     @staticmethod
     async def check_for_level_up(message: discord.Message, member_db: MemberDB, guild_name: str, added=0,
                                  added_globally=False):
+        if member_db.user.level_up_notification == XpAnnouncement.SILENT:
+            return
+
         lvld_up_in_guild = member_db.progress < added
         lvld_up_globally = member_db.user.progress < added
 
@@ -75,15 +78,15 @@ class XP(commands.Cog):
         if lvld_up_globally and added_globally:
             msg += f"You just have leveled up to **{member_db.user.level}** globally!"
 
-        # if silent
-        if member_db.guild.level_up_notifs_silenced:
-            try:
-                await message.author.send(msg)
-            except discord.Forbidden:
-                pass
-
+        if member_db.user.level_up_notification == XpAnnouncement.DM or member_db.guild.level_up_notifs_silenced:
+            channel = message.author
         else:
-            await message.channel.send(msg)
+            channel = message.channel
+
+        try:
+            await channel.send(msg)
+        except discord.Forbidden:
+            pass
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -110,7 +113,7 @@ class XP(commands.Cog):
                                           added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
-    async def show_rank(self, ctx: context.Context, _member: BetterMemberconverter() = None):
+    async def show_rank(self, ctx: context.MidoContext, _member: BetterMemberconverter() = None):
         """See your or someone else's XP rank."""
         if _member:
             user = _member
@@ -128,7 +131,7 @@ class XP(commands.Cog):
 
     @commands.command(name='leaderboard', aliases=['lb', 'xplb'])
     @commands.guild_only()
-    async def show_leaderboard(self, ctx: context.Context):
+    async def show_leaderboard(self, ctx: context.MidoContext):
         """See the XP leaderboard of the server."""
         top_10 = await ctx.guild_db.get_top_10()
 
@@ -138,7 +141,7 @@ class XP(commands.Cog):
 
     @commands.command(name='gleaderboard', aliases=['globalleaderboard', 'glb', 'xpglb'])
     @commands.guild_only()
-    async def show_global_leaderboard(self, ctx: context.Context):
+    async def show_global_leaderboard(self, ctx: context.MidoContext):
         """See the global XP leaderboard."""
         top_10 = await ctx.user_db.get_top_10()
 
@@ -146,11 +149,32 @@ class XP(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.command(name='xpnotifs')
+    async def change_level_up_notifications(self, ctx: context.MidoContext, new_preference: str):
+        """Configure your level up notifications. It's DM by default.
+
+        `{0.prefix}xpnotifs [silence|disable]` (**disables** level up notifications)
+        `{0.prefix}xpnotifs dm` (sends level up notifications through your **DMs**)
+        `{0.prefix}xpnotifs [guild|server]` (sends level up notifications to the **server**)
+        """
+        if new_preference in ('silence', 'disable'):
+            new_preference = XpAnnouncement.SILENT
+        elif new_preference in ('dm', 'dms'):
+            new_preference = XpAnnouncement.DM
+        elif new_preference in ('guild', 'server'):
+            new_preference = XpAnnouncement.GUILD
+        else:
+            raise commands.BadArgument("Invalid notification preference type!")
+
+        await ctx.user_db.change_level_up_preference(new_preference)
+        await ctx.send(f"You've successfully changed your level up preference: `{new_preference.name.title()}`")
+
+    @commands.command(name="silenceserverxp")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    async def silence_level_up_notifs(self, ctx: context.Context):
+    async def silence_level_up_notifs_for_guild(self, ctx: context.MidoContext):
         """Silence level up notifications in this server.
+        **This command overwrites the notification preference of the users if silenced.**
 
         You need **Manage Guild** permission to use this command.
         """
