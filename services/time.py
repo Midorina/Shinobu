@@ -60,11 +60,14 @@ class MidoTime:
         def plural_check(n: int):
             return 's' if n > 1 else ''
 
-        if not total_seconds:
+        if not total_seconds and not short:
             return None
 
-        # round it up to save the lost milliseconds in calculation
-        total_seconds = math.ceil(total_seconds)
+        # precise result for music
+        # rough result for moderation commands
+        if not short:
+            # round it up to save the lost milliseconds in calculation
+            total_seconds = math.ceil(total_seconds)
 
         minutes, seconds = divmod(total_seconds, 60)
         hours, minutes = divmod(minutes, 60)
@@ -96,9 +99,6 @@ class MidoTime:
 
             str_blocks.append(f'{minutes:02d}')
             str_blocks.append(f'{seconds:02d}')
-
-        if short is True and not sep:
-            sep = ':'
 
         return sep.join(str_blocks)
 

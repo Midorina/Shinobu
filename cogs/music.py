@@ -71,7 +71,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.title = data.get('title')
         self.thumbnail = data.get('thumbnail')
         self.description = data.get('description')
-        self.duration = MidoTime.parse_seconds_to_str(int(data.get('duration')), short=True)
+        self.duration = MidoTime.parse_seconds_to_str(int(data.get('duration')), short=True, sep=':')
         self.tags = data.get('tags')
         self.url = data.get('webpage_url')
         self.views = data.get('view_count')
@@ -103,7 +103,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @property
     def played_duration(self) -> str:
-        return MidoTime.parse_seconds_to_str(self._played_duration, short=True)
+        return MidoTime.parse_seconds_to_str(self._played_duration, short=True, sep=':')
 
     def read(self):
         self._played_duration += 0.02
@@ -212,7 +212,6 @@ class VoiceState:
 
     async def audio_player_task(self):
         while True:
-            # self.current = None
             self.next.clear()
 
             if not self.loop:
@@ -220,8 +219,7 @@ class VoiceState:
                     async with timeout(60):
                         self.current = await self.songs.get()
                 except asyncio.TimeoutError:
-                    self.bot.loop.create_task(self.stop())
-                    return
+                    return self.bot.loop.create_task(self.stop())
 
             self.current.source.volume = self._volume
             self.voice.play(self.current.source, after=self.play_next_song)
@@ -247,6 +245,7 @@ class VoiceState:
         if self.voice:
             await self.voice.disconnect(force=True)
             self.voice = None
+            self.exists = False
 
 
 class Music(commands.Cog):
@@ -359,11 +358,10 @@ class Music(commands.Cog):
     @commands.command(name='stop')
     async def _stop(self, ctx: context.Context):
         """Stop playing and clear the queue."""
-        ctx.voice_state.songs.clear()
 
         if ctx.voice_state.is_playing:
-            ctx.voice_state.skip()
             ctx.voice_state.voice.stop()
+            ctx.voice_state.songs.clear()
             await ctx.message.add_reaction('⏹')
         else:
             await ctx.send("I'm not currently playing any music!")
@@ -441,7 +439,7 @@ class Music(commands.Cog):
                  .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
                  .set_footer(text=f"{int(current.source.volume * 100)}% | "
                                   f"{len(ctx.voice_state.songs)} Songs | "
-                                  f"{MidoTime.parse_seconds_to_str(duration, short=True)} in Total",
+                                  f"{MidoTime.parse_seconds_to_str(duration, short=True, sep=':')} in Total",
                              icon_url="https://i.imgur.com/T0532pn.png")
                  )
         await menu_stuff.paginate(self.bot, ctx, embed, blocks, item_per_page=5, add_page_info_to='author')
