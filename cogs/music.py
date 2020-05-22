@@ -10,7 +10,7 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
-from db.db_models import MidoTime
+from db.models import MidoTime
 from main import MidoBot
 from services import menu_stuff, context
 

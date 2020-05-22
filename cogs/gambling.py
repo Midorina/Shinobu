@@ -3,7 +3,7 @@ import random
 import discord
 from discord.ext import commands
 
-from db import db_funcs
+from db.models import UserDB
 from main import MidoBot
 from services import checks, context
 from services.converters import BetterMemberconverter
@@ -49,12 +49,13 @@ class Gambling(commands.Cog):
 
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: context.Context, *, user: BetterMemberconverter() = None):
-        """Check the cash status of you or someone else."""
-        user = user or ctx.author
+        """Check the cash status of you or someone else.
+        """
         if user:
-            user_db = await db_funcs.get_user_db(ctx.db, user.id)
+            user_db = await UserDB.get_or_create(ctx.db, user.id)
         else:
             user_db = ctx.user_db
+
         await ctx.send(f"**{user}** has **{user_db.cash}$**!")
 
     @commands.command()
@@ -111,7 +112,7 @@ class Gambling(commands.Cog):
     @commands.guild_only()
     async def give_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
         """Give a specific amount of cash to someone else."""
-        other_usr = await db_funcs.get_user_db(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
         await ctx.send(f"**{ctx.author}** has just sent **{amount}$** to **{member.mention}**!")
@@ -119,7 +120,7 @@ class Gambling(commands.Cog):
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
     async def add_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
-        other_usr = await db_funcs.get_user_db(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
         await member.send(f"You've been awarded **{amount}$** by the bot owner!")
@@ -128,7 +129,7 @@ class Gambling(commands.Cog):
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
     async def remove_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
-        other_usr = await db_funcs.get_user_db(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
         await ctx.send(f"You've just removed **{amount}$** from {member}.")

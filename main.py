@@ -7,7 +7,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from db import db_funcs
+from db.models import GuildDB
 from services import context
 
 
@@ -69,7 +69,7 @@ class MidoBot(commands.AutoShardedBot):
             await self.prepare_db()
 
             # prefix cache
-            self.prefix_cache = await db_funcs.get_prefix_dict(self.db)
+            self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
             self.load_cogs()
             self.uptime = datetime.now(timezone.utc)
@@ -97,7 +97,7 @@ class MidoBot(commands.AutoShardedBot):
         await self.process_commands(message)
 
     async def on_guild_join(self, guild):
-        await db_funcs.insert_new_guild(self.db, guild.id)
+        await GuildDB.get_or_create(self.db, guild.id)
         await self.log_channel.send(
             f"I just joined the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
 

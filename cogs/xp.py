@@ -3,8 +3,7 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from db import db_funcs
-from db.db_models import MemberDB
+from db.models import MemberDB, UserDB
 from main import MidoBot
 from services import context, checks
 from services.converters import BetterMemberconverter
@@ -92,7 +91,7 @@ class XP(commands.Cog):
             return False
 
         if message.guild is not None:
-            member_db = await db_funcs.get_member_db(self.bot.db, message.guild.id, message.author.id)
+            member_db = await MemberDB.get_or_create(self.bot.db, message.guild.id, message.author.id)
 
             can_gain_xp = member_db.xp_date_status.end_date_has_passed
             can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
@@ -115,7 +114,7 @@ class XP(commands.Cog):
         """See your or someone else's XP rank."""
         if _member:
             user = _member
-            user_db = await db_funcs.get_member_db(ctx.db, ctx.guild.id, _member.id)
+            user_db = await MemberDB.get_or_create(ctx.db, ctx.guild.id, _member.id)
         else:
             user = ctx.author
             if ctx.guild:
@@ -152,7 +151,9 @@ class XP(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     async def silence_level_up_notifs(self, ctx: context.Context):
         """Silence level up notifications in this server.
-        You need Manage Guild permission to use this command."""
+
+        You need **Manage Guild** permission to use this command.
+        """
         just_silenced = await ctx.guild_db.toggle_level_up_notifs()
 
         if just_silenced:
@@ -163,28 +164,28 @@ class XP(commands.Cog):
     @commands.command(name="addxp", hidden=True)
     @checks.owner_only()
     async def add_xp(self, ctx, member: BetterMemberconverter(), amount: int):
-        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @checks.owner_only()
     async def add_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
-        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        member_db = await UserDB.get_or_create(ctx.db, member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @checks.owner_only()
     async def remove_xp(self, ctx, member: BetterMemberconverter(), amount: int):
-        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @checks.owner_only()
     async def remove_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
-        member_db = await db_funcs.get_user_db(ctx.db, member.id)
+        member_db = await UserDB.get_or_create(ctx.db, member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 

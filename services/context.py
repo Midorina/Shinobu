@@ -1,7 +1,6 @@
 from discord.ext import commands
 
-from db import db_funcs
-from db.db_models import UserDB, GuildDB, MemberDB
+from db.models import UserDB, GuildDB, MemberDB
 
 
 class Context(commands.Context):
@@ -15,10 +14,10 @@ class Context(commands.Context):
 
     async def attach_db_objects(self):
         try:
-            self.member_db = await db_funcs.get_member_db(self.db, self.guild.id, self.author.id)
+            self.member_db = await MemberDB.get_or_create(self.db, self.guild.id, self.author.id)
             self.guild_db = self.member_db.guild
             self.user_db = self.member_db.user
 
             self.prefix = self.guild_db.prefix
         except AttributeError:
-            self.user_db = await db_funcs.get_user_db(self.db, self.author.id)
+            self.user_db = await UserDB.get_or_create(self.db, self.author.id)

@@ -5,7 +5,6 @@ from typing import List
 
 from asyncpg import Record, pool
 
-from db import db_funcs
 from services.time import MidoTime
 
 with open('config.json') as f:
@@ -44,6 +43,20 @@ class ModLog:
         self.done = modlog_db.get('done')
 
     @classmethod
+    async def get_by_id(cls, db: pool.Pool, guild_id: int, log_id: int):
+        log = await db.fetchrow("""SELECT * FROM modlogs WHERE id=$1 and guild_id=$2;""", log_id, guild_id)
+
+        return cls(log, db) if log else None
+
+    @classmethod
+    async def get_logs(cls, db: pool.Pool, guild_id: int, user_id: int):
+        logs = await db.fetch(
+            """SELECT * FROM modlogs WHERE guild_id=$1 and user_id=$2 and hidden=FALSE ORDER BY date DESC;""",
+            guild_id, user_id)
+
+        return [cls(log, db) for log in logs]
+
+    @classmethod
     async def add_modlog(cls,
                          db_conn: pool.Pool,
                          guild_id: int,
@@ -75,13 +88,8 @@ class ModLog:
     async def complete(self):
         await self._db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
 
-    @classmethod
-    async def get_logs(cls, db: pool.Pool, guild_id: int, user_id: int):
-        logs = await db.fetch(
-            """SELECT * FROM modlogs WHERE guild_id=$1 and user_id=$2 and hidden=FALSE ORDER BY date DESC;""",
-            guild_id, user_id)
-
-        return [cls(log, db) for log in logs]
+    async def change_reason(self, new_reason: str):
+        await self._db.execute("""UPDATE modlogs SET reason=$1 WHERE id=$2;""", new_reason, self.id)
 
     @staticmethod
     async def hide_logs(db: pool.Pool, guild_id: int, user_id: int):
@@ -122,6 +130,15 @@ class UserDB:
 
         self.daily_date_status = MidoTime.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
                                                                        config['cooldowns']['daily'])
+
+    @classmethod
+    async def get_or_create(cls, db: pool.Pool, user_id: int):
+        user_db = await db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
+        if not user_db:
+            user_db = await db.fetchrow(
+                """INSERT INTO users (id) values($1) RETURNING *;""", user_id)
+
+        return cls(user_db, db)
 
     async def add_cash(self, amount: int, daily=False) -> int:
         if daily:
@@ -203,9 +220,23 @@ class MemberDB:
         self.xp_date_status = MidoTime.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), config['cooldowns']['xp'])
 
-    async def assign_user_and_guild_objs(self):
-        self.guild = await db_funcs.get_guild_db(self._db, self.data.get('guild_id'))
-        self.user = await db_funcs.get_user_db(self._db, self.id)
+    @classmethod
+    async def get_or_create(cls, db: pool.Pool, guild_id: int, member_id: int):
+        user_db = await UserDB.get_or_create(db, member_id)
+        guild_db = await GuildDB.get_or_create(db, guild_id)
+
+        member_db = await db.fetchrow(
+            """SELECT * FROM members WHERE guild_id=$1 and user_id=$2;""", guild_id, member_id)
+
+        if not member_db:
+            member_db = await db.fetchrow(
+                """INSERT INTO members (guild_id, user_id) values($1, $2) RETURNING *;""", guild_id, member_id)
+
+        member_obj = cls(member_db, db)
+        member_obj.guild = guild_db
+        member_obj.user = user_db
+
+        return member_obj
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_date_status.end_date_has_passed and not owner:
@@ -260,6 +291,16 @@ class GuildDB:
 
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
+
+    @classmethod
+    async def get_or_create(cls, db: pool.Pool, guild_id: int):
+        guild_db = await db.fetchrow("""SELECT * from guilds where id=$1;""", guild_id)
+
+        if not guild_db:
+            guild_db = await db.fetchrow(
+                """INSERT INTO guilds(id) VALUES ($1) RETURNING *""", guild_id)
+
+        return cls(guild_db, db)
 
     async def change_prefix(self, new_prefix: str) -> str:
         await self._db.execute(
