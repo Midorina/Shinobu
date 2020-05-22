@@ -61,7 +61,10 @@ class Moderation(commands.Cog):
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx, target: BetterMemberconverter(), *, reason: str = None):
-        """Kicks a user."""
+        """Kicks a user.
+
+        You need the Kick Members permission to use this command.
+        """
 
         await target.kick(reason=reason)
         modlog = await ModLog.add_modlog(ctx.db,
@@ -133,7 +136,10 @@ class Moderation(commands.Cog):
                     ctx: Context,
                     target: BetterMemberconverter(),
                     *, reason: str = None):
-        """Unbans a banned user."""
+        """Unbans a banned user.
+
+        You need Ban Members permission to use this command.
+        """
 
         user_is_banned = await ctx.guild.fetch_ban(target)
         if not user_is_banned:
@@ -161,7 +167,10 @@ class Moderation(commands.Cog):
     async def logs(self,
                    ctx: Context,
                    target: BetterMemberconverter()):
-        """See the logs of a user."""
+        """See the logs of a user.
+
+        You need Kick Members and Ban Members permissions to use this command.
+        """
 
         logs = await ModLog.get_logs(ctx.db, ctx.guild.id, target.id)
         if not logs:
@@ -189,6 +198,27 @@ class Moderation(commands.Cog):
 
         await menu_stuff.paginate(self.bot, ctx, blocks=log_blocks, embed=e, extra_sep='\n')
 
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(administrator=True)
+    async def clearlogs(self,
+                        ctx: Context,
+                        target: BetterMemberconverter()):
+        """Clears the logs of a user.
+
+        You need to have the Administrator permission to use this command.
+        """
+
+        msg = await ctx.send(f"Are you sure you'd like to reset the logs of **{target}**?")
+        yes = await menu_stuff.yes_no(self.bot, ctx.author.id, msg)
+
+        if not yes:
+            return await msg.edit(content="Request has been declined.")
+
+        else:
+            await ModLog.hide_logs(ctx.db, ctx.guild.id, target.id)
+
+            return await msg.edit(content=f"Logs of **{target}** has been successfully deleted.")
 
 # TODO: mute, unmute
 

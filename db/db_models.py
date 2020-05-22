@@ -76,12 +76,17 @@ class ModLog:
         await self._db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
 
     @classmethod
-    async def get_logs(cls, db: pool.Pool, guild_id, user_id):
+    async def get_logs(cls, db: pool.Pool, guild_id: int, user_id: int):
         logs = await db.fetch(
             """SELECT * FROM modlogs WHERE guild_id=$1 and user_id=$2 and hidden=FALSE ORDER BY date DESC;""",
             guild_id, user_id)
 
         return [cls(log, db) for log in logs]
+
+    @staticmethod
+    async def hide_logs(db: pool.Pool, guild_id: int, user_id: int):
+        await db.execute(
+            """UPDATE modlogs SET hidden=TRUE WHERE guild_id=$1 and user_id=$2;""", guild_id, user_id)
 
 
 def calculate_xp_data(total_xp: int):
