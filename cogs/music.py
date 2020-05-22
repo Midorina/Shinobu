@@ -56,8 +56,8 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     ytdl = youtube_dl.YoutubeDL(YTDL_OPTIONS)
 
-    def __init__(self, ctx: context.MidoContext, source: discord.FFmpegPCMAudio, *, data: dict, volume: float = 0.1):
-        super().__init__(source, volume)
+    def __init__(self, ctx: context.MidoContext, source: discord.FFmpegPCMAudio, *, data: dict, volume: int = 10):
+        super().__init__(source, volume / 100)
 
         self.requester = ctx.author
         self.channel = ctx.channel
@@ -103,7 +103,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @property
     def played_duration(self) -> str:
-        return MidoTime.parse_seconds_to_str(self._played_duration, short=True, sep=':')
+        return MidoTime.parse_seconds_to_str(int(self._played_duration), short=True, sep=':')
 
     def read(self):
         self._played_duration += 0.02
@@ -138,9 +138,7 @@ class Song:
             e.add_field(name="Like/Dislike Count",
                         value="{:,}/{:,}\n(**{:.2f}%**)".format(likes, dislikes, (likes * 100 / (likes + dislikes))))
 
-        # e.set_footer(icon_url=self.ctx.guild.icon_url,
-        #              text=f"{self.ctx.guild.name} | Volume: {int(self.source.volume * 100)}%")
-        e.set_footer(text=f"Volume: {int(self.source.volume * 100)}%",
+        e.set_footer(text=f"Volume: {self.source.volume}%",
                      icon_url="https://i.imgur.com/T0532pn.png")
         e.set_thumbnail(url=self.source.thumbnail)
 
@@ -181,7 +179,7 @@ class VoiceState:
         self.songs = SongQueue()
 
         self._loop = False
-        self._volume = 0.1
+        self._volume = 10
         self.skip_votes = []
 
         self.played_duration = 0
@@ -203,8 +201,10 @@ class VoiceState:
         return self._volume
 
     @volume.setter
-    def volume(self, value: float):
-        self._volume = self.current.source.volume = value
+    def volume(self, new_vol: int):
+        self._volume = new_vol
+        if self.current:
+            self.current.source.volume = new_vol / 100
 
     @property
     def is_playing(self):
@@ -221,7 +221,7 @@ class VoiceState:
                 except asyncio.TimeoutError:
                     return self.bot.loop.create_task(self.stop())
 
-            self.current.source.volume = self._volume
+            self.current.source.volume = self._volume / 100
             self.voice.play(self.current.source, after=self.play_next_song)
             await self.current.source.channel.send(embed=self.current.create_embed())
 
@@ -308,19 +308,19 @@ class Music(commands.Cog):
         else:
             return await ctx.send("I'm not currently not in a voice channel! (or am I 🤔)")
 
-    @commands.command(name='volume', aliases=['v'])
+    @commands.command(name='volume', aliases=['vol', 'v'])
     async def _volume(self, ctx: context.MidoContext, volume: int = None):
         """Change or see the volume."""
         if not ctx.voice_state.is_playing:
             return await ctx.send('Nothing is being played at the moment.')
 
         if not volume:
-            return await ctx.send(f'Current volume: **{int(ctx.voice_state.volume * 100)}**%')
+            return await ctx.send(f'Current volume: **{ctx.voice_state.volume}**%')
 
         if 0 > volume > 100:
             return await ctx.send('Volume must be between 0 and 100!')
 
-        ctx.voice_state.volume = volume / 100
+        ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
 
         await ctx.send(f'Volume is set to **{volume}**%')
