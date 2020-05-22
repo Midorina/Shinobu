@@ -10,7 +10,7 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
-from db.models import MidoTime
+from db.models import MidoTime, GuildDB
 from main import MidoBot
 from services import menu_stuff, context
 
@@ -254,12 +254,13 @@ class Music(commands.Cog):
 
         self.voice_states = {}
 
-    def get_voice_state(self, guild_id: int) -> VoiceState:
-        state = self.voice_states.get(guild_id)
+    def get_voice_state(self, guild: GuildDB) -> VoiceState:
+        state = self.voice_states.get(guild.id)
 
         if not state or not state.exists:
             state = VoiceState(self.bot)
-            self.voice_states[guild_id] = state
+            state.volume = guild.volume
+            self.voice_states[guild.id] = state
 
         return state
 
@@ -274,7 +275,7 @@ class Music(commands.Cog):
             self.bot.loop.create_task(state.stop())
 
     async def cog_before_invoke(self, ctx: context.MidoContext):
-        ctx.voice_state = self.get_voice_state(ctx.guild.id)
+        ctx.voice_state = self.get_voice_state(ctx.guild_db)
 
     @commands.command(name='connect')
     async def _join(self, ctx: context.MidoContext):
@@ -320,6 +321,8 @@ class Music(commands.Cog):
             return await ctx.send('Volume must be between 0 and 100!')
 
         ctx.voice_state.volume = volume / 100
+        await ctx.guild_db.change_volume(volume)
+
         await ctx.send(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])

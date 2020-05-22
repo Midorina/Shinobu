@@ -303,6 +303,8 @@ class GuildDB:
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
 
+        self.volume: int = guild_db.get('volume')
+
     @classmethod
     async def get_or_create(cls, db: pool.Pool, guild_id: int):
         guild_db = await db.fetchrow("""SELECT * from guilds where id=$1;""", guild_id)
@@ -319,6 +321,10 @@ class GuildDB:
 
         self.prefix = new_prefix
         return self.prefix
+
+    async def change_volume(self, new_volume: int):
+        await self._db.execute("""UPDATE guilds SET volume=$1 WHERE id=$2;""", new_volume, self.id)
+        self.volume = new_volume
 
     async def toggle_delete_commands(self) -> bool:
         await self._db.execute(
