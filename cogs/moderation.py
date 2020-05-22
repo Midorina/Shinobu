@@ -3,7 +3,7 @@ import typing
 import discord
 from discord.ext import commands, tasks
 
-from db.db_models import ModLog
+from db.models import ModLog
 from main import MidoBot
 from services import base_embed, menu_stuff
 from services.context import Context
@@ -130,7 +130,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx, target: BetterMemberconverter(), *, reason: str = None):
+    async def kick(self, ctx: Context, target: BetterMemberconverter(), *, reason: str = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
@@ -380,8 +380,28 @@ class Moderation(commands.Cog):
 
             return await msg.edit(content=f"Logs of **{target}** has been successfully deleted.")
 
+    @commands.command(aliases=['changereason'])
+    @commands.guild_only()
+    async def reason(self,
+                     ctx: Context,
+                     case_id: int,
+                     *, new_reason: str = None):
+        """Update the reason of a case using its ID.
 
-# TODO: command to change reason of a log
+        You either need to be the executor of the case or have Administrator permission to use this command.
+        """
+        log = await ModLog.get_by_id(ctx.db, log_id=case_id, guild_id=ctx.guild.id)
+        if not log:
+            return await ctx.send("No logs have been found with that case ID.")
+
+        if log.executor_id != ctx.author.id and not ctx.author.guild_permissions.administrator:
+            return await ctx.send("You have to be the executor of this case "
+                                  "or have Administrator permission in the server to do that!")
+
+        await log.change_reason(new_reason)
+
+        await ctx.send(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
+
 
 def setup(bot):
     bot.add_cog(Moderation(bot))
