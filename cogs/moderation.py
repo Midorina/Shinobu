@@ -156,7 +156,7 @@ class Moderation(commands.Cog):
     async def ban(self,
                   ctx: Context,
                   target: BetterMemberconverter(),
-                  length_or_reason: typing.Union[MidoTime, str] = None,
+                  length: typing.Union[MidoTime, str] = None,
                   *, reason: str = None):
         """Bans a user for a specified period of time or indefinitely.
 
@@ -178,12 +178,11 @@ class Moderation(commands.Cog):
         """
 
         # if only reason is passed
-        if isinstance(length_or_reason, str) and reason:
-            reason = f"{length_or_reason} {reason}"
-            length_or_reason = None
+        if isinstance(length, str):
+            reason = length + (f" {reason}" if reason else '')
+            length = None
 
-        await target.ban(reason=reason,
-                         delete_message_days=1)
+        await target.ban(reason=reason, delete_message_days=1)
 
         modlog = await ModLog.add_modlog(ctx.db,
                                          guild_id=ctx.guild.id,
@@ -191,13 +190,13 @@ class Moderation(commands.Cog):
                                          reason=reason,
                                          executor_id=ctx.author.id,
                                          type=ModLog.Type.BAN,
-                                         length=length_or_reason)
+                                         length=length)
 
         await ctx.send(f"`{modlog.id}` {action_emotes['ban']} "
                        f"User **{getattr(target, 'mention', target.id)}** "
                        f"has been **banned** "
                        f"by {ctx.author.mention} "
-                       f"for **{getattr(length_or_reason, 'initial_remaining_string', 'permanently')}**"
+                       f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
@@ -240,7 +239,7 @@ class Moderation(commands.Cog):
     async def mute(self,
                    ctx: Context,
                    target: BetterMemberconverter(),
-                   length_or_reason: typing.Union[MidoTime, str] = None,
+                   length: typing.Union[MidoTime, str] = None,
                    *, reason: str = None):
         """Mutes a user for a specified period of time or indefinitely.
 
@@ -248,7 +247,7 @@ class Moderation(commands.Cog):
             `{0.prefix}mute @Mido` (mutes permanently)
             `{0.prefix}mute @Mido shitposting` (mutes permanently with a reason)
             `{0.prefix}mute @Mido 30m` (mutes for 30 minutes)
-            `{0.prefix}mutes @Mido 3d shitposting` (mutes for 3 days with reason)
+            `{0.prefix}mute @Mido 3d shitposting` (mutes for 3 days with reason)
 
         **Available time length letters:**
             `s` -> seconds
@@ -262,9 +261,9 @@ class Moderation(commands.Cog):
         """
 
         # if only reason is passed
-        if isinstance(length_or_reason, str) and reason:
-            reason = f"{length_or_reason} {reason}"
-            length_or_reason = None
+        if isinstance(length, str):
+            reason = length + (f" {reason}" if reason else '')
+            length = None
 
         mute_role = await self.get_or_create_muted_role(ctx)
 
@@ -280,13 +279,13 @@ class Moderation(commands.Cog):
                                          reason=reason,
                                          executor_id=ctx.author.id,
                                          type=ModLog.Type.MUTE,
-                                         length=length_or_reason)
+                                         length=length)
 
         await ctx.send(f"`{modlog.id}` {action_emotes['mute']} "
                        f"User **{getattr(target, 'mention', target.id)}** "
                        f"has been **muted** "
                        f"by {ctx.author.mention} "
-                       f"for **{getattr(length_or_reason, 'initial_remaining_string', 'permanently')}**"
+                       f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
