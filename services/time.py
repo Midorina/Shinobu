@@ -14,8 +14,10 @@ time_multipliers = {
 
 
 class MidoTime:
-    def __init__(self, end_date: datetime):
+    def __init__(self, end_date: datetime, initial_seconds: int = 0):
         self.end_date = end_date
+
+        self.initial_remaining_seconds = initial_seconds
 
     @property
     def end_date_has_passed(self):
@@ -34,20 +36,24 @@ class MidoTime:
     def remaining_string(self):
         return self.parse_seconds_to_str(self.remaining_in_seconds)
 
+    @property
+    def initial_remaining_string(self):
+        return self.parse_seconds_to_str(self.initial_remaining_seconds)
+
     @classmethod
     def add_to_current_date_and_get(cls, seconds: int):
         end_date = datetime.now(timezone.utc) + timedelta(seconds=seconds)
-        return MidoTime(end_date=end_date)
+        return MidoTime(end_date=end_date, initial_seconds=seconds)
 
     @classmethod
     def add_to_previous_date_and_get(cls, previous_date: datetime, seconds: int):
         if not previous_date:
-            return MidoTime(end_date=datetime(2000, 1, 1, tzinfo=timezone.utc))
+            return MidoTime(end_date=datetime(2000, 1, 1, tzinfo=timezone.utc), initial_seconds=seconds)
         if not seconds:
             return None
         else:
             end_date = previous_date + timedelta(seconds=seconds)
-            return MidoTime(end_date=end_date)
+            return MidoTime(end_date=end_date, initial_seconds=seconds)
 
     @staticmethod
     def parse_seconds_to_str(total_seconds: float = 0, short: bool = False, sep=' ') -> str:
