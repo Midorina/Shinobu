@@ -10,6 +10,12 @@ from services.context import Context
 from services.converters import BetterMemberconverter
 from services.time import MidoTime
 
+action_emotes = {
+    'kick': '👢',
+    'ban': '🔨',
+    'mute': '🔇'
+}
+
 
 class Moderation(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -41,9 +47,15 @@ class Moderation(commands.Cog):
                 if modlog.type == ModLog.Type.BAN:
                     member = discord.Object(id=modlog.user_id)
                     await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
-                    await modlog.complete()
 
-                # TODO: add mute
+                elif modlog.type == ModLog.Type.MUTE:
+                    member = guild.get_member(modlog.user_id)
+                    if member:
+                        mute_role = await self.get_or_create_muted_role(guild)
+                        if mute_role in member.roles:
+                            await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unban)')
+
+                await modlog.complete()
 
     def cog_unload(self):
         self.check_modlogs.cancel()
@@ -55,6 +67,64 @@ class Moderation(commands.Cog):
     @staticmethod
     def get_reason_string(reason=None):
         return f' with reason: `{reason}`' if reason else '.'
+
+    @staticmethod
+    async def get_or_create_muted_role(ctx_or_guild: typing.Union[Context, discord.Guild]):
+        if isinstance(ctx_or_guild, Context):
+            ctx = ctx_or_guild
+            guild = ctx.guild
+        else:
+            ctx = None
+            guild = ctx_or_guild
+
+        muted_role = discord.utils.find(lambda m: m.name.lower() == 'muted', guild.roles)
+
+        if not muted_role:
+            if ctx:
+                msg = await ctx.send("Creating the mute role and configuring it, please wait...")
+
+            muted_role = await guild.create_role(name='Muted',
+                                                 reason="Mute role for the mute command.",
+                                                 color=discord.Colour.dark_grey())
+
+            couldnt_configure_some_channels = False
+
+            # read messages, view channel, manage roles and channels
+            required_perms = discord.Permissions(268436496)
+
+            for channel in guild.channels:
+                channel_perms = channel.permissions_for(guild.me)
+
+                # if we have permission to edit it
+                if channel_perms.is_superset(required_perms):
+                    overwrite = discord.PermissionOverwrite()
+
+                    # if its a text channel
+                    if isinstance(channel, discord.TextChannel):
+                        overwrite.send_messages = False
+                        overwrite.add_reactions = False
+                    # if its a voice channel
+                    if isinstance(channel, discord.VoiceChannel):
+                        overwrite.speak = False
+
+                    await channel.set_permissions(target=muted_role,
+                                                  overwrite=overwrite,
+                                                  reason="Mute role permissions for the mute command.")
+                else:
+                    couldnt_configure_some_channels = True
+
+            if ctx:
+                if couldnt_configure_some_channels:
+                    await msg.edit(content="Mute role has been successfully created "
+                                           "but I couldn't configure it's permissions "
+                                           "for some channels due to missing permissions.\n"
+                                           "If you'd like me to configure it properly for every channel, "
+                                           "please delete the role Muted role and use the mute command again "
+                                           "after giving me proper permissions.")
+                else:
+                    await msg.edit(content="Mute role has been successfully created and configured for all channels!")
+
+        return muted_role
 
     @commands.command()
     @commands.guild_only()
@@ -74,7 +144,7 @@ class Moderation(commands.Cog):
                                          executor_id=ctx.author.id,
                                          type=ModLog.Type.KICK)
 
-        await ctx.send(f"`{modlog.id}` 👢 "
+        await ctx.send(f"`{modlog.id}` {action_emotes['kick']} "
                        f"User {getattr(target, 'mention', target.id)} has been **kicked** "
                        f"by {ctx.author.mention}"
                        f"{self.get_reason_string(reason)}")
@@ -103,6 +173,8 @@ class Moderation(commands.Cog):
             `d` -> days
             `w` -> weeks
             `mo` -> months
+
+        You need Ban Members permission to use this command.
         """
 
         # if only reason is passed
@@ -121,11 +193,11 @@ class Moderation(commands.Cog):
                                          type=ModLog.Type.BAN,
                                          length=length_or_reason)
 
-        await ctx.send(f"`{modlog.id}` 🔨 "
+        await ctx.send(f"`{modlog.id}` {action_emotes['ban']} "
                        f"User **{getattr(target, 'mention', target.id)}** "
                        f"has been **banned** "
                        f"by {ctx.author.mention} "
-                       f"for **{getattr(length_or_reason, 'remaining_string', 'permanently')}**"
+                       f"for **{getattr(length_or_reason, 'initial_remaining_string', 'permanently')}**"
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
@@ -163,6 +235,95 @@ class Moderation(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
+    async def mute(self,
+                   ctx: Context,
+                   target: BetterMemberconverter(),
+                   length_or_reason: typing.Union[MidoTime, str] = None,
+                   *, reason: str = None):
+        """Mutes a user for a specified period of time or indefinitely.
+
+        **Examples:**
+            `{0.prefix}mute @Mido` (mutes permanently)
+            `{0.prefix}mute @Mido shitposting` (mutes permanently with a reason)
+            `{0.prefix}mute @Mido 30m` (mutes for 30 minutes)
+            `{0.prefix}mutes @Mido 3d shitposting` (mutes for 3 days with reason)
+
+        **Available time length letters:**
+            `s` -> seconds
+            `m` -> minutes
+            `h` -> hours
+            `d` -> days
+            `w` -> weeks
+            `mo` -> months
+
+        You need Manage Roles permission to use this command.
+        """
+
+        # if only reason is passed
+        if isinstance(length_or_reason, str) and reason:
+            reason = f"{length_or_reason} {reason}"
+            length_or_reason = None
+
+        mute_role = await self.get_or_create_muted_role(ctx)
+
+        if mute_role in target.roles:
+            return await ctx.send("That user is already muted!")
+
+        await target.add_roles(mute_role, reason=f"User muted by {ctx.author}"
+                                                 f"{self.get_reason_string(reason)}")
+
+        modlog = await ModLog.add_modlog(ctx.db,
+                                         guild_id=ctx.guild.id,
+                                         user_id=target.id,
+                                         reason=reason,
+                                         executor_id=ctx.author.id,
+                                         type=ModLog.Type.MUTE,
+                                         length=length_or_reason)
+
+        await ctx.send(f"`{modlog.id}` {action_emotes['mute']} "
+                       f"User **{getattr(target, 'mention', target.id)}** "
+                       f"has been **muted** "
+                       f"by {ctx.author.mention} "
+                       f"for **{getattr(length_or_reason, 'initial_remaining_string', 'permanently')}**"
+                       f"{self.get_reason_string(reason)}")
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def unmute(self,
+                     ctx: Context,
+                     target: BetterMemberconverter(),
+                     *, reason: str = None):
+        """Unmutes a muted user.
+
+        You need Manage Roles permission to use this command.
+        """
+
+        mute_role = await self.get_or_create_muted_role(ctx)
+
+        if mute_role not in target.roles:
+            return await ctx.send("That user is not muted!")
+
+        await target.remove_roles(mute_role, reason=f"User unmuted by {ctx.author}"
+                                                    f"{self.get_reason_string(reason)}")
+
+        await ModLog.add_modlog(ctx.db,
+                                guild_id=ctx.guild.id,
+                                user_id=target.id,
+                                reason=reason,
+                                executor_id=ctx.author.id,
+                                type=ModLog.Type.UNMUTE)
+
+        await ctx.send(f"User **{getattr(target, 'mention', target.id)}** "
+                       f"has been **unmuted** "
+                       f"by {ctx.author.mention}"
+                       f"{self.get_reason_string(reason)}")
+
+    @commands.command()
+    @commands.guild_only()
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def logs(self,
                    ctx: Context,
@@ -183,8 +344,8 @@ class Moderation(commands.Cog):
 
         log_blocks = []
         for log in logs:
-            log_description = f"**Case ID:** `{log.id}`\n" \
-                              f"**Action:** {log.type.name.title()}\n"
+            log_description = f"**Case ID:** `{log.id}` {log.date.strftime('%Y-%m-%d, %H:%M:%S UTC')}\n" \
+                              f"**Action:** {log.type.name.title()} {action_emotes[log.type.name.lower()]}\n"
 
             if log.length_string:
                 log_description += f'**Length:** {log.length_string}\n'
@@ -220,8 +381,8 @@ class Moderation(commands.Cog):
 
             return await msg.edit(content=f"Logs of **{target}** has been successfully deleted.")
 
-# TODO: mute, unmute
 
+# TODO: command to change reason of a log
 
 def setup(bot):
     bot.add_cog(Moderation(bot))
