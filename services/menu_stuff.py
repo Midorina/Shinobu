@@ -11,7 +11,8 @@ async def paginate(bot,
                    blocks,
                    item_per_page: int = 6,
                    add_page_info_to: str = 'footer',
-                   reactions: bool = True):
+                   reactions: bool = True,
+                   extra_sep: str = ''):
     arrows = [
         "⏪",
         "◀",
@@ -40,22 +41,22 @@ async def paginate(bot,
 
         for i in range(page * item_per_page - item_per_page, page * item_per_page):
             try:
-                msg_for_embed += f"{blocks[i]}\n"
+                msg_for_embed += f"{blocks[i]}\n" + extra_sep
             except IndexError:
                 break
 
         if add_page_info_to == 'footer':
             try:
-                _e._footer['text'] += f" Page {page}/{total_pages}"
+                _e._footer['text'] += f" | Page {page}/{total_pages}"
             except AttributeError:
                 _e.set_footer(text=f"Page {page}/{total_pages}")
 
         elif add_page_info_to == 'title':
-            _e.title += f" Page {page}/{total_pages}"
+            _e.title += f" | Page {page}/{total_pages}"
 
         elif add_page_info_to == 'author':
             try:
-                _e._author['name'] += f" Page {page}/{total_pages}"
+                _e._author['name'] += f" | Page {page}/{total_pages}"
             except AttributeError:
                 _e.set_author(name=f"Page {page}/{total_pages}")
 

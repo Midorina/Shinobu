@@ -55,7 +55,7 @@ class MidoTime:
             return 's' if n > 1 else ''
 
         if not total_seconds:
-            return 'indefinite'
+            return None
 
         # round it up to save the lost milliseconds in calculation
         total_seconds = math.ceil(total_seconds)
