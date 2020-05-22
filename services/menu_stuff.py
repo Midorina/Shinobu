@@ -134,24 +134,29 @@ async def paginate(bot,
 
 
 async def yes_no(bot, author_id, msg):
+    emotes = ('🇾', '🇳')
+
     def reaction_check(_reaction, _user):
         if _user.id == author_id:
             if _reaction.message.id == msg.id:
-                if str(_reaction.emoji) == '🇾' or str(_reaction.emoji) == '🇳':
+                if str(_reaction.emoji) in emotes:
                     return True
 
-    await msg.add_reaction('🇾')
-    await msg.add_reaction('🇳')
+    for emote in emotes:
+        await msg.add_reaction(emote)
 
     try:
         reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=30.0)
 
     except asyncio.TimeoutError:
+        await msg.clear_reactions()
         return None
 
     else:
-        if str(reaction.emoji) == '🇾':
+        await msg.clear_reactions()
+        if str(reaction.emoji) == emotes[0]:
             return True
 
-        else:
+        elif str(reaction.emoji) == emotes[1]:
             return False
+
