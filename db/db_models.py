@@ -37,8 +37,8 @@ class ModLog:
         self.reason = modlog_db.get('reason')
         self.executor_id = modlog_db.get('executor_id')
 
-        self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
         self.date = modlog_db.get('date')
+        self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
         self.time_status = MidoTime.add_to_previous_date_and_get(self.date, modlog_db.get('length_in_seconds'))
 
         self.done = modlog_db.get('done')
@@ -63,7 +63,7 @@ class ModLog:
             type.value,
             reason,
             executor_id,
-            getattr(length, 'remaining_in_second', None),
+            getattr(length, 'remaining_in_seconds', None),
             datetime.now(timezone.utc)
         )
 

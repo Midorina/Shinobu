@@ -299,11 +299,9 @@ class Music(commands.Cog):
         """Make me leave the voice channel."""
         if ctx.voice_client:
             await ctx.voice_client.disconnect(force=True)
-            try:
-                await ctx.voice_state.stop()
-                del self.voice_states[ctx.guild.id]
-            except Exception as e:
-                print(e)
+
+            await ctx.voice_state.stop()
+            del self.voice_states[ctx.guild.id]
 
             await ctx.send("I've successfully left the voice channel.")
 

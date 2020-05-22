@@ -95,9 +95,6 @@ class NSFW(commands.Cog):
                         if not filtered:
                             # if we're at the last page
                             if rand_page == 0:
-                                # print(response_jsond)
-                                print(rand_page)
-                                print(response.url)
                                 raise NotFoundError
                             else:
                                 continue
@@ -125,8 +122,6 @@ class NSFW(commands.Cog):
                         data = random.choice(filtered)
                         image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
                         image_tags = data.get('tags').split(' ')
-
-                    print(image_url, image_tags, sep='\n')
 
                     # check if it contains a blacklisted tag
                     blacklisted = False
