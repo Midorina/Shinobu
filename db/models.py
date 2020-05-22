@@ -15,6 +15,12 @@ class OnCooldown(Exception):
     pass
 
 
+class XpAnnouncement(Enum):
+    SILENT = 0
+    DM = 1
+    GUILD = 2
+
+
 class ModLog:
     class Type(Enum):
         MUTE = 0
@@ -123,6 +129,7 @@ class UserDB:
         self.id: int = user_db.get('id')
         self.cash: int = user_db.get('cash')
 
+        self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
         self.xp_status = MidoTime.add_to_previous_date_and_get(
@@ -139,6 +146,9 @@ class UserDB:
                 """INSERT INTO users (id) values($1) RETURNING *;""", user_id)
 
         return cls(user_db, db)
+
+    async def change_level_up_preference(self, new_preference: XpAnnouncement):
+        await self._db.execute("""UPDATE users SET level_up_notification=$1 WHERE id=$2;""", new_preference.value, self.id)
 
     async def add_cash(self, amount: int, daily=False) -> int:
         if daily:
@@ -216,6 +226,7 @@ class MemberDB:
         self.user: UserDB = None
 
         self.total_xp: int = member_db.get('xp')
+
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
         self.xp_date_status = MidoTime.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), config['cooldowns']['xp'])

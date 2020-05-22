@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from main import MidoBot
+from services.context import MidoContext
 
 
 class Errors(commands.Cog):
@@ -11,7 +12,7 @@ class Errors(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error):
+    async def on_command_error(self, ctx: MidoContext, error):
         if hasattr(ctx.command, 'on_error'):
             return
 
@@ -54,18 +55,12 @@ class Errors(commands.Cog):
             await ctx.send("You're on cooldown!")
 
         elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(
-                f"You are missing required arguments!\n"
-                f"`{error}`\n\n"
-                f"Command usage:\n"
-                f"**{ctx.prefix}{ctx.command.name} {ctx.command.signature}**")
+            await ctx.send_help(entity=ctx.command,
+                                content=f"**You are missing this required argument: `{error.param.name}`**")
 
         elif isinstance(error, (commands.BadArgument, commands.ExpectedClosingQuoteError)):
-            await ctx.send(
-                f"One of your arguments is incorrect!\n"
-                f"`{error}`\n\n"
-                f"Command usage:\n"
-                f"**{ctx.prefix}{ctx.command.name} {ctx.command.signature}**")
+            await ctx.send_help(entity=ctx.command,
+                                content=f"**{error}**")
 
         else:
             if isinstance(error, discord.HTTPException):

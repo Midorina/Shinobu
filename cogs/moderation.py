@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 from db.models import ModLog
 from main import MidoBot
 from services import base_embed, menu_stuff
-from services.context import Context
+from services.context import MidoContext
 from services.converters import BetterMemberconverter
 from services.time import MidoTime
 
@@ -69,8 +69,8 @@ class Moderation(commands.Cog):
         return f' with reason: `{reason}`' if reason else '.'
 
     @staticmethod
-    async def get_or_create_muted_role(ctx_or_guild: typing.Union[Context, discord.Guild]):
-        if isinstance(ctx_or_guild, Context):
+    async def get_or_create_muted_role(ctx_or_guild: typing.Union[MidoContext, discord.Guild]):
+        if isinstance(ctx_or_guild, MidoContext):
             ctx = ctx_or_guild
             guild = ctx.guild
         else:
@@ -130,7 +130,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx: Context, target: BetterMemberconverter(), *, reason: str = None):
+    async def kick(self, ctx: MidoContext, target: BetterMemberconverter(), *, reason: str = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
@@ -154,7 +154,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
-                  ctx: Context,
+                  ctx: MidoContext,
                   target: BetterMemberconverter(),
                   length: typing.Union[MidoTime, str] = None,
                   *, reason: str = None):
@@ -204,7 +204,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
-                    ctx: Context,
+                    ctx: MidoContext,
                     target: BetterMemberconverter(),
                     *, reason: str = None):
         """Unbans a banned user.
@@ -237,7 +237,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
-                   ctx: Context,
+                   ctx: MidoContext,
                    target: BetterMemberconverter(),
                    length: typing.Union[MidoTime, str] = None,
                    *, reason: str = None):
@@ -293,7 +293,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
-                     ctx: Context,
+                     ctx: MidoContext,
                      target: BetterMemberconverter(),
                      *, reason: str = None):
         """Unmutes a muted user.
@@ -325,7 +325,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def logs(self,
-                   ctx: Context,
+                   ctx: MidoContext,
                    target: BetterMemberconverter()):
         """See the logs of a user.
 
@@ -362,7 +362,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def clearlogs(self,
-                        ctx: Context,
+                        ctx: MidoContext,
                         target: BetterMemberconverter()):
         """Clears the logs of a user.
 
@@ -383,7 +383,7 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['changereason'])
     @commands.guild_only()
     async def reason(self,
-                     ctx: Context,
+                     ctx: MidoContext,
                      case_id: int,
                      *, new_reason: str = None):
         """Update the reason of a case using its ID.

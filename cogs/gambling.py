@@ -48,7 +48,7 @@ class Gambling(commands.Cog):
         }
 
     @commands.command(aliases=['$', 'money'])
-    async def cash(self, ctx: context.Context, *, user: BetterMemberconverter() = None):
+    async def cash(self, ctx: context.MidoContext, *, user: BetterMemberconverter() = None):
         """Check the cash status of you or someone else.
         """
         if user:
@@ -59,7 +59,7 @@ class Gambling(commands.Cog):
         await ctx.send(f"**{user}** has **{user_db.cash}$**!")
 
     @commands.command()
-    async def daily(self, ctx: context.Context):
+    async def daily(self, ctx: context.MidoContext):
         """Claim 250$ for free every 24 hours."""
         daily_status = ctx.user_db.daily_date_status
 
@@ -73,7 +73,7 @@ class Gambling(commands.Cog):
             await ctx.send(f"You've successfully claimed your daily **{daily_amount}$**!")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
-    async def coin_flip(self, ctx: context.Context, amount: int, guessed_side: str):
+    async def coin_flip(self, ctx: context.MidoContext, amount: int, guessed_side: str):
         """A coin flip game. You'll earn the double amount of what you bet if you predict correctly.
 
         Sides and Aliases:
@@ -110,7 +110,7 @@ class Gambling(commands.Cog):
 
     @commands.command(name="give")
     @commands.guild_only()
-    async def give_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
+    async def give_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
         """Give a specific amount of cash to someone else."""
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
@@ -119,7 +119,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
-    async def add_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
+    async def add_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
@@ -128,7 +128,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
-    async def remove_cash(self, ctx: context.Context, amount: int, *, member: BetterMemberconverter()):
+    async def remove_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
@@ -136,7 +136,7 @@ class Gambling(commands.Cog):
 
     @coin_flip.before_invoke
     @give_cash.before_invoke
-    async def ensure_not_broke(self, ctx: context.Context):
+    async def ensure_not_broke(self, ctx: context.MidoContext):
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
         if bet_amount > ctx.user_db.cash:

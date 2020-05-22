@@ -13,7 +13,7 @@ from main import MidoBot
 from services import checks, context, base_embed
 
 
-class MyHelpCommand(commands.HelpCommand):
+class MidoHelp(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
             'cooldown': commands.Cooldown(rate=1, per=1.0, type=commands.BucketType.member),
@@ -74,7 +74,7 @@ class MyHelpCommand(commands.HelpCommand):
     def command_not_found(self, string):
         return f'Couldn\'t find any command called `{string}`'
 
-    async def on_help_command_error(self, ctx: context.Context, error):
+    async def on_help_command_error(self, ctx: context.MidoContext, error):
         if isinstance(error, commands.CommandInvokeError):
             await ctx.send(str(error.original))
 
@@ -125,13 +125,13 @@ class MyHelpCommand(commands.HelpCommand):
             else:
                 embed.description = command.help.format(self.context)
 
-    async def send_command_help(self, command):
+    async def send_command_help(self, command, content=''):
         if command.hidden:
             raise commands.CommandInvokeError("That is a hidden command. Sorry.")
 
         embed = base_embed.BaseEmbed(self.context.bot)
         self.common_command_formatting(embed, command)
-        await self.context.send(embed=embed)
+        await self.context.send(content=content, embed=embed)
 
 
 def insert_returns(body):
@@ -154,7 +154,7 @@ class Misc(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
         self.old_help_command = bot.help_command
-        bot.help_command = MyHelpCommand()
+        bot.help_command = MidoHelp()
         bot.help_command.cog = self
 
     def cog_unload(self):
@@ -200,7 +200,7 @@ class Misc(commands.Cog):
         await ctx.send(result)
 
     @commands.command()
-    async def ping(self, ctx: context.Context):
+    async def ping(self, ctx: context.MidoContext):
         """Ping me to check the latency!"""
         if ctx.guild:
             color = ctx.guild.me.top_role.color
@@ -219,7 +219,7 @@ class Misc(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def prefix(self, ctx: context.Context, *, prefix: str = None):
+    async def prefix(self, ctx: context.MidoContext, *, prefix: str = None):
         """See or change the prefix.
 
         You need the **Administrator** permission to change the prefix.
@@ -240,7 +240,7 @@ class Misc(commands.Cog):
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
-    async def delete_commands(self, ctx: context.Context):
+    async def delete_commands(self, ctx: context.MidoContext):
         """Enable or disable the deletion of commands after completion.
 
         You need the **Administrator** permission to use this command.

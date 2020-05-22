@@ -15,7 +15,7 @@ class Searches(commands.Cog):
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     @commands.command(aliases=['g'])
-    async def google(self, ctx: context.Context, *, search: str):
+    async def google(self, ctx: context.MidoContext, *, search: str):
         """Makes a Google search."""
 
         results = await self.google.search(query=search)
@@ -34,7 +34,7 @@ class Searches(commands.Cog):
 
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
     @commands.command(aliases=['u', 'urbandictionary', 'ud'])
-    async def urban(self, ctx: context.Context, *, search: str):
+    async def urban(self, ctx: context.MidoContext, *, search: str):
         """Searches the definition of a word on UrbanDictionary."""
 
         try:

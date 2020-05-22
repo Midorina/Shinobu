@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 
 from main import MidoBot
-from services.context import Context
+from services.context import MidoContext
 
 
 class NotFoundError(Exception):
@@ -34,7 +34,7 @@ class NSFW(commands.Cog):
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 
-    async def cog_check(self, ctx: Context):
+    async def cog_check(self, ctx: MidoContext):
         bucket = self._cd.get_bucket(ctx.message)
         retry_after = bucket.update_rate_limit()
         if retry_after:  # if on cooldown

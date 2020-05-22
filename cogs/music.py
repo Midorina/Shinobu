@@ -56,7 +56,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     ytdl = youtube_dl.YoutubeDL(YTDL_OPTIONS)
 
-    def __init__(self, ctx: context.Context, source: discord.FFmpegPCMAudio, *, data: dict, volume: float = 0.1):
+    def __init__(self, ctx: context.MidoContext, source: discord.FFmpegPCMAudio, *, data: dict, volume: float = 0.1):
         super().__init__(source, volume)
 
         self.requester = ctx.author
@@ -84,7 +84,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return '**{0.title}** by **{0.uploader}**'.format(self)
 
     @classmethod
-    async def create_source(cls, ctx: context.Context, search: str, *, loop: asyncio.BaseEventLoop = None):
+    async def create_source(cls, ctx: context.MidoContext, search: str, *, loop: asyncio.BaseEventLoop = None):
         loop = loop or asyncio.get_event_loop()
 
         partial = functools.partial(cls.ytdl.extract_info, url=search, download=False, process=True)
@@ -263,7 +263,7 @@ class Music(commands.Cog):
 
         return state
 
-    async def cog_check(self, ctx: context.Context):
+    async def cog_check(self, ctx: context.MidoContext):
         if not ctx.guild:
             raise commands.NoPrivateMessage('This command can\'t be used in DM channels.')
 
@@ -273,11 +273,11 @@ class Music(commands.Cog):
         for state in self.voice_states.values():
             self.bot.loop.create_task(state.stop())
 
-    async def cog_before_invoke(self, ctx: context.Context):
+    async def cog_before_invoke(self, ctx: context.MidoContext):
         ctx.voice_state = self.get_voice_state(ctx.guild.id)
 
     @commands.command(name='connect')
-    async def _join(self, ctx: context.Context):
+    async def _join(self, ctx: context.MidoContext):
         """Make me join a voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise MusicError('You are not connected to any voice channel.')
@@ -294,7 +294,7 @@ class Music(commands.Cog):
         await ctx.message.add_reaction('👍')
 
     @commands.command(name='disconnect', aliases=['destroy', 'd'])
-    async def _leave(self, ctx: context.Context):
+    async def _leave(self, ctx: context.MidoContext):
         """Make me leave the voice channel."""
         if ctx.voice_client:
             await ctx.voice_client.disconnect(force=True)
@@ -308,7 +308,7 @@ class Music(commands.Cog):
             return await ctx.send("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['v'])
-    async def _volume(self, ctx: context.Context, volume: int = None):
+    async def _volume(self, ctx: context.MidoContext, volume: int = None):
         """Change or see the volume."""
         if not ctx.voice_state.is_playing:
             return await ctx.send('Nothing is being played at the moment.')
@@ -323,7 +323,7 @@ class Music(commands.Cog):
         await ctx.send(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
-    async def _now(self, ctx: context.Context):
+    async def _now(self, ctx: context.MidoContext):
         """See what's currently playing."""
         if ctx.voice_state.current:
             await ctx.send(embed=ctx.voice_state.current.create_embed())
@@ -331,7 +331,7 @@ class Music(commands.Cog):
             await ctx.send("I'm not currently playing any music!")
 
     @commands.command(name='pause', aliases=['p'])
-    async def _pause(self, ctx: context.Context):
+    async def _pause(self, ctx: context.MidoContext):
         """Pause the song."""
         if ctx.voice_state.voice.is_paused():
             await ctx.send(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
@@ -344,7 +344,7 @@ class Music(commands.Cog):
             await ctx.send("I'm not currently playing any music!")
 
     @commands.command(name='resume')
-    async def _resume(self, ctx: context.Context):
+    async def _resume(self, ctx: context.MidoContext):
         if not ctx.voice_state.voice.is_paused():
             await ctx.send("It's not paused! Use `{ctx.prefix}pause` to pause.")
 
@@ -356,7 +356,7 @@ class Music(commands.Cog):
             await ctx.send("I'm not currently playing any music!")
 
     @commands.command(name='stop')
-    async def _stop(self, ctx: context.Context):
+    async def _stop(self, ctx: context.MidoContext):
         """Stop playing and clear the queue."""
 
         if ctx.voice_state.is_playing:
@@ -367,7 +367,7 @@ class Music(commands.Cog):
             await ctx.send("I'm not currently playing any music!")
 
     @commands.command(name='skip', aliases=['next'])
-    async def _skip(self, ctx: context.Context):
+    async def _skip(self, ctx: context.MidoContext):
         """Skip the currently playing song.
         A number of skip votes are required depending on how many people there are in the voice channel.
         Server moderators can use the `forceskip` command to force this action."""
@@ -405,7 +405,7 @@ class Music(commands.Cog):
 
     @commands.command(name='forceskip', aliases=['fskip'])
     @commands.has_permissions(manage_guild=True)
-    async def _force_skip(self, ctx: context.Context):
+    async def _force_skip(self, ctx: context.MidoContext):
         """Skip the currently playing song without requiring votes.
 
         You need the **Manage Server** permission to use this command."""
@@ -416,7 +416,7 @@ class Music(commands.Cog):
         ctx.voice_state.skip()
 
     @commands.command(name='queue', aliases=['q'])
-    async def _queue(self, ctx: context.Context):
+    async def _queue(self, ctx: context.MidoContext):
         """See the current song queue."""
         if len(ctx.voice_state.songs) == 0:
             return await ctx.send(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
@@ -445,7 +445,7 @@ class Music(commands.Cog):
         await menu_stuff.paginate(self.bot, ctx, embed, blocks, item_per_page=5, add_page_info_to='author')
 
     @commands.command(name='shuffle')
-    async def _shuffle(self, ctx: context.Context):
+    async def _shuffle(self, ctx: context.MidoContext):
         """Shuffle the song queue."""
         if len(ctx.voice_state.songs) == 0:
             return await ctx.send('Empty queue.')
@@ -454,7 +454,7 @@ class Music(commands.Cog):
         await ctx.message.add_reaction('✅')
 
     @commands.command(name='remove')
-    async def _remove(self, ctx: context.Context, index: int):
+    async def _remove(self, ctx: context.MidoContext, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_state.songs) == 0:
             return await ctx.send('Empty queue.')
@@ -479,7 +479,7 @@ class Music(commands.Cog):
     #     await ctx.message.add_reaction('✅')
 
     @commands.command(name='play')
-    async def _play(self, ctx: context.Context, *, search: str):
+    async def _play(self, ctx: context.MidoContext, *, search: str):
         """Queue a song to play!"""
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise MusicError('You are not connected to any voice channel.')

@@ -81,7 +81,7 @@ class MidoBot(commands.AutoShardedBot):
         await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
     async def process_commands(self, message):
-        ctx = await self.get_context(message, cls=context.Context)
+        ctx = await self.get_context(message, cls=context.MidoContext)
 
         if ctx.command is None:
             return
