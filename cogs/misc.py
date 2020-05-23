@@ -297,7 +297,7 @@ class Misc(commands.Cog):
                         inline=True)
 
         embed.add_field(name="Uptime",
-                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds),
+                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds, sep='\n'),
                         inline=True)
 
         embed.set_footer(icon_url=mido.avatar_url,
