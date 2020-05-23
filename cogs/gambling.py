@@ -54,6 +54,7 @@ class Gambling(commands.Cog):
         if user:
             user_db = await UserDB.get_or_create(ctx.db, user.id)
         else:
+            user = ctx.author
             user_db = ctx.user_db
 
         await ctx.send(f"**{user}** has **{user_db.cash}$**!")
@@ -112,6 +113,9 @@ class Gambling(commands.Cog):
     @commands.guild_only()
     async def give_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
         """Give a specific amount of cash to someone else."""
+        if member.id == ctx.author.id:
+            return await ctx.send("Why'd you send money to yourself?")
+
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
@@ -140,10 +144,10 @@ class Gambling(commands.Cog):
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
         if bet_amount > ctx.user_db.cash:
-            raise commands.BadArgument("You can't bet more than you have!")
+            raise commands.BadArgument("The amount can not be more than you have!")
 
         elif bet_amount <= 0:
-            raise commands.BadArgument("The bet amount can not be less than 0!")
+            raise commands.BadArgument("The amount can not be less than or equal to 0!")
 
         else:
             await ctx.user_db.remove_cash(bet_amount)

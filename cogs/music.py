@@ -138,7 +138,7 @@ class Song:
             e.add_field(name="Like/Dislike Count",
                         value="{:,}/{:,}\n(**{:.2f}%**)".format(likes, dislikes, (likes * 100 / (likes + dislikes))))
 
-        e.set_footer(text=f"Volume: {self.source.volume}%",
+        e.set_footer(text=f"Volume: {int(self.source.volume * 100)}%",
                      icon_url="https://i.imgur.com/T0532pn.png")
         e.set_thumbnail(url=self.source.thumbnail)
 
@@ -277,7 +277,7 @@ class Music(commands.Cog):
     async def cog_before_invoke(self, ctx: context.MidoContext):
         ctx.voice_state = self.get_voice_state(ctx.guild_db)
 
-    @commands.command(name='connect')
+    @commands.command(name='connect', aliases=['join'])
     async def _join(self, ctx: context.MidoContext):
         """Make me join a voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
@@ -294,7 +294,7 @@ class Music(commands.Cog):
         ctx.voice_state.voice = await destination.connect()
         await ctx.message.add_reaction('👍')
 
-    @commands.command(name='disconnect', aliases=['destroy', 'd'])
+    @commands.command(name='disconnect', aliases=['leave', 'destroy', 'd'])
     async def _leave(self, ctx: context.MidoContext):
         """Make me leave the voice channel."""
         if ctx.voice_client:
@@ -314,11 +314,14 @@ class Music(commands.Cog):
         if not ctx.voice_state.is_playing:
             return await ctx.send('Nothing is being played at the moment.')
 
-        if not volume:
+        if volume is None:
             return await ctx.send(f'Current volume: **{ctx.voice_state.volume}**%')
 
-        if 0 > volume > 100:
-            return await ctx.send('Volume must be between 0 and 100!')
+        elif volume == 0:
+            return await ctx.send(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
+
+        elif volume < 0 or volume > 100:
+            return await ctx.send('The volume must be **between 0 and 100!**')
 
         ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
@@ -349,7 +352,7 @@ class Music(commands.Cog):
     @commands.command(name='resume')
     async def _resume(self, ctx: context.MidoContext):
         if not ctx.voice_state.voice.is_paused():
-            await ctx.send("It's not paused! Use `{ctx.prefix}pause` to pause.")
+            await ctx.send(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
 
         elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.resume()
@@ -373,7 +376,8 @@ class Music(commands.Cog):
     async def _skip(self, ctx: context.MidoContext):
         """Skip the currently playing song.
         A number of skip votes are required depending on how many people there are in the voice channel.
-        Server moderators can use the `forceskip` command to force this action."""
+        **Server moderators can use `{0.prefix}forceskip` to force this action.**
+        """
         if not ctx.voice_state.is_playing:
             return await ctx.send('Not playing any music right now...')
 
