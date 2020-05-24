@@ -21,7 +21,18 @@ class XpAnnouncement(Enum):
     GUILD = 2
 
 
-class ModLog:
+class BaseDBModel:
+    def __init__(self, data: Record, db: pool.Pool):
+        self.db = db
+        self.data = data
+
+        self.id = data.get('id')
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+
+class ModLog(BaseDBModel):
     class Type(Enum):
         MUTE = 0
         UNMUTE = 1
@@ -30,10 +41,7 @@ class ModLog:
         UNBAN = 3
 
     def __init__(self, modlog_db: Record, db_conn: pool.Pool):
-        self._db = db_conn
-        self.data = modlog_db
-
-        self.id = modlog_db.get('id')
+        super(ModLog, self).__init__(modlog_db, db_conn)
 
         self.guild_id = modlog_db.get('guild_id')
         self.user_id = modlog_db.get('user_id')
@@ -42,9 +50,10 @@ class ModLog:
         self.reason = modlog_db.get('reason')
         self.executor_id = modlog_db.get('executor_id')
 
-        self.date = modlog_db.get('date')
         self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
-        self.time_status = MidoTime.add_to_previous_date_and_get(self.date, modlog_db.get('length_in_seconds'))
+        self.time_status = MidoTime.add_to_previous_date_and_get(
+            modlog_db.get('date'), modlog_db.get('length_in_seconds')
+        )
 
         self.done = modlog_db.get('done')
 
@@ -89,13 +98,13 @@ class ModLog:
         return cls(new_modlog_db, db_conn)
 
     async def delete_from_db(self):
-        await self._db.execute("""DELETE from modlogs WHERE id=$1;""", self.id)
+        await self.db.execute("""DELETE from modlogs WHERE id=$1;""", self.id)
 
     async def complete(self):
-        await self._db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
+        await self.db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
 
     async def change_reason(self, new_reason: str):
-        await self._db.execute("""UPDATE modlogs SET reason=$1 WHERE id=$2;""", new_reason, self.id)
+        await self.db.execute("""UPDATE modlogs SET reason=$1 WHERE id=$2;""", new_reason, self.id)
 
     @staticmethod
     async def hide_logs(db: pool.Pool, guild_id: int, user_id: int):
@@ -120,13 +129,10 @@ def calculate_xp_data(total_xp: int):
     return lvl, total_xp - used_xp, required_xp_to_level_up
 
 
-class UserDB:
+class UserDB(BaseDBModel):
     def __init__(self, user_db: Record, db_conn: pool.Pool):
-        self._db = db_conn
+        super(UserDB, self).__init__(user_db, db_conn)
 
-        self.data = user_db
-
-        self.id: int = user_db.get('id')
         self.cash: int = user_db.get('cash')
 
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
@@ -148,15 +154,17 @@ class UserDB:
         return cls(user_db, db)
 
     async def change_level_up_preference(self, new_preference: XpAnnouncement):
-        await self._db.execute("""UPDATE users SET level_up_notification=$1 WHERE id=$2;""", new_preference.value, self.id)
+        await self.db.execute(
+            """UPDATE users SET level_up_notification=$1 WHERE id=$2;""",
+            new_preference.value, self.id)
 
     async def add_cash(self, amount: int, daily=False) -> int:
         if daily:
-            await self._db.execute(
+            await self.db.execute(
                 """UPDATE users SET cash = cash + $1, last_daily_claim=$2 where id=$3;""",
                 amount, datetime.now(timezone.utc), self.id)
         else:
-            await self._db.execute(
+            await self.db.execute(
                 """UPDATE users SET cash = cash + $1 where id=$2;""",
                 amount, self.id)
 
@@ -164,7 +172,7 @@ class UserDB:
         return self.cash
 
     async def remove_cash(self, amount: int) -> int:
-        await self._db.execute(
+        await self.db.execute(
             """UPDATE users SET cash = cash - $1 where id=$2;""", amount, self.id)
 
         self.cash -= amount
@@ -175,7 +183,7 @@ class UserDB:
             raise OnCooldown(f"You're still on cooldown! "
                              f"Try again after **{self.xp_status.remaining_string}**.")
         else:
-            await self._db.execute(
+            await self.db.execute(
                 """UPDATE users SET xp = xp + $1, last_xp_gain = $2 where id=$3""",
                 amount, datetime.now(timezone.utc), self.id)
 
@@ -185,7 +193,7 @@ class UserDB:
             return self.total_xp
 
     async def remove_xp(self, amount: int) -> int:
-        await self._db.execute(
+        await self.db.execute(
             """UPDATE users SET xp = xp - $1 where id=$2""",
             amount, self.id)
 
@@ -193,7 +201,7 @@ class UserDB:
         return self.total_xp
 
     async def get_xp_rank(self) -> int:
-        result = await self._db.fetchrow("""
+        result = await self.db.fetchrow("""
             WITH counts AS (
                 SELECT DISTINCT
                     id,
@@ -211,17 +219,14 @@ class UserDB:
         return result['row_number']
 
     async def get_top_10(self):
-        top_10 = await self._db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
-        return [UserDB(user, self._db) for user in top_10]
+        top_10 = await self.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
+        return [UserDB(user, self.db) for user in top_10]
 
 
-class MemberDB:
+class MemberDB(BaseDBModel):
     def __init__(self, member_db: Record, db_conn: pool.Pool):
-        self._db = db_conn
+        super(MemberDB, self).__init__(member_db, db_conn)
 
-        self.data = member_db
-
-        self.id: int = member_db.get('user_id')
         self.guild: GuildDB = None
         self.user: UserDB = None
 
@@ -254,7 +259,7 @@ class MemberDB:
             raise OnCooldown(f"You're still on cooldown! "
                              f"Try again after **{self.xp_date_status.remaining_string}**.")
         else:
-            await self._db.execute(
+            await self.db.execute(
                 """UPDATE members SET xp = xp + $1, last_xp_gain = $2 where guild_id=$3 and user_id=$4""",
                 amount, datetime.now(timezone.utc), self.guild.id, self.id)
 
@@ -264,7 +269,7 @@ class MemberDB:
             return self.total_xp
 
     async def remove_xp(self, amount: int) -> int:
-        await self._db.execute(
+        await self.db.execute(
             """UPDATE members SET xp = xp - $1 WHERE guild_id=$2 AND user_id=$3;""",
             amount, self.guild.id, self.id)
 
@@ -272,7 +277,7 @@ class MemberDB:
         return self.total_xp
 
     async def get_xp_rank(self) -> int:
-        result = await self._db.fetchrow("""
+        result = await self.db.fetchrow("""
             WITH counts AS (
                 SELECT DISTINCT
                     guild_id,
@@ -291,13 +296,10 @@ class MemberDB:
         return result['row_number']
 
 
-class GuildDB:
+class GuildDB(BaseDBModel):
     def __init__(self, guild_db: Record, db_conn: pool.Pool):
-        self._db = db_conn
+        super(GuildDB, self).__init__(guild_db, db_conn)
 
-        self.data: Record = guild_db
-
-        self.id: int = guild_db.get('id')
         self.prefix: str = guild_db.get('prefix')
 
         self.delete_commands: bool = guild_db.get('delete_commands')
@@ -316,18 +318,18 @@ class GuildDB:
         return cls(guild_db, db)
 
     async def change_prefix(self, new_prefix: str) -> str:
-        await self._db.execute(
+        await self.db.execute(
             """UPDATE guilds SET prefix=$1 where id=$2;""", new_prefix, self.id)
 
         self.prefix = new_prefix
         return self.prefix
 
     async def change_volume(self, new_volume: int):
-        await self._db.execute("""UPDATE guilds SET volume=$1 WHERE id=$2;""", new_volume, self.id)
+        await self.db.execute("""UPDATE guilds SET volume=$1 WHERE id=$2;""", new_volume, self.id)
         self.volume = new_volume
 
     async def toggle_delete_commands(self) -> bool:
-        await self._db.execute(
+        await self.db.execute(
             """
             UPDATE guilds 
             SET delete_commands = NOT delete_commands
@@ -339,7 +341,7 @@ class GuildDB:
         return self.delete_commands
 
     async def toggle_level_up_notifs(self) -> bool:
-        await self._db.execute(
+        await self.db.execute(
             """
             UPDATE guilds 
             SET level_up_notifs_silenced = NOT level_up_notifs_silenced
@@ -351,6 +353,52 @@ class GuildDB:
         return self.level_up_notifs_silenced
 
     async def get_top_10(self) -> List[MemberDB]:
-        top_10 = await self._db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
-                                      self.id)
-        return [MemberDB(user, self._db) for user in top_10]
+        top_10 = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
+                                     self.id)
+        return [MemberDB(user, self.db) for user in top_10]
+
+
+class Reminder(BaseDBModel):
+    class ChannelType(Enum):
+        DM = 0
+        TEXT_CHANNEL = 1
+
+    def __init__(self, data: Record, db: pool.Pool):
+        super(Reminder, self).__init__(data, db)
+
+        self.author_id: int = data.get('author_id')
+
+        self.channel_id: int = data.get('channel_id')
+        self.channel_type = self.ChannelType(data.get('channel_type'))
+
+        self.content: str = data.get('content')
+
+        self.time_obj: MidoTime = MidoTime.add_to_previous_date_and_get(
+            data.get('creation_date'), data.get('length_in_seconds')
+        )
+
+        self.done: bool = data.get('done')
+
+    @classmethod
+    async def create(cls,
+                     db: pool.Pool,
+                     author_id: int,
+                     channel_id: int,
+                     channel_type: ChannelType,
+                     content: str,
+                     date_obj: MidoTime):
+        created = await db.fetchrow(
+            """INSERT INTO 
+            reminders(channel_id, channel_type, length_in_seconds, author_id, content) 
+            VALUES ($1, $2, $3, $4, $5) RETURNING *;""",
+            channel_id, channel_type.value, date_obj.initial_remaining_seconds, author_id, content)
+
+        return cls(created, db)
+
+    @classmethod
+    async def get_uncompleted_reminders(cls, db: pool.Pool):
+        reminders = await db.fetch("""SELECT * FROM reminders WHERE done IS NOT TRUE;""")
+        return [cls(reminder, db) for reminder in reminders]
+
+    async def complete(self):
+        await self.db.execute("""UPDATE reminders SET done=TRUE WHERE id=$1;""", self.id)
