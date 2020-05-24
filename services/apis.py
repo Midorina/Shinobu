@@ -1,5 +1,6 @@
 import json
 import random
+from typing import List
 
 import aiohttp
 from asyncpg.pool import Pool
@@ -16,9 +17,11 @@ class CachedAPI:
     def __init__(self, db: Pool):
         self.db = db
 
-    async def add_to_db(self, api_name: str, url: str) -> None:
-        await self.db.execute("""INSERT INTO api_cache(api_name, url) VALUES ($1, $2) ON CONFLICT DO NOTHING;""",
-                              api_name, url)
+    async def add_to_db(self, api_name: str, urls: List[str]) -> None:
+        if urls:
+            await self.db.executemany(
+                """INSERT INTO api_cache(api_name, url) VALUES ($1, $2) ON CONFLICT DO NOTHING;""",
+                [(api_name, url) for url in urls])
 
 
 class NSFWAPIs(CachedAPI):
@@ -33,6 +36,7 @@ class NSFWAPIs(CachedAPI):
     ]
 
     dapi_links = {
+        'danbooru': 'https://danbooru.donmai.us/posts.json',
         'gelbooru': 'https://gelbooru.com/index.php',
         'rule34': 'https://rule34.xxx/index.php'
     }
@@ -48,16 +52,20 @@ class NSFWAPIs(CachedAPI):
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags]
 
+        elif nsfw_type == 'danbooru':
+            func = self._get_danbooru
+            args = [tags]
+
         else:
             raise Exception
 
         try:
-            fetched_img = await func(*args)
+            fetched_imgs = await func(*args)
         except Exception as e:
             raise e
         else:
-            await self.add_to_db(nsfw_type, fetched_img)
-            return fetched_img
+            await self.add_to_db(nsfw_type, fetched_imgs)
+            return random.choice(fetched_imgs)
 
     def _clean_tags(self, tags):
         cleaned_tags = []
@@ -67,6 +75,12 @@ class NSFWAPIs(CachedAPI):
                 cleaned_tags.append(tag)
 
         return cleaned_tags
+
+    def is_blacklisted(self, tags):
+        for tag in tags:
+            if tag in self.blacklisted_tags:
+                return True
+        return False
 
     @staticmethod
     async def _get_boobs_or_butts(_type='boobs') -> str:
@@ -78,7 +92,9 @@ class NSFWAPIs(CachedAPI):
                 else:
                     raise Exception('Couldn\t fetch image. Please try again later.')
 
-    async def _get_nsfw_dapi(self, dapi='rule34', tags=None) -> str:
+    async def _get_nsfw_dapi(self, dapi='rule34', tags=None) -> List[str]:
+        images = []
+
         tags = self._clean_tags(tags)
         max_range = 200 if dapi == 'gelbooru' else 2000
 
@@ -90,7 +106,7 @@ class NSFWAPIs(CachedAPI):
                     'page': 'dapi',
                     's': 'post',
                     'q': 'index',
-                    'tags': "+".join(tags),
+                    'tags': " ".join(tags),
                     'limit': 100,
                     'json': 1,
                     'pid': rand_page,
@@ -112,10 +128,13 @@ class NSFWAPIs(CachedAPI):
                             else:
                                 continue
 
-                        data = random.choice(filtered)
-
-                        image_url = data.get('file_url')
-                        image_tags = data.get('tags').split(' ')
+                        for data in filtered:
+                            image_url = data.get('file_url')
+                            image_tags = data.get('tags').split(' ')
+                            if self.is_blacklisted(image_tags):
+                                continue
+                            else:
+                                images.append(image_url)
 
                     elif dapi == 'rule34':
                         r = await response.text()
@@ -132,18 +151,36 @@ class NSFWAPIs(CachedAPI):
                             else:
                                 continue
 
-                        data = random.choice(filtered)
-                        image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
-                        image_tags = data.get('tags').split(' ')
+                        for data in filtered:
+                            image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
+                            image_tags = data.get('tags').split(' ')
+                            if self.is_blacklisted(image_tags):
+                                continue
+                            else:
+                                images.append(image_url)
 
-                    # check if it contains a blacklisted tag
-                    blacklisted = False
-                    for tag in image_tags:
-                        if tag in self.blacklisted_tags:
-                            blacklisted = True
-                            break
+                    return images
 
-                    if blacklisted:
+    async def _get_danbooru(self, tags=None):
+        images = []
+
+        if tags:
+            params = {
+                'tags': " ".join(tags)
+            }
+        else:
+            params = {
+                'random': 'true'
+            }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self.dapi_links['danbooru'], params=params) as r:
+                response = await r.json()
+
+                for data in response:
+                    if data['rating'] == 's' or data['file_url'].endswith('.webm') or self.is_blacklisted(data['tag_string'].split()):
                         continue
-                    else:
-                        return image_url
+
+                    images.append(data.get('large_file_url', data['file_url']))
+
+                return images
