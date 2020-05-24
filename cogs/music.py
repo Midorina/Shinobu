@@ -120,8 +120,10 @@ class Song:
         self.requester = source.requester
 
     def create_embed(self):
-        e = discord.Embed(description='```css\n{0.source.title}\n```'.format(self),
-                          color=0x15a34a)
+        e = discord.Embed(
+            # description='```css\n{0.source.title}\n```'.format(self),
+            title=self.source.title,
+            color=0x15a34a)
         e.set_author(
             icon_url="https://cdn.discordapp.com/attachments/244405453948321792/707797956295655434/PngItem_2087614.png",
             name="Now Playing",
@@ -522,6 +524,8 @@ class Music(commands.Cog):
                 else:
                     await msg.edit(content=f'Added **{s_obj.source.title}** to the queue! '
                                            f'You can type `{ctx.prefix}queue` to see it.')
+
+    # TODO: lyrics
 
 
 def setup(bot):
