@@ -1,5 +1,6 @@
 import math
 from datetime import datetime, timezone, timedelta
+from functools import cached_property
 
 from discord.ext.commands import BadArgument
 
@@ -14,17 +15,26 @@ time_multipliers = {
 
 
 class MidoTime:
-    def __init__(self, end_date: datetime, initial_seconds: int = 0):
+    def __init__(self, start_date: datetime, end_date: datetime, initial_seconds: int = 0):
+        self.start_date = start_date
         self.end_date = end_date
 
         self.initial_remaining_seconds = initial_seconds
+
+    @cached_property
+    def start_date_string(self):
+        return self.start_date.strftime('%Y-%m-%d, %H:%M:%S UTC')
+
+    @cached_property
+    def end_date_string(self):
+        return self.end_date.strftime('%Y-%m-%d, %H:%M:%S UTC')
 
     @property
     def end_date_has_passed(self):
         return self.end_date <= datetime.now(timezone.utc)
 
     @property
-    def remaining_in_seconds(self):
+    def remaining_seconds(self):
         remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
 
         if remaining_in_float < 0:
@@ -34,7 +44,7 @@ class MidoTime:
 
     @property
     def remaining_string(self):
-        return self.parse_seconds_to_str(self.remaining_in_seconds)
+        return self.parse_seconds_to_str(self.remaining_seconds)
 
     @property
     def initial_remaining_string(self):
@@ -42,18 +52,26 @@ class MidoTime:
 
     @classmethod
     def add_to_current_date_and_get(cls, seconds: int):
-        end_date = datetime.now(timezone.utc) + timedelta(seconds=seconds)
-        return MidoTime(end_date=end_date, initial_seconds=seconds)
+        now = datetime.now(timezone.utc)
+        end_date = now + timedelta(seconds=seconds)
+        return MidoTime(start_date=now,
+                        end_date=end_date,
+                        initial_seconds=seconds)
 
     @classmethod
     def add_to_previous_date_and_get(cls, previous_date: datetime, seconds: int):
         if not previous_date:
-            return MidoTime(end_date=datetime(2000, 1, 1, tzinfo=timezone.utc), initial_seconds=seconds)
+            really_old_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
+            return MidoTime(start_date=really_old_date,
+                            end_date=really_old_date,
+                            initial_seconds=seconds)
         if not seconds:
             return None
         else:
             end_date = previous_date + timedelta(seconds=seconds)
-            return MidoTime(end_date=end_date, initial_seconds=seconds)
+            return MidoTime(start_date=previous_date,
+                            end_date=end_date,
+                            initial_seconds=seconds)
 
     @staticmethod
     def parse_seconds_to_str(total_seconds: float = 0, short: bool = False, sep=' ') -> str:
@@ -143,4 +161,4 @@ class MidoTime:
         return self.remaining_string
 
     def __repr__(self):
-        return self.remaining_in_seconds
+        return self.remaining_seconds

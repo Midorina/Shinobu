@@ -343,7 +343,7 @@ class Moderation(commands.Cog):
 
         log_blocks = []
         for log in logs:
-            log_description = f"**Case ID:** `{log.id}` {log.date.strftime('%Y-%m-%d, %H:%M:%S UTC')}\n" \
+            log_description = f"**Case ID:** `{log.id}` {log.time_status.start_date_string}\n" \
                               f"**Action:** {log.type.name.title()} {action_emotes[log.type.name.lower()]}\n"
 
             if log.length_string:
