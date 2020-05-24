@@ -19,6 +19,12 @@ class ReminderCog(commands.Cog):
 
         self.bot.loop.create_task(self.check_db_reminders())
 
+    async def check_db_reminders(self):
+        reminders = await Reminder.get_uncompleted_reminders(self.bot.db)
+
+        for reminder in reminders:
+            self.add_reminder(reminder)
+
     async def complete_reminder(self, reminder: Reminder):
         # sleep until its time
         await asyncio.sleep(delay=reminder.time_obj.remaining_seconds)
@@ -54,20 +60,12 @@ class ReminderCog(commands.Cog):
                 task.cancel()
                 self.active_reminders.remove(task)
 
-    async def check_db_reminders(self):
-        reminders = await Reminder.get_uncompleted_reminders(self.bot.db)
-        if not reminders:
-            return
-
-        for reminder in reminders:
-            self.add_reminder(reminder)
-
     @commands.command()
     async def remind(self,
                      ctx: MidoContext,
                      channel: Union[discord.TextChannel, str],
                      length: MidoTime,
-                     *, message: str):
+                     *, message: commands.clean_content):
         """Adds a reminder.
 
         Use `me` as the channel to get the reminder in your DMs.
@@ -107,7 +105,7 @@ class ReminderCog(commands.Cog):
         reminder = await Reminder.create(ctx.db, author_id=ctx.author.id,
                                          channel_id=channel_id,
                                          channel_type=channel_type,
-                                         content=message,
+                                         content=str(message),
                                          date_obj=length)
         self.add_reminder(reminder)
 

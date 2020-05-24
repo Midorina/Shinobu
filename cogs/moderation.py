@@ -65,7 +65,7 @@ class Moderation(commands.Cog):
         await self.bot.wait_until_ready()
 
     @staticmethod
-    def get_reason_string(reason=None):
+    def get_reason_string(reason=None) -> str:
         return f' with reason: `{reason}`' if reason else '.'
 
     @staticmethod
@@ -130,7 +130,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx: MidoContext, target: BetterMemberconverter(), *, reason: str = None):
+    async def kick(self, ctx: MidoContext, target: BetterMemberconverter(), *, reason: commands.clean_content = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
@@ -157,7 +157,7 @@ class Moderation(commands.Cog):
                   ctx: MidoContext,
                   target: BetterMemberconverter(),
                   length: typing.Union[MidoTime, str] = None,
-                  *, reason: str = None):
+                  *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
 
         **Examples:**
@@ -206,7 +206,7 @@ class Moderation(commands.Cog):
     async def unban(self,
                     ctx: MidoContext,
                     target: BetterMemberconverter(),
-                    *, reason: str = None):
+                    *, reason: commands.clean_content = None):
         """Unbans a banned user.
 
         You need Ban Members permission to use this command.
@@ -240,7 +240,7 @@ class Moderation(commands.Cog):
                    ctx: MidoContext,
                    target: BetterMemberconverter(),
                    length: typing.Union[MidoTime, str] = None,
-                   *, reason: str = None):
+                   *, reason: commands.clean_content = None):
         """Mutes a user for a specified period of time or indefinitely.
 
         **Examples:**
@@ -295,7 +295,7 @@ class Moderation(commands.Cog):
     async def unmute(self,
                      ctx: MidoContext,
                      target: BetterMemberconverter(),
-                     *, reason: str = None):
+                     *, reason: commands.clean_content = None):
         """Unmutes a muted user.
 
         You need Manage Roles permission to use this command.
@@ -385,7 +385,7 @@ class Moderation(commands.Cog):
     async def reason(self,
                      ctx: MidoContext,
                      case_id: int,
-                     *, new_reason: str = None):
+                     *, new_reason: commands.clean_content = None):
         """Update the reason of a case using its ID.
 
         You either need to be the executor of the case or have Administrator permission to use this command.
