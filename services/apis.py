@@ -4,9 +4,10 @@ from typing import List
 
 import aiohttp
 from asyncpg.pool import Pool
+from discord.ext.commands import CommandError
 
 
-class NotFoundError(Exception):
+class NotFoundError(CommandError):
     pass
 
 
@@ -59,13 +60,10 @@ class NSFWAPIs(CachedAPI):
         else:
             raise Exception
 
-        try:
-            fetched_imgs = await func(*args)
-        except Exception as e:
-            raise e
-        else:
-            await self.add_to_db(nsfw_type, fetched_imgs)
-            return random.choice(fetched_imgs)
+        fetched_imgs = await func(*args)
+
+        await self.add_to_db(nsfw_type, fetched_imgs)
+        return random.choice(fetched_imgs)
 
     def _clean_tags(self, tags):
         cleaned_tags = []
@@ -177,8 +175,14 @@ class NSFWAPIs(CachedAPI):
             async with session.get(self.dapi_links['danbooru'], params=params) as r:
                 response = await r.json()
 
+                if not response:
+                    raise NotFoundError
+
                 for data in response:
-                    if data['rating'] == 's' or data['file_url'].endswith('.webm') or self.is_blacklisted(data['tag_string'].split()):
+                    if 'file_url' not in data.keys() \
+                            or data['rating'] == 's' \
+                            or data['file_url'].endswith('.webm') \
+                            or self.is_blacklisted(data['tag_string'].split()):
                         continue
 
                     images.append(data.get('large_file_url', data['file_url']))

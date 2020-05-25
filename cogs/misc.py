@@ -110,7 +110,7 @@ class MidoHelp(commands.HelpCommand):
 
             total += len(_commands)
             e.add_field(name=f"**__{str(cog)}__**",
-                        value="\n".join([f'`{self.context.prefix}{c.name}`' for c in _commands]),
+                        value="\n".join([f'{self.context.prefix}**{c.name}**' for c in _commands]),
                         inline=True)
 
         await self.context.send(embed=e)

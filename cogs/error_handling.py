@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from main import MidoBot
+from services.apis import NotFoundError
 from services.context import MidoContext
 
 
@@ -19,6 +20,7 @@ class Errors(commands.Cog):
         ignored = (
             commands.CommandNotFound,
             discord.NotFound,
+            NotFoundError
         )
 
         error = getattr(error, 'original', error)
