@@ -41,6 +41,7 @@ class Searches(commands.Cog):
             word_list = await self.urban.search(search, limit=5)
         except asyncurban.WordNotFoundError:
             return await ctx.send("Could not find any definition.")
+
         blocks = list()
 
         e = base_embed.BaseEmbed(self.bot)

@@ -164,19 +164,18 @@ class NSFWAPIs(CachedAPI):
 
         if tags:
             params = {
+                'limit': 200,
                 'tags': " ".join(tags)
             }
         else:
             params = {
+                'limit': 200,
                 'random': 'true'
             }
 
         async with aiohttp.ClientSession() as session:
             async with session.get(self.dapi_links['danbooru'], params=params) as r:
                 response = await r.json()
-
-                if not response:
-                    raise NotFoundError
 
                 for data in response:
                     if 'file_url' not in data.keys() \
@@ -187,4 +186,7 @@ class NSFWAPIs(CachedAPI):
 
                     images.append(data.get('large_file_url', data['file_url']))
 
-                return images
+                if not images:
+                    raise NotFoundError
+                else:
+                    return images
