@@ -448,7 +448,7 @@ class Moderation(commands.Cog):
         if not logs:
             return await ctx.send("No logs have been found for that user.")
 
-        e = base_embed.BaseEmbed(self.bot)
+        e = BaseEmbed(self.bot)
         e.set_author(icon_url=getattr(target, 'avatar_url', None),
                      name=f"Logs of {target}")
         e.set_footer(text=f"{len(logs)} Logs")
@@ -525,17 +525,62 @@ class Moderation(commands.Cog):
 
         You need the **Manage Roles** permissions to use this command.
         """
-        e = BaseEmbed(self.bot, footer=False)
 
+        # already has that role check
         if role in member.roles:
-            e.description = f"Member {member.mention} already has the {role.mention} role."
-            e.color = discord.Colour.red()
-            return await ctx.send(embed=e)
+            return await ctx.send_error(f"Member {member.mention} already has the {role.mention} role.")
+
+        # author top role check
+        top_member_role = ctx.author.top_role
+        if role.position >= top_member_role.position and ctx.guild.owner != ctx.author:
+            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
+                                        f"to your top role ({top_member_role.mention}). "
+                                        f"You can't give it to others.")
+
+        # bot top role check
+        my_top_role = ctx.guild.me.top_role
+        if role.position >= my_top_role.position:
+            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
+                                        f"to my top role ({my_top_role.mention}). "
+                                        f"I can't give it to others.")
 
         await member.add_roles(role)
 
-        e.description = f"Role {role.mention} has been successfully given to {member.mention}."
-        await ctx.send(embed=e)
+        await ctx.send(f"Role {role.mention} has been successfully given to {member.mention}.")
+
+    @commands.command(aliases=['rr'])
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    async def removerole(self,
+                         ctx: MidoContext,
+                         member: MidoMemberConverter(),
+                         role: MidoRoleConverter()):
+        """Remove a role from a member.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+
+        # if they dont have the role
+        if role not in member.roles:
+            return await ctx.send_error(f"Member {member.mention} don't have the {role.mention} role.")
+
+        # author top role check
+        top_member_role = ctx.author.top_role
+        if role.position >= top_member_role.position and ctx.guild.owner != ctx.author:
+            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
+                                        f"to your top role ({top_member_role.mention}). "
+                                        f"You can't remove it from others.")
+
+        # bot top role check
+        my_top_role = ctx.guild.me.top_role
+        if role.position >= my_top_role.position:
+            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
+                                        f"to my top role ({my_top_role.mention}). "
+                                        f"I can't remove it from others.")
+
+        await member.remove_roles(role)
+
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
 
 def setup(bot):
