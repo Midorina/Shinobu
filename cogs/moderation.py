@@ -3,7 +3,7 @@ import typing
 import discord
 from discord.ext import commands, tasks
 
-from db.models import ModLog
+from db.models import ModLog, GuildDB
 from main import MidoBot
 from services import base_embed, menu_stuff
 from services.context import MidoContext
@@ -22,6 +22,117 @@ class Moderation(commands.Cog):
         self.bot = bot
 
         self.check_modlogs.start()
+
+    @staticmethod
+    def parse_welcome_bye_msg(member: discord.Member, msg: str):
+        placeholders = {
+            "{member_name}": member.display_name,
+            "{member_name_discrim}": str(member),
+            "{member_mention}": member.mention,
+
+            "{server_name}": str(member.guild),
+            "{server_member_count}": member.guild.member_count
+        }
+
+        for k, v in placeholders.items():
+            msg = msg.replace(k, str(v))
+
+        return msg
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
+        if guild_db.welcome_channel_id:
+            channel = self.bot.get_channel(guild_db.welcome_channel_id)
+            await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.welcome_message))
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
+        if guild_db.bye_channel_id:
+            channel = self.bot.get_channel(guild_db.bye_channel_id)
+            await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.bye_message))
+
+    @commands.command(aliases=['greet'])
+    @commands.guild_only()
+    async def welcome(self,
+                      ctx: MidoContext,
+                      channel: discord.TextChannel = None, *,
+                      message: commands.clean_content = None):
+        """Setup a channel to welcome new members with a customized message.
+
+        **To use the default message**, leave the welcome message empty.
+        **To disable this feature**, use the command without inputting any arguments.
+
+        Available placeholders:
+        `{{member_name}}` -> Inserts the name of the new member.
+        `{{member_name_discrim}}` -> Inserts the name and discriminator of the new member.
+        `{{member_mention}}` -> Mentions the new member.
+        `{{server_name}}` -> Inserts the name of the server.
+        `{{server_member_count}}` -> Inserts the member count of the server.
+
+        Examples:
+        `{0.prefix}welcome #welcome`
+        (welcomes new members in #welcome using the default message)
+        `{0.prefix}welcome #welcome Welcome {{member_name}}!`
+        (welcomes new members in #welcome using a customized message)
+        `{0.prefix}welcome`
+        (disables this feature)
+        """
+        if not channel:
+            if not ctx.guild_db.welcome_channel_id:
+                return await ctx.send("Welcome feature has already been disabled.")
+            else:
+                await ctx.guild_db.set_welcome(channel_id=None)
+                return await ctx.send("Welcome feature has been successfully disabled.")
+        else:
+            if not message:
+                message = 'Hey {member_mention}! Welcome to **{server_name}**.'
+
+            await ctx.guild_db.set_welcome(channel_id=channel.id, msg=message)
+            await ctx.send(f"Success! New members will be welcomed in {channel.mention} with this mesage:\n"
+                           f"`{message}`")
+
+    @commands.command(aliases=['goodbye'])
+    @commands.guild_only()
+    async def bye(self,
+                  ctx: MidoContext,
+                  channel: discord.TextChannel = None, *,
+                  message: commands.clean_content = None):
+        """Setup a channel to say goodbye to members that leave with a customized message.
+
+        **To use the default message**, leave the goodbye message empty.
+        **To disable this feature**, use the command without inputting any arguments.
+
+        Available placeholders:
+        `{{member_name}}` -> Inserts the name of the member that left.
+        `{{member_name_discrim}}` -> Inserts the name and discriminator of the member that left.
+        `{{member_mention}}` -> Mentions the member that left.
+        `{{server_name}}` -> Inserts the name of the server.
+        `{{server_member_count}}` -> Inserts the member count of the server.
+
+        **Examples:**
+        `{0.prefix}bye #bye`
+        (says goodbye in #bye to members that left using the default message)
+        `{0.prefix}bye #bye It's sad to see you go {{member_name}}...`
+        (says goodbye in #bye to members that left using a customized message)
+        `{0.prefix}bye`
+        (disables this feature)
+        """
+        if not channel:
+            if not ctx.guild_db.bye_channel_id:
+                return await ctx.send("Goodbye feature has already been disabled.")
+            else:
+                await ctx.guild_db.set_bye(channel_id=None)
+                return await ctx.send("Goodbye feature has been successfully disabled.")
+        else:
+            if not message:
+                message = '{member_name_discrim} just left the server...'
+
+            await ctx.guild_db.set_bye(channel_id=channel.id, msg=message)
+            await ctx.send(f"Success! "
+                           f"I'll now say goodbye in {channel.mention} to members that leave with this mesage:\n"
+                           f"`{message}`")
 
     @tasks.loop(seconds=30.0)
     async def check_modlogs(self):

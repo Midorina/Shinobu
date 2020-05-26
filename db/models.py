@@ -305,6 +305,13 @@ class GuildDB(BaseDBModel):
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
 
+        # welcome
+        self.welcome_channel_id: int = guild_db.get('welcome_channel_id')
+        self.welcome_message: str = guild_db.get('welcome_message')
+        # bye
+        self.bye_channel_id: int = guild_db.get('bye_channel_id')
+        self.bye_message: str = guild_db.get('bye_message')
+
         self.volume: int = guild_db.get('volume')
 
     @classmethod
@@ -356,6 +363,16 @@ class GuildDB(BaseDBModel):
         top_10 = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
                                      self.id)
         return [MemberDB(user, self.db) for user in top_10]
+
+    async def set_welcome(self, channel_id: int = None, msg: str = None):
+        await self.db.execute(
+            """UPDATE guilds SET welcome_channel_id=$1, welcome_message=$2 WHERE id=$3;""",
+            channel_id, msg, self.id)
+
+    async def set_bye(self, channel_id: int = None, msg: str = None):
+        await self.db.execute(
+            """UPDATE guilds SET bye_channel_id=$1, bye_message=$2 WHERE id=$3;""",
+            channel_id, msg, self.id)
 
 
 class Reminder(BaseDBModel):
