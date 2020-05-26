@@ -6,8 +6,7 @@ from typing import List
 import discord
 
 
-def filter_blocks(blocks: List[str],
-                  extra_sep='') -> List[str]:
+def filter_blocks(blocks: List[str], extra_sep='') -> List[str]:
     filtered_blocks = list()
 
     for block in blocks:
@@ -37,7 +36,7 @@ def filter_blocks(blocks: List[str],
     #         filtered_blocks[i] = filtered_blocks[i].replace('[', '**').replace(']', '**')
 
     if extra_sep:
-        filtered_blocks = map(lambda x: x + extra_sep, filtered_blocks)
+        filtered_blocks = [x + extra_sep for x in filtered_blocks]
 
     return filtered_blocks
 
