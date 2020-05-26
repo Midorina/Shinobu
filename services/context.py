@@ -28,16 +28,21 @@ class MidoContext(commands.Context):
         embed = BaseEmbed(bot=self.bot,
                           color=discord.Colour.red(),
                           description=error_message)
-        await self.send(embed=embed)
+        return await self.send(embed=embed)
 
     async def send_success(self, sucess_message: str):
         embed = BaseEmbed(bot=self.bot,
                           description=sucess_message)
-        await self.send(embed=embed)
+        return await self.send(embed=embed)
+
+    @staticmethod
+    async def edit_custom(message_object: discord.Message, new_message: str):
+        embed = message_object.embeds[0]
+        embed.description = new_message
+        await message_object.edit(embed=embed)
 
     async def send_help(self, entity=None, content=''):
-        """This method overwrites the library's method to provide extra content to the help message.
-        """
+        """This method overwrites the library's method to provide extra content to the help message."""
         from discord.ext.commands import Group, Command, CommandError
         from discord.ext.commands.core import wrap_callback
 

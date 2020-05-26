@@ -4,14 +4,14 @@ from typing import Union
 import discord
 from discord.ext import commands
 
-from db.models import Reminder
+from db.models import ReminderDB
 from main import MidoBot
 from services.base_embed import BaseEmbed
 from services.context import MidoContext
 from services.time import MidoTime
 
 
-class ReminderCog(commands.Cog):
+class Reminder(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -20,18 +20,18 @@ class ReminderCog(commands.Cog):
         self.bot.loop.create_task(self.check_db_reminders())
 
     async def check_db_reminders(self):
-        reminders = await Reminder.get_uncompleted_reminders(self.bot.db)
+        reminders = await ReminderDB.get_uncompleted_reminders(self.bot.db)
 
         for reminder in reminders:
             self.add_reminder(reminder)
 
-    async def complete_reminder(self, reminder: Reminder):
+    async def complete_reminder(self, reminder: ReminderDB):
         # sleep until its time
         await asyncio.sleep(delay=reminder.time_obj.remaining_seconds)
 
         author = self.bot.get_user(reminder.author_id)
 
-        if reminder.channel_type == Reminder.ChannelType.DM:
+        if reminder.channel_type == ReminderDB.ChannelType.DM:
             channel = self.bot.get_user(reminder.channel_id)
         else:
             channel = self.bot.get_channel(reminder.channel_id)
@@ -48,12 +48,12 @@ class ReminderCog(commands.Cog):
         await channel.send(embed=e)
         await reminder.complete()
 
-    def add_reminder(self, reminder: Reminder):
+    def add_reminder(self, reminder: ReminderDB):
         task = self.bot.loop.create_task(self.complete_reminder(reminder), name=reminder.id)
 
         self.active_reminders.append(task)
 
-    def cancel_reminder(self, reminder: Reminder):
+    def cancel_reminder(self, reminder: ReminderDB):
         # find the reminder
         for task in self.active_reminders:
             if task.get_name() == reminder.id:
@@ -87,26 +87,26 @@ class ReminderCog(commands.Cog):
         """
         if isinstance(channel, discord.TextChannel):
             channel_id = channel.id
-            channel_type = Reminder.ChannelType.TEXT_CHANNEL
+            channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
         else:
             if channel == 'me' or isinstance(ctx.channel, discord.DMChannel):
                 channel = ctx.author
                 channel_id = ctx.author.id
-                channel_type = Reminder.ChannelType.DM
+                channel_type = ReminderDB.ChannelType.DM
 
             elif channel == 'here':
                 channel = ctx.channel
                 channel_id = ctx.channel.id
-                channel_type = Reminder.ChannelType.TEXT_CHANNEL
+                channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
 
             else:
                 raise commands.BadArgument("Incorrect channel! Please input either `me` or specify a channel.")
 
-        reminder = await Reminder.create(ctx.db, author_id=ctx.author.id,
-                                         channel_id=channel_id,
-                                         channel_type=channel_type,
-                                         content=str(message),
-                                         date_obj=length)
+        reminder = await ReminderDB.create(ctx.db, author_id=ctx.author.id,
+                                           channel_id=channel_id,
+                                           channel_type=channel_type,
+                                           content=str(message),
+                                           date_obj=length)
         self.add_reminder(reminder)
 
         await ctx.send(f"Success! "
@@ -118,4 +118,4 @@ class ReminderCog(commands.Cog):
 # TODO: add ways
 
 def setup(bot):
-    bot.add_cog(ReminderCog(bot))
+    bot.add_cog(Reminder(bot))

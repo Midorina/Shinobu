@@ -1,5 +1,6 @@
 import asyncio
 import audioop
+import collections
 import functools
 import itertools
 import math
@@ -13,22 +14,6 @@ from discord.ext import commands
 from db.models import MidoTime, GuildDB
 from main import MidoBot
 from services import menu_stuff, context
-
-
-class VoiceError(Exception):
-    pass
-
-
-class YTDLError(Exception):
-    pass
-
-
-class AlreadyConnected(Exception):
-    pass
-
-
-class MusicError(Exception):
-    pass
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -91,7 +76,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         processed_info = await loop.run_in_executor(None, partial)
 
         if processed_info is None:
-            raise YTDLError('Couldn\'t find anything that matches `{}`'.format(search))
+            return None
 
         # if we have a list of entries (most likely a playlist or a search)
         if 'entries' in processed_info:
@@ -148,6 +133,9 @@ class Song:
 
 
 class SongQueue(asyncio.Queue):
+    def _init(self, maxsize):
+        self._queue = collections.deque()
+
     def __getitem__(self, item):
         if isinstance(item, slice):
             return list(itertools.islice(self._queue, item.start, item.stop, item.step))
@@ -231,7 +219,7 @@ class VoiceState:
 
     def play_next_song(self, error=None):
         if error:
-            raise VoiceError(str(error))
+            raise Exception(str(error))
         self.skip_votes.clear()
         self.next.set()
 
@@ -283,11 +271,11 @@ class Music(commands.Cog):
     async def _join(self, ctx: context.MidoContext):
         """Make me join a voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
-            raise MusicError('You are not connected to any voice channel.')
+            return await ctx.send_error('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
-                raise MusicError('Bot is already in a voice channel.')
+                return await ctx.send_error('Bot is already in a voice channel.')
 
         destination = ctx.author.voice.channel
         if ctx.voice_state.voice:
@@ -305,30 +293,30 @@ class Music(commands.Cog):
             await ctx.voice_state.stop()
             del self.voice_states[ctx.guild.id]
 
-            await ctx.send("I've successfully left the voice channel.")
+            await ctx.send_success("I've successfully left the voice channel.")
 
         else:
-            return await ctx.send("I'm not currently not in a voice channel! (or am I 🤔)")
+            return await ctx.send_error("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
     async def _volume(self, ctx: context.MidoContext, volume: int = None):
         """Change or see the volume."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send('Nothing is being played at the moment.')
+            return await ctx.send_error('Nothing is being played at the moment.')
 
         if volume is None:
-            return await ctx.send(f'Current volume: **{ctx.voice_state.volume}**%')
+            return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%')
 
         elif volume == 0:
-            return await ctx.send(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
+            return await ctx.send_error(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
 
         elif volume < 0 or volume > 100:
-            return await ctx.send('The volume must be **between 0 and 100!**')
+            return await ctx.send_error('The volume must be **between 0 and 100!**')
 
         ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
 
-        await ctx.send(f'Volume is set to **{volume}**%')
+        await ctx.send_success(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now(self, ctx: context.MidoContext):
@@ -336,32 +324,32 @@ class Music(commands.Cog):
         if ctx.voice_state.current:
             await ctx.send(embed=ctx.voice_state.current.create_embed())
         else:
-            await ctx.send("I'm not currently playing any music!")
+            await ctx.send_error("I'm not currently playing any music!")
 
     @commands.command(name='pause', aliases=['p'])
     async def _pause(self, ctx: context.MidoContext):
         """Pause the song."""
         if ctx.voice_state.voice.is_paused():
-            await ctx.send(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
+            await ctx.send_error(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
 
         elif ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
             ctx.voice_state.voice.pause()
-            await ctx.message.add_reaction('⏯')
+            await ctx.send_success("⏯ Paused.")
 
         else:
-            await ctx.send("I'm not currently playing any music!")
+            await ctx.send_error("I'm not currently playing any music!")
 
     @commands.command(name='resume')
     async def _resume(self, ctx: context.MidoContext):
         if not ctx.voice_state.voice.is_paused():
-            await ctx.send(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
+            await ctx.send_error(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
 
         elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.resume()
-            await ctx.message.add_reaction('⏯')
+            await ctx.send_success('⏯ Resumed.')
 
         else:
-            await ctx.send("I'm not currently playing any music!")
+            await ctx.send_error("I'm not currently playing any music!")
 
     @commands.command(name='stop')
     async def _stop(self, ctx: context.MidoContext):
@@ -370,9 +358,9 @@ class Music(commands.Cog):
         if ctx.voice_state.is_playing:
             ctx.voice_state.voice.stop()
             ctx.voice_state.songs.clear()
-            await ctx.message.add_reaction('⏹')
+            await ctx.send_success('⏹ Stopped.')
         else:
-            await ctx.send("I'm not currently playing any music!")
+            await ctx.send_error("I'm not currently playing any music!")
 
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: context.MidoContext):
@@ -381,12 +369,12 @@ class Music(commands.Cog):
         **Server moderators can use `{0.prefix}forceskip` to force this action.**
         """
         if not ctx.voice_state.is_playing:
-            return await ctx.send('Not playing any music right now...')
+            return await ctx.send_error('Not playing any music right now...')
 
         voter = ctx.message.author
         vc = ctx.voice_state.voice.channel
         if ctx.author not in vc.members:
-            return await ctx.send("You are not in the voice channel!")
+            return await ctx.send_error("You are not in the voice channel!")
 
         people_in_vc = len(vc.members) - 1
         if people_in_vc <= 2:
@@ -396,25 +384,26 @@ class Music(commands.Cog):
 
         # if it reached the required vote amount
         if voter == ctx.voice_state.current.requester or len(ctx.voice_state.skip_votes) == required_votes:
-            await ctx.message.add_reaction('⏭')
             ctx.voice_state.skip()
+            await ctx.send_success('⏭ Skipped.')
 
         elif voter.id not in ctx.voice_state.skip_votes:
             ctx.voice_state.skip_votes.append(voter.id)
 
             total_votes = len(ctx.voice_state.skip_votes)
             if total_votes >= required_votes:
-                await ctx.message.add_reaction('⏭')
                 ctx.voice_state.skip()
+                await ctx.send_success('⏭ Skipped.')
+
             else:
                 base_string = f'Skip vote added, currently at **{total_votes}/{required_votes}**'
                 if ctx.author.guild_permissions.manage_guild is True:
                     base_string += f'\n\n**You can force this action by typing `{ctx.prefix}forceskip`**'
 
-                return await ctx.send(base_string)
+                return await ctx.send_success(base_string)
 
         else:
-            await ctx.send('You have already voted to skip this song.')
+            await ctx.send_error('You have already voted to skip this song.')
 
     @commands.command(name='forceskip', aliases=['fskip'])
     @commands.has_permissions(manage_guild=True)
@@ -423,16 +412,16 @@ class Music(commands.Cog):
 
         You need the **Manage Server** permission to use this command."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send('Not playing any music right now...')
+            return await ctx.send_error('Not playing any music right now...')
 
-        await ctx.message.add_reaction('⏭')
         ctx.voice_state.skip()
+        await ctx.send_success('⏭ Skipped.')
 
     @commands.command(name='queue', aliases=['q'])
     async def _queue(self, ctx: context.MidoContext):
         """See the current song queue."""
         if len(ctx.voice_state.songs) == 0:
-            return await ctx.send(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
+            return await ctx.send_error(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
 
         blocks = []
         duration = 0
@@ -461,25 +450,25 @@ class Music(commands.Cog):
     async def _shuffle(self, ctx: context.MidoContext):
         """Shuffle the song queue."""
         if len(ctx.voice_state.songs) == 0:
-            return await ctx.send('Empty queue.')
+            return await ctx.send_error('The queue is empty.')
 
         ctx.voice_state.songs.shuffle()
-        await ctx.message.add_reaction('✅')
+        await ctx.send_success('Successfully shuffled the song queue.')
 
     @commands.command(name='remove')
     async def _remove(self, ctx: context.MidoContext, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_state.songs) == 0:
-            return await ctx.send('Empty queue.')
+            return await ctx.send_error('The queue is empty.')
 
         if not 0 < index <= len(ctx.voice_state.songs):
-            return await ctx.send("Please specify a proper index!")
+            return await ctx.send_error("Please specify a proper index!")
 
         if ctx.author.id != ctx.voice_state.songs[index - 1].requester.id:
-            return await ctx.send("You are not the requester of this song!")
+            return await ctx.send_error("You are not the requester of this song!")
 
         ctx.voice_state.songs.remove(index - 1)
-        await ctx.message.add_reaction('✅')
+        await ctx.send_success('✅ Removed the song.')
 
     # This command has been disabled due to issues its causing.
     # @commands.command(name='loop')
@@ -495,23 +484,23 @@ class Music(commands.Cog):
     async def _play(self, ctx: context.MidoContext, *, search: str):
         """Queue a song to play!"""
         if not ctx.author.voice or not ctx.author.voice.channel:
-            raise MusicError('You are not connected to any voice channel.')
+            return await ctx.send_error('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
-                raise MusicError('Bot is already in a voice channel.')
+                return await ctx.send_error('Bot is already in a voice channel.')
 
         if not ctx.voice_state.voice:
             await ctx.invoke(self._join)
 
-        msg = await ctx.send("I'm processing your request, please wait...")
+        msg = await ctx.send_success("I'm processing your request, please wait...")
 
         # checks
         async with ctx.typing():
-            try:
-                songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
-            except (YTDLError, youtube_dl.DownloadError) as e:
-                await msg.edit(content=str(e))
+            songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+            if not songs:
+                return await ctx.send_error(f'Couldn\'t find anything that matches `{search}`')
+
             else:
                 for song in songs:
                     s_obj = Song(song)
@@ -519,11 +508,11 @@ class Music(commands.Cog):
 
                 # if its a playlist
                 if len(songs) > 1:
-                    await msg.edit(content=f'Added your playlist to the queue! '
-                                           f'You can type `{ctx.prefix}queue` to see it.')
+                    await ctx.edit_custom(msg, f'Added your playlist to the queue!\n'
+                                               f'You can type `{ctx.prefix}queue` to see it.')
                 else:
-                    await msg.edit(content=f'Added **{s_obj.source.title}** to the queue! '
-                                           f'You can type `{ctx.prefix}queue` to see it.')
+                    await ctx.edit_custom(msg, f'Added **{s_obj.source.title}** to the queue!\n'
+                                               f'You can type `{ctx.prefix}queue` to see it.')
 
     # TODO: lyrics
 

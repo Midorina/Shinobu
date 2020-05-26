@@ -375,13 +375,13 @@ class GuildDB(BaseDBModel):
             channel_id, msg, self.id)
 
 
-class Reminder(BaseDBModel):
+class ReminderDB(BaseDBModel):
     class ChannelType(Enum):
         DM = 0
         TEXT_CHANNEL = 1
 
     def __init__(self, data: Record, db: pool.Pool):
-        super(Reminder, self).__init__(data, db)
+        super(ReminderDB, self).__init__(data, db)
 
         self.author_id: int = data.get('author_id')
 
