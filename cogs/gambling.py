@@ -1,4 +1,5 @@
 import random
+from typing import Union
 
 import discord
 from discord.ext import commands
@@ -74,7 +75,7 @@ class Gambling(commands.Cog):
             await ctx.send(f"You've successfully claimed your daily **{daily_amount}$**!")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
-    async def coin_flip(self, ctx: context.MidoContext, amount: int, guessed_side: str):
+    async def coin_flip(self, ctx: context.MidoContext, amount: Union[int, str], guessed_side: str):
         """A coin flip game. You'll earn the double amount of what you bet if you predict correctly.
 
         Sides and Aliases:
@@ -111,7 +112,7 @@ class Gambling(commands.Cog):
 
     @commands.command(name="give")
     @commands.guild_only()
-    async def give_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
+    async def give_cash(self, ctx: context.MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         """Give a specific amount of cash to someone else."""
         if member.id == ctx.author.id:
             return await ctx.send("Why'd you send money to yourself?")
@@ -123,7 +124,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
-    async def add_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
+    async def add_cash(self, ctx: context.MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
@@ -132,7 +133,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
-    async def remove_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
+    async def remove_cash(self, ctx: context.MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
@@ -141,16 +142,24 @@ class Gambling(commands.Cog):
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke(self, ctx: context.MidoContext):
+        if ctx.user_db.cash <= 0:
+            raise commands.BadArgument("You don't have any money.")
+
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
-        if bet_amount > ctx.user_db.cash:
-            raise commands.BadArgument("The amount can not be more than you have!")
+        if isinstance(bet_amount, int):
+            if bet_amount > ctx.user_db.cash:
+                raise commands.BadArgument("The amount can not be more than you have!")
 
-        elif bet_amount <= 0:
-            raise commands.BadArgument("The amount can not be less than or equal to 0!")
-
+            elif bet_amount <= 0:
+                raise commands.BadArgument("The amount can not be less than or equal to 0!")
         else:
-            await ctx.user_db.remove_cash(bet_amount)
+            if bet_amount == 'all':
+                ctx.args[2] = int(ctx.user_db.cash)
+            if bet_amount == 'half':
+                ctx.args[2] = int(ctx.user_db.cash / 2)
+
+        await ctx.user_db.remove_cash(ctx.args[2])
 
 
 def setup(bot):
