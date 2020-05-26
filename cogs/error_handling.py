@@ -33,7 +33,7 @@ class Errors(commands.Cog):
 
         elif isinstance(error, discord.Forbidden):
             if error.code == 50013:
-                await ctx.send("I don't have Manage Messages permission!")
+                await ctx.send("I don't have enough permissions!")
 
             else:
                 print(error.code)

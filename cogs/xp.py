@@ -6,7 +6,7 @@ from discord.ext import commands
 from db.models import MemberDB, UserDB, XpAnnouncement
 from main import MidoBot
 from services import context, checks
-from services.converters import BetterMemberconverter
+from services.converters import MidoMemberConverter
 
 
 class XP(commands.Cog):
@@ -113,11 +113,11 @@ class XP(commands.Cog):
                                           added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
-    async def show_rank(self, ctx: context.MidoContext, _member: BetterMemberconverter() = None):
+    async def show_rank(self, ctx: context.MidoContext, member: MidoMemberConverter() = None):
         """See your or someone else's XP rank."""
-        if _member:
-            user = _member
-            user_db = await MemberDB.get_or_create(ctx.db, ctx.guild.id, _member.id)
+        if member:
+            user = member
+            user_db = await MemberDB.get_or_create(ctx.db, ctx.guild.id, member.id)
         else:
             user = ctx.author
             if ctx.guild:
@@ -187,28 +187,28 @@ class XP(commands.Cog):
 
     @commands.command(name="addxp", hidden=True)
     @checks.owner_only()
-    async def add_xp(self, ctx, member: BetterMemberconverter(), amount: int):
+    async def add_xp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @checks.owner_only()
-    async def add_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
+    async def add_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await UserDB.get_or_create(ctx.db, member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @checks.owner_only()
-    async def remove_xp(self, ctx, member: BetterMemberconverter(), amount: int):
+    async def remove_xp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @checks.owner_only()
-    async def remove_gxp(self, ctx, member: BetterMemberconverter(), amount: int):
+    async def remove_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await UserDB.get_or_create(ctx.db, member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")

@@ -6,7 +6,7 @@ from discord.ext import commands
 from db.models import UserDB
 from main import MidoBot
 from services import checks, context
-from services.converters import BetterMemberconverter
+from services.converters import MidoMemberConverter
 
 
 class GamblingError(Exception):
@@ -48,7 +48,7 @@ class Gambling(commands.Cog):
         }
 
     @commands.command(aliases=['$', 'money'])
-    async def cash(self, ctx: context.MidoContext, *, user: BetterMemberconverter() = None):
+    async def cash(self, ctx: context.MidoContext, *, user: MidoMemberConverter() = None):
         """Check the cash status of you or someone else.
         """
         if user:
@@ -111,7 +111,7 @@ class Gambling(commands.Cog):
 
     @commands.command(name="give")
     @commands.guild_only()
-    async def give_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
+    async def give_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
         """Give a specific amount of cash to someone else."""
         if member.id == ctx.author.id:
             return await ctx.send("Why'd you send money to yourself?")
@@ -123,7 +123,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
-    async def add_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
+    async def add_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
@@ -132,7 +132,7 @@ class Gambling(commands.Cog):
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
-    async def remove_cash(self, ctx: context.MidoContext, amount: int, *, member: BetterMemberconverter()):
+    async def remove_cash(self, ctx: context.MidoContext, amount: int, *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
