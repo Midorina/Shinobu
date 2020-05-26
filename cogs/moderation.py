@@ -5,9 +5,10 @@ from discord.ext import commands, tasks
 
 from db.models import ModLog, GuildDB
 from main import MidoBot
-from services import base_embed, menu_stuff
+from services import menu_stuff
+from services.base_embed import BaseEmbed
 from services.context import MidoContext
-from services.converters import BetterMemberconverter
+from services.converters import MidoMemberConverter, MidoRoleConverter
 from services.time import MidoTime
 
 action_emotes = {
@@ -241,7 +242,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx: MidoContext, target: BetterMemberconverter(), *, reason: commands.clean_content = None):
+    async def kick(self, ctx: MidoContext, target: MidoMemberConverter(), *, reason: commands.clean_content = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
@@ -266,7 +267,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
                   ctx: MidoContext,
-                  target: BetterMemberconverter(),
+                  target: MidoMemberConverter(),
                   length: typing.Union[MidoTime, str] = None,
                   *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
@@ -316,7 +317,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
                     ctx: MidoContext,
-                    target: BetterMemberconverter(),
+                    target: MidoMemberConverter(),
                     *, reason: commands.clean_content = None):
         """Unbans a banned user.
 
@@ -349,7 +350,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
                    ctx: MidoContext,
-                   target: BetterMemberconverter(),
+                   target: MidoMemberConverter(),
                    length: typing.Union[MidoTime, str] = None,
                    *, reason: commands.clean_content = None):
         """Mutes a user for a specified period of time or indefinitely.
@@ -405,7 +406,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
                      ctx: MidoContext,
-                     target: BetterMemberconverter(),
+                     target: MidoMemberConverter(),
                      *, reason: commands.clean_content = None):
         """Unmutes a muted user.
 
@@ -437,7 +438,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def logs(self,
                    ctx: MidoContext,
-                   target: BetterMemberconverter()):
+                   target: MidoMemberConverter()):
         """See the logs of a user.
 
         You need Kick Members and Ban Members permissions to use this command.
@@ -474,7 +475,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def clearlogs(self,
                         ctx: MidoContext,
-                        target: BetterMemberconverter()):
+                        target: MidoMemberConverter()):
         """Clears the logs of a user.
 
         You need to have the Administrator permission to use this command.
@@ -512,6 +513,29 @@ class Moderation(commands.Cog):
         await log.change_reason(new_reason)
 
         await ctx.send(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
+
+    @commands.command(aliases=['sr', 'giverole', 'gr'])
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    async def setrole(self,
+                      ctx: MidoContext,
+                      member: MidoMemberConverter(),
+                      role: MidoRoleConverter()):
+        """Give a role to a member.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+        e = BaseEmbed(self.bot, footer=False)
+
+        if role in member.roles:
+            e.description = f"Member {member.mention} already has the {role.mention} role."
+            e.color = discord.Colour.red()
+            return await ctx.send(embed=e)
+
+        await member.add_roles(role)
+
+        e.description = f"Role {role.mention} has been successfully given to {member.mention}."
+        await ctx.send(embed=e)
 
 
 def setup(bot):
