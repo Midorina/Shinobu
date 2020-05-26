@@ -15,7 +15,7 @@ time_multipliers = {
 
 
 class MidoTime:
-    def __init__(self, start_date: datetime, end_date: datetime, initial_seconds: int = 0):
+    def __init__(self, start_date: datetime, end_date: datetime = None, initial_seconds: int = 0):
         self.start_date = start_date
         self.end_date = end_date
 
@@ -27,15 +27,22 @@ class MidoTime:
 
     @cached_property
     def end_date_string(self):
+        if not self.end_date:
+            raise Exception("No end date!")
         return self.end_date.strftime('%Y-%m-%d, %H:%M:%S UTC')
 
     @property
     def end_date_has_passed(self):
+        if not self.end_date:
+            raise Exception("No end date!")
         return self.end_date <= datetime.now(timezone.utc)
 
     @property
     def remaining_seconds(self):
-        remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
+        if self.end_date:
+            remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
+        else:
+            remaining_in_float = (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
 
         if remaining_in_float < 0:
             return 0
@@ -66,7 +73,7 @@ class MidoTime:
                             end_date=really_old_date,
                             initial_seconds=seconds)
         if not seconds:
-            return None
+            return MidoTime(start_date=previous_date)
         else:
             end_date = previous_date + timedelta(seconds=seconds)
             return MidoTime(start_date=previous_date,

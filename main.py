@@ -7,7 +7,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from db.models import GuildDB
+from db.models import GuildDB, MidoTime
 from services import context
 
 
@@ -38,7 +38,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.message_counter = 0
         self.command_counter = 0
-        self.uptime = None
+        self.uptime: MidoTime = None
 
         self.prefix_cache = {}
         self.main_color = 0x15a34a
@@ -72,7 +72,7 @@ class MidoBot(commands.AutoShardedBot):
             self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
             self.load_cogs()
-            self.uptime = datetime.now(timezone.utc)
+            self.uptime = MidoTime(start_date=datetime.now(timezone.utc))
             self.log_channel = self.get_channel(self.config['log_channel'])
             self.logger.info(f"{self.user} is ready.")
             self.first_time = False

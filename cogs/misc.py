@@ -2,13 +2,11 @@ import ast
 import itertools
 import os
 import time
-from datetime import timezone, datetime, timedelta
 
 import discord
 import psutil
 from discord.ext import commands
 
-from db.models import MidoTime
 from main import MidoBot
 from services import checks, context, base_embed
 
@@ -157,7 +155,7 @@ class Misc(commands.Cog):
         bot.help_command = MidoHelp()
         bot.help_command.cog = self
 
-        self.process_id = psutil.Process(os.getpid())
+        self.process = psutil.Process(os.getpid())
 
     def cog_unload(self):
         self.bot.help_command = self.old_help_command
@@ -257,15 +255,10 @@ class Misc(commands.Cog):
 
     @commands.command(aliases=['info', 'stats'])
     async def about(self, ctx):
-        """See some info and stats about me!
-        """
+        """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owners'][0])
 
-        uptime_in_seconds = (datetime.now(timezone.utc) - self.bot.uptime) / timedelta(seconds=1)
-
-        messages_per_sec = self.bot.message_counter / uptime_in_seconds
-
-        memory = self.process_id.memory_info().rss / 10**6
+        memory = self.process.memory_info().rss / 10 ** 6
 
         embed = discord.Embed(color=self.bot.main_color)
 
@@ -283,15 +276,16 @@ class Misc(commands.Cog):
         #                 inline=True)
 
         embed.add_field(name="Uptime",
-                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds, sep='\n'),
+                        value=self.bot.uptime.remaining_string,
                         inline=True)
 
-        embed.add_field(name="Memory",
-                        value="{:.2f} MB".format(memory),
+        embed.add_field(name="Usage",
+                        value="Memory: {:.2f} MB\n"
+                              "CPU: {}%".format(memory, self.process.cpu_percent(interval=1)),
                         inline=True)
 
         embed.add_field(name="Guild Count",
-                        value=str(len(self.bot.guilds)),
+                        value=f"{len(self.bot.guilds)} Guilds",
                         inline=True)
 
         embed.add_field(name="Channel Count",
@@ -303,7 +297,9 @@ class Misc(commands.Cog):
                         inline=True)
 
         embed.add_field(name="Message Count",
-                        value=f"{self.bot.message_counter}\n({round(messages_per_sec, 2)}/sec)",
+                        value=f"{self.bot.message_counter} Messags\n"
+                              # f"({round(messages_per_sec, 2)}/sec)",
+                              f"{self.bot.command_counter} Commands",
                         inline=True)
 
         # embed.add_field(name="Commands ran",
