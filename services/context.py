@@ -1,6 +1,8 @@
+import discord
 from discord.ext import commands
 
 from db.models import UserDB, GuildDB, MemberDB
+from services.base_embed import BaseEmbed
 
 
 class MidoContext(commands.Context):
@@ -21,6 +23,17 @@ class MidoContext(commands.Context):
             self.prefix = self.guild_db.prefix
         except AttributeError:
             self.user_db = await UserDB.get_or_create(self.db, self.author.id)
+
+    async def send_error(self, error_message: str):
+        embed = BaseEmbed(bot=self.bot,
+                          color=discord.Colour.red(),
+                          description=error_message)
+        await self.send(embed=embed)
+
+    async def send_success(self, sucess_message: str):
+        embed = BaseEmbed(bot=self.bot,
+                          description=sucess_message)
+        await self.send(embed=embed)
 
     async def send_help(self, entity=None, content=''):
         """This method overwrites the library's method to provide extra content to the help message.
