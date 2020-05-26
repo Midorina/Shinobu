@@ -1,14 +1,51 @@
 import asyncio
 import math
 from copy import deepcopy
+from typing import List
 
 import discord
+
+
+def filter_blocks(blocks: List[str],
+                  extra_sep='') -> List[str]:
+    filtered_blocks = list()
+
+    for block in blocks:
+        # if a block is larger than 2048 characters, split it
+        # if len(block) > 2048:
+        #     splitted = block.split()
+        #     half = int(len(splitted) / 2)
+        #
+        #     filtered_blocks.append(" ".join(splitted[:half]))
+        #     filtered_blocks.append(" ".join(splitted[half:]))
+        # else:
+        #     filtered_blocks.append(block)
+        if len(block) > 2040:
+            filtered_blocks.append(block[:2040] + '...')
+        else:
+            filtered_blocks.append(block)
+
+    # if is_urban:
+    #     for i in range(len(filtered_blocks)):
+    #         last_occ_of_bold_start = filtered_blocks[i].rfind('[')
+    #         last_occ_of_bold_end = filtered_blocks[i].rfind(']')
+    #
+    #         if last_occ_of_bold_start > last_occ_of_bold_end:
+    #             filtered_blocks[i] += "]"
+    #             filtered_blocks[i + 1] = "[" + filtered_blocks[i + 1]
+    #
+    #         filtered_blocks[i] = filtered_blocks[i].replace('[', '**').replace(']', '**')
+
+    if extra_sep:
+        filtered_blocks = map(lambda x: x + extra_sep, filtered_blocks)
+
+    return filtered_blocks
 
 
 async def paginate(bot,
                    ctx,
                    embed: discord.Embed,
-                   blocks,
+                   blocks: List[str],
                    item_per_page: int = 6,
                    add_page_info_to: str = 'footer',
                    reactions: bool = True,
@@ -41,7 +78,7 @@ async def paginate(bot,
 
         for i in range(page * item_per_page - item_per_page, page * item_per_page):
             try:
-                msg_for_embed += f"{blocks[i]}\n" + extra_sep
+                msg_for_embed += f"{filtered_blocks[i]}\n" + extra_sep
             except IndexError:
                 break
 
@@ -67,12 +104,14 @@ async def paginate(bot,
         else:
             await msg.edit(embed=_e)
 
+    filtered_blocks = filter_blocks(blocks, extra_sep=extra_sep)
+
     page = 1
-    total_pages = math.ceil(len(blocks) / item_per_page)
+    total_pages = math.ceil(len(filtered_blocks) / item_per_page)
 
     message = await update_message()
 
-    if len(blocks) <= item_per_page:
+    if len(filtered_blocks) <= item_per_page:
         return
 
     if reactions:
