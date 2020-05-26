@@ -157,6 +157,8 @@ class Misc(commands.Cog):
         bot.help_command = MidoHelp()
         bot.help_command.cog = self
 
+        self.process_id = psutil.Process(os.getpid())
+
     def cog_unload(self):
         self.bot.help_command = self.old_help_command
 
@@ -263,7 +265,7 @@ class Misc(commands.Cog):
 
         messages_per_sec = self.bot.message_counter / uptime_in_seconds
 
-        memory = psutil.virtual_memory()[3] >> 20
+        memory = self.process_id.memory_info().rss / 10**6
 
         embed = discord.Embed(color=self.bot.main_color)
 
@@ -275,30 +277,38 @@ class Misc(commands.Cog):
                          icon_url=self.bot.user.avatar_url,
                          url=self.bot.config['website'])
 
-        embed.add_field(name="Owner",
-                        value=f"{str(mido)}\n"
-                              f"(439632807770325012)",
+        # embed.add_field(name="Owner",
+        #                 value=f"{str(mido)}\n"
+        #                       f"(439632807770325012)",
+        #                 inline=True)
+
+        embed.add_field(name="Uptime",
+                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds, sep='\n'),
+                        inline=True)
+
+        embed.add_field(name="Memory",
+                        value="{:.2f} MB".format(memory),
                         inline=True)
 
         embed.add_field(name="Guild Count",
                         value=str(len(self.bot.guilds)),
                         inline=True)
 
-        embed.add_field(name="Messages",
+        embed.add_field(name="Channel Count",
+                        value=f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels",
+                        inline=True)
+
+        embed.add_field(name="Member Count",
+                        value=f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
+                        inline=True)
+
+        embed.add_field(name="Message Count",
                         value=f"{self.bot.message_counter}\n({round(messages_per_sec, 2)}/sec)",
                         inline=True)
 
-        embed.add_field(name="Memory",
-                        value=str(memory) + " MB",
-                        inline=True)
-
-        embed.add_field(name="Commands ran",
-                        value=self.bot.command_counter,
-                        inline=True)
-
-        embed.add_field(name="Uptime",
-                        value=MidoTime.parse_seconds_to_str(uptime_in_seconds, sep='\n'),
-                        inline=True)
+        # embed.add_field(name="Commands ran",
+        #                 value=self.bot.command_counter,
+        #                 inline=True)
 
         embed.set_footer(icon_url=mido.avatar_url,
                          text=f"Made by {mido} with love ♥")
