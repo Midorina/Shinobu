@@ -8,10 +8,7 @@ from db.models import UserDB
 from main import MidoBot
 from services import checks, context
 from services.converters import MidoMemberConverter
-
-
-class GamblingError(Exception):
-    pass
+from services.exceptions import EmbedError
 
 
 class Gambling(commands.Cog):
@@ -58,7 +55,7 @@ class Gambling(commands.Cog):
             user = ctx.author
             user_db = ctx.user_db
 
-        await ctx.send(f"**{user}** has **{user_db.cash}$**!")
+        await ctx.send_success(f"**{user.mention}** has **{user_db.cash}$**!")
 
     @commands.command()
     async def daily(self, ctx: context.MidoContext):
@@ -66,13 +63,13 @@ class Gambling(commands.Cog):
         daily_status = ctx.user_db.daily_date_status
 
         if not daily_status.end_date_has_passed:
-            return await ctx.send(
+            raise EmbedError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
         else:
             daily_amount = self.bot.config['daily_amount']
             await ctx.user_db.add_cash(daily_amount, daily=True)
-            await ctx.send(f"You've successfully claimed your daily **{daily_amount}$**!")
+            await ctx.send_success(f"You've successfully claimed your daily **{daily_amount}$**!")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
     async def coin_flip(self, ctx: context.MidoContext, amount: Union[int, str], guessed_side: str):
@@ -115,12 +112,12 @@ class Gambling(commands.Cog):
     async def give_cash(self, ctx: context.MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         """Give a specific amount of cash to someone else."""
         if member.id == ctx.author.id:
-            return await ctx.send("Why'd you send money to yourself?")
+            raise EmbedError("Why'd you send money to yourself?")
 
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
-        await ctx.send(f"**{ctx.author}** has just sent **{amount}$** to **{member.mention}**!")
+        await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}$** to **{member.mention}**!")
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
@@ -129,7 +126,7 @@ class Gambling(commands.Cog):
 
         await other_usr.add_cash(amount)
         await member.send(f"You've been awarded **{amount}$** by the bot owner!")
-        await ctx.send(f"You've successfully awarded {member} with **{amount}$**!")
+        await ctx.send_success(f"You've successfully awarded {member} with **{amount}$**!")
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
@@ -137,13 +134,13 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
-        await ctx.send(f"You've just removed **{amount}$** from {member}.")
+        await ctx.send_success(f"You've just removed **{amount}$** from {member}.")
 
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke(self, ctx: context.MidoContext):
         if ctx.user_db.cash <= 0:
-            raise commands.BadArgument("You don't have any money.")
+            raise EmbedError("You don't have any money.")
 
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 

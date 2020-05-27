@@ -2,8 +2,9 @@ import discord
 from discord.ext import commands
 
 from main import MidoBot
-from services.apis import NSFWAPIs, NotFoundError
+from services.apis import NSFWAPIs
 from services.context import MidoContext
+from services.exceptions import NotFoundError
 
 
 class NSFW(commands.Cog):

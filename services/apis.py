@@ -4,11 +4,6 @@ from typing import List
 
 import aiohttp
 from asyncpg.pool import Pool
-from discord.ext.commands import CommandError
-
-
-class NotFoundError(CommandError):
-    pass
 
 
 # TODO: make use of the cache for real in the future.
