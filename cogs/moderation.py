@@ -5,10 +5,11 @@ from discord.ext import commands, tasks
 
 from db.models import ModLog, GuildDB
 from main import MidoBot
-from services import menu_stuff
 from services.base_embed import BaseEmbed
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter
+from services.exceptions import EmbedError
+from services.menu_stuff import paginate, yes_no
 from services.time import MidoTime
 
 action_emotes = {
@@ -44,7 +45,11 @@ class Moderation(commands.Cog):
     async def on_member_join(self, member: discord.Member):
         guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
         if guild_db.welcome_channel_id:
-            channel = self.bot.get_channel(guild_db.welcome_channel_id)
+            if guild_db.welcome_channel_id == 1:
+                channel = member
+            else:
+                channel = self.bot.get_channel(guild_db.welcome_channel_id)
+
             await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.welcome_message))
 
     @commands.Cog.listener()
@@ -58,7 +63,7 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     async def welcome(self,
                       ctx: MidoContext,
-                      channel: discord.TextChannel = None, *,
+                      channel: typing.Union[discord.TextChannel, str] = None, *,
                       message: commands.clean_content = None):
         """Setup a channel to welcome new members with a customized message.
 
@@ -73,6 +78,8 @@ class Moderation(commands.Cog):
         `{{server_member_count}}` -> Inserts the member count of the server.
 
         Examples:
+        `{0.prefix}welcome dm`
+        (welcomes new members in DMs using the default message)
         `{0.prefix}welcome #welcome`
         (welcomes new members in #welcome using the default message)
         `{0.prefix}welcome #welcome Welcome {{member_name}}!`
@@ -87,11 +94,21 @@ class Moderation(commands.Cog):
                 await ctx.guild_db.set_welcome(channel_id=None)
                 return await ctx.send("Welcome feature has been successfully disabled.")
         else:
+            if isinstance(channel, str):
+                if channel.lower() == 'dm':
+                    channel_str = 'DMs'
+                    channel_id = 1
+                else:
+                    raise commands.BadArgument("Invalid channel!")
+            else:
+                channel_str = channel.mention
+                channel_id = channel.id
+
             if not message:
                 message = 'Hey {member_mention}! Welcome to **{server_name}**.'
 
-            await ctx.guild_db.set_welcome(channel_id=channel.id, msg=message)
-            await ctx.send(f"Success! New members will be welcomed in {channel.mention} with this mesage:\n"
+            await ctx.guild_db.set_welcome(channel_id=channel_id, msg=message)
+            await ctx.send(f"Success! New members will be welcomed in {channel_str} with this mesage:\n"
                            f"`{message}`")
 
     @commands.command(aliases=['goodbye'])
@@ -468,7 +485,7 @@ class Moderation(commands.Cog):
 
             log_blocks.append(log_description)
 
-        await menu_stuff.paginate(self.bot, ctx, blocks=log_blocks, embed=e, extra_sep='\n')
+        await paginate(self.bot, ctx, blocks=log_blocks, embed=e, extra_sep='\n')
 
     @commands.command()
     @commands.guild_only()
@@ -482,7 +499,7 @@ class Moderation(commands.Cog):
         """
 
         msg = await ctx.send(f"Are you sure you'd like to reset the logs of **{target}**?")
-        yes = await menu_stuff.yes_no(self.bot, ctx.author.id, msg)
+        yes = await yes_no(self.bot, ctx.author.id, msg)
 
         if not yes:
             return await msg.edit(content="Request has been declined.")
@@ -525,26 +542,11 @@ class Moderation(commands.Cog):
 
         You need the **Manage Roles** permissions to use this command.
         """
-
         # already has that role check
         if role in member.roles:
-            return await ctx.send_error(f"Member {member.mention} already has the {role.mention} role.")
+            raise EmbedError(f"Member {member.mention} already has the {role.mention} role.")
 
-        # author top role check
-        top_member_role = ctx.author.top_role
-        if role.position >= top_member_role.position and ctx.guild.owner != ctx.author:
-            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
-                                        f"to your top role ({top_member_role.mention}). "
-                                        f"You can't give it to others.")
-
-        # bot top role check
-        my_top_role = ctx.guild.me.top_role
-        if role.position >= my_top_role.position:
-            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
-                                        f"to my top role ({my_top_role.mention}). "
-                                        f"I can't give it to others.")
-
-        await member.add_roles(role)
+        await member.add_roles(role, reason=f'Role has been added by {ctx.author}.')
 
         await ctx.send(f"Role {role.mention} has been successfully given to {member.mention}.")
 
@@ -562,25 +564,48 @@ class Moderation(commands.Cog):
 
         # if they dont have the role
         if role not in member.roles:
-            return await ctx.send_error(f"Member {member.mention} don't have the {role.mention} role.")
+            raise EmbedError(f"Member {member.mention} don't have the {role.mention} role.")
+
+        await member.remove_roles(role, reason=f'Role has been removed by {ctx.author}.')
+
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
+
+    @commands.command(aliases=['dr'])
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    async def deleterole(self,
+                         ctx: MidoContext,
+                         role: MidoRoleConverter()):
+        """Delete a role from the server.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+
+        await role.delete(reason=f'Role got deleted by {ctx.author}.')
+
+        await ctx.send_success(f"Role {role.mention} has been successfully deleted.")
+
+    @setrole.before_invoke
+    @removerole.before_invoke
+    @deleterole.before_invoke
+    async def ensure_role_hierarchy(self, ctx: MidoContext):
+        role = None
+        for arg in ctx.args:
+            if isinstance(arg, discord.Role):
+                role = arg
+                break
 
         # author top role check
         top_member_role = ctx.author.top_role
         if role.position >= top_member_role.position and ctx.guild.owner != ctx.author:
-            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
-                                        f"to your top role ({top_member_role.mention}). "
-                                        f"You can't remove it from others.")
+            raise EmbedError(f"The position of {role.mention} is higher or equal "
+                             f"to your top role ({top_member_role.mention}). I can't proceed.")
 
         # bot top role check
         my_top_role = ctx.guild.me.top_role
         if role.position >= my_top_role.position:
-            return await ctx.send_error(f"The position of {role.mention} is higher or equal "
-                                        f"to my top role ({my_top_role.mention}). "
-                                        f"I can't remove it from others.")
-
-        await member.remove_roles(role)
-
-        await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
+            raise EmbedError(f"The position of {role.mention} is higher or equal "
+                             f"to my top role ({my_top_role.mention}). I can't proceed.")
 
 
 def setup(bot):
