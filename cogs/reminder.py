@@ -60,6 +60,12 @@ class Reminder(commands.Cog):
                 task.cancel()
                 self.active_reminders.remove(task)
 
+    def cog_unload(self):
+        for task in self.active_reminders:
+            task.cancel()
+
+        self.active_reminders = list()
+
     @commands.command()
     async def remind(self,
                      ctx: MidoContext,
@@ -115,7 +121,7 @@ class Reminder(commands.Cog):
                        f"**{length.initial_remaining_string}**. `{length.end_date_string}`")
 
 
-# TODO: add ways
+# TODO: add ways to see reminders and delete them
 
 def setup(bot):
     bot.add_cog(Reminder(bot))
