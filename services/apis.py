@@ -5,6 +5,8 @@ from typing import List
 import aiohttp
 from asyncpg.pool import Pool
 
+from services.exceptions import NotFoundError
+
 
 # TODO: make use of the cache for real in the future.
 
@@ -76,12 +78,12 @@ class NSFWAPIs(CachedAPI):
         return False
 
     @staticmethod
-    async def _get_boobs_or_butts(_type='boobs') -> str:
+    async def _get_boobs_or_butts(_type='boobs') -> List[str]:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'http://api.o{_type}.ru/noise/1/') as r:
+            async with session.get(f'http://api.o{_type}.ru/noise/100/') as r:
                 if r.status == 200:
                     data = await r.json()
-                    return f"http://media.o{_type}.ru/" + data[0]['preview']
+                    return [f"http://media.o{_type}.ru/" + image['preview'] for image in data]
                 else:
                     raise Exception('Couldn\t fetch image. Please try again later.')
 
