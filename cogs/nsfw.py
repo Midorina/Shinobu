@@ -3,8 +3,9 @@ from discord.ext import commands
 
 from main import MidoBot
 from services.apis import NSFWAPIs
+from services.base_embed import BaseEmbed
 from services.context import MidoContext
-from services.exceptions import NotFoundError
+from services.exceptions import NotFoundError, SilenceError
 
 
 class NSFW(commands.Cog):
@@ -26,33 +27,33 @@ class NSFW(commands.Cog):
             raise commands.CommandOnCooldown(bucket, retry_after)
 
         if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
-            await ctx.send('This command can only be used in channels that are marked as NSFW.')
-            return False
+            await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
+            raise SilenceError
 
         return True
 
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx):
         """Get a random boob picture."""
-        e = discord.Embed(color=self.bot.main_color)
-        e.set_image(url=await self.api.get('boobs'))
+        e = BaseEmbed(bot=self.bot,
+                      footer=False,
+                      image_url=await self.api.get('boobs'))
         await ctx.send(embed=e)
 
     @commands.command(aliases=['butt'])
     async def butts(self, ctx):
         """Get a random butt picture."""
-        e = discord.Embed(color=self.bot.main_color)
-        e.set_image(url=await self.api.get('butts'))
+        e = BaseEmbed(bot=self.bot,
+                      footer=False,
+                      image_url=await self.api.get('butts'))
         await ctx.send(embed=e)
 
     @commands.command()
     async def gelbooru(self, ctx, *tags):
         """Get a random image from Gelbooru."""
-        random_img = await self.api.get('gelbooru', tags)
-
-        e = discord.Embed(color=self.bot.main_color)
+        e = BaseEmbed(bot=self.bot,
+                      image_url=await self.api.get('gelbooru', tags))
         e.set_footer(text="Gelbooru")
-        e.set_image(url=random_img)
         await ctx.send(embed=e)
 
     @commands.command()
@@ -60,20 +61,18 @@ class NSFW(commands.Cog):
         """Get a random image from Gelbooru."""
         random_img = await self.api.get('rule34', tags)
 
-        e = discord.Embed(color=self.bot.main_color,
-                          description=f"If it doesn't load, click [here]({random_img}).")
+        e = BaseEmbed(bot=self.bot,
+                      description=f"If it doesn't load, click [here]({random_img}).",
+                      image_url=random_img)
         e.set_footer(text="Rule 34")
-        e.set_image(url=random_img)
         await ctx.send(embed=e)
 
     @commands.command()
     async def danbooru(self, ctx, *tags):
         """Get a random image from Danbooru."""
-        random_img = await self.api.get('danbooru', tags)
-
-        e = discord.Embed(color=self.bot.main_color)
+        e = BaseEmbed(bot=self.bot,
+                      image_url=await self.api.get('danbooru', tags))
         e.set_footer(text="Danbooru")
-        e.set_image(url=random_img)
         await ctx.send(embed=e)
 
     # TODO: more hentai commands

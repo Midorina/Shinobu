@@ -31,9 +31,10 @@ class MidoContext(commands.Context):
                           footer=False)
         return await self.send(embed=embed)
 
-    async def send_success(self, sucess_message: str):
+    async def send_success(self, sucess_message: str, **kwargs):
         embed = BaseEmbed(bot=self.bot,
-                          description=sucess_message)
+                          description=sucess_message,
+                          **kwargs)
         return await self.send(embed=embed)
 
     @staticmethod
