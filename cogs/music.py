@@ -14,6 +14,7 @@ from discord.ext import commands
 from db.models import MidoTime, GuildDB
 from main import MidoBot
 from services import menu_stuff, context
+from services.exceptions import MusicError
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -281,8 +282,14 @@ class Music(commands.Cog):
         if ctx.voice_state.voice:
             return await ctx.voice_state.voice.move_to(destination)
 
-        ctx.voice_state.voice = await destination.connect()
-        await ctx.message.add_reaction('👍')
+        try:
+            ctx.voice_state.voice = await destination.connect()
+        except asyncio.TimeoutError:
+            raise MusicError("I could not connect to the voice channel. Please try again later.")
+        except discord.ClientException as e:
+            raise MusicError(e)
+        else:
+            await ctx.message.add_reaction('👍')
 
     @commands.command(name='disconnect', aliases=['leave', 'destroy', 'd'])
     async def _leave(self, ctx: context.MidoContext):
@@ -293,7 +300,7 @@ class Music(commands.Cog):
             await ctx.voice_state.stop()
             del self.voice_states[ctx.guild.id]
 
-            await ctx.send_success("I've successfully left the voice channel.")
+            await ctx.send_success("I've successfully left the voice channel.", footer=False)
 
         else:
             return await ctx.send_error("I'm not currently not in a voice channel! (or am I 🤔)")
@@ -305,7 +312,7 @@ class Music(commands.Cog):
             return await ctx.send_error('Nothing is being played at the moment.')
 
         if volume is None:
-            return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%')
+            return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%', footer=False)
 
         elif volume == 0:
             return await ctx.send_error(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
@@ -316,7 +323,7 @@ class Music(commands.Cog):
         ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
 
-        await ctx.send_success(f'Volume is set to **{volume}**%')
+        await ctx.send_success(f'Volume is set to **{volume}**%', footer=False)
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now(self, ctx: context.MidoContext):
@@ -334,7 +341,7 @@ class Music(commands.Cog):
 
         elif ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
             ctx.voice_state.voice.pause()
-            await ctx.send_success("⏯ Paused.")
+            await ctx.send_success("⏯ Paused.", footer=False)
 
         else:
             await ctx.send_error("I'm not currently playing any music!")
@@ -346,7 +353,7 @@ class Music(commands.Cog):
 
         elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.resume()
-            await ctx.send_success('⏯ Resumed.')
+            await ctx.send_success('⏯ Resumed.', footer=False)
 
         else:
             await ctx.send_error("I'm not currently playing any music!")
@@ -358,7 +365,7 @@ class Music(commands.Cog):
         if ctx.voice_state.is_playing:
             ctx.voice_state.voice.stop()
             ctx.voice_state.songs.clear()
-            await ctx.send_success('⏹ Stopped.')
+            await ctx.send_success('⏹ Stopped.', footer=False)
         else:
             await ctx.send_error("I'm not currently playing any music!")
 
@@ -385,7 +392,7 @@ class Music(commands.Cog):
         # if it reached the required vote amount
         if voter == ctx.voice_state.current.requester or len(ctx.voice_state.skip_votes) == required_votes:
             ctx.voice_state.skip()
-            await ctx.send_success('⏭ Skipped.')
+            await ctx.send_success('⏭ Skipped.', footer=False)
 
         elif voter.id not in ctx.voice_state.skip_votes:
             ctx.voice_state.skip_votes.append(voter.id)
@@ -393,14 +400,14 @@ class Music(commands.Cog):
             total_votes = len(ctx.voice_state.skip_votes)
             if total_votes >= required_votes:
                 ctx.voice_state.skip()
-                await ctx.send_success('⏭ Skipped.')
+                await ctx.send_success('⏭ Skipped.', footer=False)
 
             else:
                 base_string = f'Skip vote added, currently at **{total_votes}/{required_votes}**'
                 if ctx.author.guild_permissions.manage_guild is True:
                     base_string += f'\n\n**You can force this action by typing `{ctx.prefix}forceskip`**'
 
-                return await ctx.send_success(base_string)
+                return await ctx.send_success(base_string, footer=False)
 
         else:
             await ctx.send_error('You have already voted to skip this song.')
@@ -415,18 +422,18 @@ class Music(commands.Cog):
             return await ctx.send_error('Not playing any music right now...')
 
         ctx.voice_state.skip()
-        await ctx.send_success('⏭ Skipped.')
+        await ctx.send_success('⏭ Skipped.', footer=False)
 
     @commands.command(name='queue', aliases=['q'])
     async def _queue(self, ctx: context.MidoContext):
         """See the current song queue."""
-        if len(ctx.voice_state.songs) == 0:
+        if len(ctx.voice_state.songs) == 0 and not ctx.voice_state.current:
             return await ctx.send_error(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
 
         blocks = []
-        duration = 0
-        # currently playing
         current = ctx.voice_state.current
+        queue_duration = current.source.duration
+        # currently playing
         blocks.append(f"🎶 **[{current.source.title}]({current.source.url})**\n"
                       f"`{current.source.duration} | "
                       f"{current.requester}`\n")
@@ -435,13 +442,13 @@ class Music(commands.Cog):
             blocks.append(f"**{i}**. **[{song.source.title}]({song.source.url})**\n"
                           f"`{song.source.duration} | "
                           f"{song.requester}`")
-            duration += song.source.data.get('duration')
+            queue_duration += song.source.data.get('duration')
 
         embed = (discord.Embed(color=self.bot.main_color)
                  .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
                  .set_footer(text=f"{int(current.source.volume * 100)}% | "
-                                  f"{len(ctx.voice_state.songs)} Songs | "
-                                  f"{MidoTime.parse_seconds_to_str(duration, short=True, sep=':')} in Total",
+                                  f"{len(ctx.voice_state.songs) + 1} Songs | "
+                                  f"{MidoTime.parse_seconds_to_str(queue_duration, short=True, sep=':')} in Total",
                              icon_url="https://i.imgur.com/T0532pn.png")
                  )
         await menu_stuff.paginate(self.bot, ctx, embed, blocks, item_per_page=5, add_page_info_to='author')
@@ -453,7 +460,7 @@ class Music(commands.Cog):
             return await ctx.send_error('The queue is empty.')
 
         ctx.voice_state.songs.shuffle()
-        await ctx.send_success('Successfully shuffled the song queue.')
+        await ctx.send_success('Successfully shuffled the song queue.', footer=False)
 
     @commands.command(name='remove')
     async def _remove(self, ctx: context.MidoContext, index: int):
@@ -468,7 +475,7 @@ class Music(commands.Cog):
             return await ctx.send_error("You are not the requester of this song!")
 
         ctx.voice_state.songs.remove(index - 1)
-        await ctx.send_success('✅ Removed the song.')
+        await ctx.send_success('✅ Removed the song.', footer=False)
 
     # This command has been disabled due to issues its causing.
     # @commands.command(name='loop')
@@ -493,11 +500,15 @@ class Music(commands.Cog):
         if not ctx.voice_state.voice:
             await ctx.invoke(self._join)
 
-        msg = await ctx.send_success("I'm processing your request, please wait...")
+        msg = await ctx.send_success("I'm processing your request, please wait...", footer=False)
 
         # checks
         async with ctx.typing():
-            songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+            try:
+                songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+
+            except youtube_dl.DownloadError:
+                return await ctx.send_error("Unsupported URL. If it's a Spotify link, we'll support it soon™.")
             if not songs:
                 return await ctx.send_error(f'Couldn\'t find anything that matches `{search}`')
 
@@ -508,10 +519,10 @@ class Music(commands.Cog):
 
                 # if its a playlist
                 if len(songs) > 1:
-                    await ctx.edit_custom(msg, f'Added your playlist to the queue!\n'
+                    await ctx.edit_custom(msg, f'Your playlist has been successfully added to the queue!\n\n'
                                                f'You can type `{ctx.prefix}queue` to see it.')
                 else:
-                    await ctx.edit_custom(msg, f'Added **{s_obj.source.title}** to the queue!\n'
+                    await ctx.edit_custom(msg, f'**{s_obj.source.title}** has been successfully added to the queue.\n\n'
                                                f'You can type `{ctx.prefix}queue` to see it.')
 
     # TODO: lyrics
