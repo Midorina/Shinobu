@@ -153,8 +153,10 @@ class Gambling(commands.Cog):
         else:
             if bet_amount == 'all':
                 ctx.args[2] = int(ctx.user_db.cash)
-            if bet_amount == 'half':
+            elif bet_amount == 'half':
                 ctx.args[2] = int(ctx.user_db.cash / 2)
+            else:
+                raise commands.BadArgument("Please input a proper amount!")
 
         await ctx.user_db.remove_cash(ctx.args[2])
 

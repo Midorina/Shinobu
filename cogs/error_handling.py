@@ -3,7 +3,7 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import EmbedError, SilenceError, NotFoundError
+from services.exceptions import EmbedError, SilenceError, NotFoundError, MusicError
 
 
 class Errors(commands.Cog):
@@ -48,7 +48,7 @@ class Errors(commands.Cog):
         elif isinstance(error, commands.CommandOnCooldown):
             await ctx.send_error("You're on cooldown!")
 
-        elif isinstance(error, EmbedError):
+        elif isinstance(error, (EmbedError, MusicError)):
             await ctx.send_error(str(error))
 
         elif isinstance(error, commands.MissingRequiredArgument):

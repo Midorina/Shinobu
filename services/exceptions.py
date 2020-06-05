@@ -11,3 +11,7 @@ class SilenceError(CommandError):
 
 class NotFoundError(CommandError):
     pass
+
+
+class MusicError(CommandError):
+    pass
