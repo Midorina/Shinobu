@@ -227,6 +227,8 @@ class MemberDB(BaseDBModel):
     def __init__(self, member_db: Record, db_conn: pool.Pool):
         super(MemberDB, self).__init__(member_db, db_conn)
 
+        self.id = member_db.get('user_id')
+
         self.guild: GuildDB = None
         self.user: UserDB = None
 
@@ -285,12 +287,14 @@ class MemberDB(BaseDBModel):
                     ROW_NUMBER () OVER (ORDER BY xp DESC)
                 FROM
                     members
+                WHERE
+                    guild_id=$1
             ) SELECT
                 *
             FROM
                 counts
             WHERE
-                guild_id=$1 AND user_id=$2;
+                user_id=$2;
             """, self.guild.id, self.id)
 
         return result['row_number']
