@@ -134,6 +134,9 @@ class NSFWAPIs(CachedAPI):
                     elif dapi == 'rule34':
                         r = await response.text()
 
+                        if not r:
+                            raise NotFoundError
+
                         response_jsond = json.loads(r)
                         filtered = list(filter(
                             lambda x: not x['image'].endswith('.webm'),
