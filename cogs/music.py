@@ -83,6 +83,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if 'entries' in processed_info:
             return [cls(ctx, discord.FFmpegPCMAudio(song['url'], **cls.FFMPEG_OPTIONS), data=song)
                     for song in processed_info['entries']]
+
         # if a song link is provided
         else:
             return [cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
@@ -282,12 +283,15 @@ class Music(commands.Cog):
         if ctx.voice_state.voice:
             return await ctx.voice_state.voice.move_to(destination)
 
+        if not destination.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
+            raise MusicError("I do not have permission to connect to that voice channel!")
+
         try:
             ctx.voice_state.voice = await destination.connect()
         except asyncio.TimeoutError:
             raise MusicError("I could not connect to the voice channel. Please try again later.")
         except discord.ClientException as e:
-            raise MusicError(e)
+            raise MusicError(str(e))
         else:
             await ctx.message.add_reaction('👍')
 
@@ -432,7 +436,8 @@ class Music(commands.Cog):
 
         blocks = []
         current = ctx.voice_state.current
-        queue_duration = current.source.duration
+        queue_duration = current.source.data.get('duration')
+
         # currently playing
         blocks.append(f"🎶 **[{current.source.title}]({current.source.url})**\n"
                       f"`{current.source.duration} | "
