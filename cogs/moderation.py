@@ -25,6 +25,12 @@ class Moderation(commands.Cog):
 
         self.check_modlogs.start()
 
+    def cog_check(self, ctx):  # guild only
+        if not ctx.guild:
+            raise commands.NoPrivateMessage
+        else:
+            return True
+
     @staticmethod
     def parse_welcome_bye_msg(member: discord.Member, msg: str):
         placeholders = {
@@ -60,7 +66,6 @@ class Moderation(commands.Cog):
             await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.bye_message))
 
     @commands.command(aliases=['greet'])
-    @commands.guild_only()
     async def welcome(self,
                       ctx: MidoContext,
                       channel: typing.Union[discord.TextChannel, str] = None, *,
@@ -112,7 +117,6 @@ class Moderation(commands.Cog):
                            f"`{message}`")
 
     @commands.command(aliases=['goodbye'])
-    @commands.guild_only()
     async def bye(self,
                   ctx: MidoContext,
                   channel: discord.TextChannel = None, *,
@@ -256,7 +260,6 @@ class Moderation(commands.Cog):
         return muted_role
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx: MidoContext, target: MidoMemberConverter(), *, reason: commands.clean_content = None):
@@ -279,7 +282,6 @@ class Moderation(commands.Cog):
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
@@ -329,7 +331,6 @@ class Moderation(commands.Cog):
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
@@ -362,7 +363,6 @@ class Moderation(commands.Cog):
                            f"{self.get_reason_string(reason)}")
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
@@ -418,7 +418,6 @@ class Moderation(commands.Cog):
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
@@ -451,7 +450,6 @@ class Moderation(commands.Cog):
                        f"{self.get_reason_string(reason)}")
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def logs(self,
                    ctx: MidoContext,
@@ -488,7 +486,6 @@ class Moderation(commands.Cog):
         await paginate(self.bot, ctx, blocks=log_blocks, embed=e, extra_sep='\n')
 
     @commands.command()
-    @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def clearlogs(self,
                         ctx: MidoContext,
@@ -510,7 +507,6 @@ class Moderation(commands.Cog):
             return await msg.edit(content=f"Logs of **{target}** has been successfully deleted.")
 
     @commands.command(aliases=['changereason'])
-    @commands.guild_only()
     async def reason(self,
                      ctx: MidoContext,
                      case_id: int,
@@ -532,7 +528,6 @@ class Moderation(commands.Cog):
         await ctx.send(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
 
     @commands.command(aliases=['sr', 'giverole', 'gr'])
-    @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     async def setrole(self,
                       ctx: MidoContext,
@@ -551,7 +546,6 @@ class Moderation(commands.Cog):
         await ctx.send(f"Role {role.mention} has been successfully given to {member.mention}.")
 
     @commands.command(aliases=['rr'])
-    @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     async def removerole(self,
                          ctx: MidoContext,
@@ -571,7 +565,6 @@ class Moderation(commands.Cog):
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
     @commands.command(aliases=['dr'])
-    @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     async def deleterole(self,
                          ctx: MidoContext,
@@ -606,6 +599,35 @@ class Moderation(commands.Cog):
         if role.position >= my_top_role.position:
             raise EmbedError(f"The position of {role.mention} is higher or equal "
                              f"to my top role ({my_top_role.mention}). I can't proceed.")
+
+    @commands.command(aliases=['purge'])
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    async def prune(self, ctx: MidoContext, number: int, target_user: MidoMemberConverter() = None):
+        """Delete a number of messages in a channel.
+        **Maximum amount is 100.**
+        You can specify a target user to delete only their messages.
+
+        You need to have Manage Messages permission to use this command.
+        """
+        def prune_check(m):
+            if not target_user:
+                return True
+            else:
+                return m.author.id == target_user.id
+
+        if number <= 0:
+            return ctx.send_error("Invalid message amount. It can't be less than or equal to 0.")
+        elif number > 100:
+            number = 100
+
+        # first delete the command msg
+        await ctx.message.delete()
+
+        # then delete the rest
+        deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
+
+        return await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", footer=False)
 
 
 def setup(bot):
