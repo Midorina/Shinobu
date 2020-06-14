@@ -165,6 +165,7 @@ class VoiceState:
         self.bot = bot
 
         self.current = None
+        # noinspection PyTypeChecker
         self.voice: discord.VoiceClient = None
         self.exists = True
         self.next = asyncio.Event()
@@ -243,6 +244,8 @@ class VoiceState:
 class Music(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
+
+        self.forcekip_by_default = True
 
         self.voice_states = {}
 
@@ -393,8 +396,9 @@ class Music(commands.Cog):
         else:
             required_votes = math.floor(people_in_vc * 0.8)
 
-        # if it reached the required vote amount
-        if voter == ctx.voice_state.current.requester or len(ctx.voice_state.skip_votes) == required_votes:
+        if (voter == ctx.voice_state.current.requester  # if its the requester
+                or len(ctx.voice_state.skip_votes) >= required_votes  # if it reached the required vote amount
+                or self.forcekip_by_default):  # if forceskip is enabled
             ctx.voice_state.skip()
             await ctx.send_success('⏭ Skipped.', footer=False)
 

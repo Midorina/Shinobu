@@ -59,7 +59,10 @@ class XP(commands.Cog):
         return e
 
     @staticmethod
-    async def check_for_level_up(message: discord.Message, member_db: MemberDB, guild_name: str, added=0,
+    async def check_for_level_up(message: discord.Message,
+                                 member_db: MemberDB,
+                                 guild_name: str,
+                                 added=0,
                                  added_globally=False):
         if member_db.user.level_up_notification == XpAnnouncement.SILENT:
             return
