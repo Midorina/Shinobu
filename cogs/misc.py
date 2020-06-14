@@ -9,6 +9,7 @@ from discord.ext import commands
 
 from main import MidoBot
 from services import checks, context, base_embed
+from services.time import MidoTime
 
 
 class MidoHelp(commands.HelpCommand):
@@ -270,13 +271,8 @@ class Misc(commands.Cog):
                          icon_url=self.bot.user.avatar_url,
                          url=self.bot.config['website'])
 
-        # embed.add_field(name="Owner",
-        #                 value=f"{str(mido)}\n"
-        #                       f"(439632807770325012)",
-        #                 inline=True)
-
         embed.add_field(name="Uptime",
-                        value=self.bot.uptime.remaining_string,
+                        value=MidoTime.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
                         inline=True)
 
         embed.add_field(name="Usage",
@@ -298,13 +294,8 @@ class Misc(commands.Cog):
 
         embed.add_field(name="Message Count",
                         value=f"{self.bot.message_counter} Messags\n"
-                              # f"({round(messages_per_sec, 2)}/sec)",
                               f"{self.bot.command_counter} Commands",
                         inline=True)
-
-        # embed.add_field(name="Commands ran",
-        #                 value=self.bot.command_counter,
-        #                 inline=True)
 
         embed.set_footer(icon_url=mido.avatar_url,
                          text=f"Made by {mido} with love ♥")
