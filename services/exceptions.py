@@ -15,3 +15,7 @@ class NotFoundError(CommandError):
 
 class MusicError(CommandError):
     pass
+
+
+class InvalidURL(CommandError):
+    pass

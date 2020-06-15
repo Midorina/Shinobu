@@ -14,7 +14,9 @@ from discord.ext import commands
 from db.models import MidoTime, GuildDB
 from main import MidoBot
 from services import menu_stuff, context
-from services.exceptions import MusicError
+from services.apis import SpotifyAPI, SomeRandomAPI
+from services.base_embed import BaseEmbed
+from services.exceptions import MusicError, NotFoundError
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -52,8 +54,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         self.uploader = data.get('uploader')
         self.uploader_url = data.get('uploader_url')
-        date = data.get('upload_date')
-        self.upload_date = date[6:8] + '.' + date[4:6] + '.' + date[0:4]
+
+        self.upload_date = data.get('upload_date')
+        if self.upload_date:
+            self.upload_date = self.upload_date[6:8] + '.' + self.upload_date[4:6] + '.' + self.upload_date[0:4]
+
         self.title = data.get('title')
         self.thumbnail = data.get('thumbnail')
         self.description = data.get('description')
@@ -108,17 +113,21 @@ class Song:
 
     def create_embed(self):
         e = discord.Embed(
-            # description='```css\n{0.source.title}\n```'.format(self),
             title=self.source.title,
             color=0x15a34a)
+
         e.set_author(
             icon_url="https://cdn.discordapp.com/attachments/244405453948321792/707797956295655434/PngItem_2087614.png",
             name="Now Playing",
             url=self.source.url)
+
         e.add_field(name='Duration', value=f"{self.source.played_duration}/{self.source.duration}")
         e.add_field(name='Requester', value=self.requester.mention)
-        e.add_field(name='Uploader', value='[{0.source.uploader}]({0.source.uploader_url})'.format(self))
-        e.add_field(name="Upload Date", value=self.source.upload_date)
+        e.add_field(name='Uploader', value=f'[{self.source.uploader}]({self.source.uploader_url})')
+
+        if self.source.upload_date:
+            e.add_field(name="Upload Date", value=self.source.upload_date)
+
         e.add_field(name="View Count", value='{:,}'.format(self.source.views))
 
         if self.source.likes and self.source.dislikes:
@@ -129,7 +138,9 @@ class Song:
 
         e.set_footer(text=f"Volume: {int(self.source.volume * 100)}%",
                      icon_url="https://i.imgur.com/T0532pn.png")
-        e.set_thumbnail(url=self.source.thumbnail)
+
+        if self.source.thumbnail:
+            e.set_thumbnail(url=self.source.thumbnail)
 
         return e
 
@@ -246,8 +257,10 @@ class Music(commands.Cog):
         self.bot = bot
 
         self.forcekip_by_default = True
-
         self.voice_states = {}
+
+        self.sri_api = SomeRandomAPI(self.bot.http_session)
+        self.spotify_api = SpotifyAPI(self.bot.config['spotify_credentials'], self.bot.http_session)
 
     def get_voice_state(self, guild: GuildDB) -> VoiceState:
         state = self.voice_states.get(guild.id)
@@ -513,14 +526,24 @@ class Music(commands.Cog):
 
         # checks
         async with ctx.typing():
-            try:
-                songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+            if search.startswith('https://open.spotify.com/'):
+                search: list = await self.spotify_api.get_song_names(search)
 
+            try:
+                if isinstance(search, list):
+                    songs = []
+                    for query in search:
+                        song = await YTDLSource.create_source(ctx, query, loop=self.bot.loop)
+                        if not song:
+                            pass
+                        songs.append(song[0])
+                else:
+                    songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
             except youtube_dl.DownloadError:
-                return await ctx.send_error("Unsupported URL. If it's a Spotify link, we'll support it soon™.")
+                return await ctx.send_error("Unsupported URL.")
+
             if not songs:
                 return await ctx.send_error(f'Couldn\'t find anything that matches `{search}`')
-
             else:
                 for song in songs:
                     s_obj = Song(song)
@@ -528,13 +551,35 @@ class Music(commands.Cog):
 
                 # if its a playlist
                 if len(songs) > 1:
-                    await ctx.edit_custom(msg, f'Your playlist has been successfully added to the queue!\n\n'
+                    await ctx.edit_custom(msg, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
                                                f'You can type `{ctx.prefix}queue` to see it.')
                 else:
                     await ctx.edit_custom(msg, f'**{s_obj.source.title}** has been successfully added to the queue.\n\n'
                                                f'You can type `{ctx.prefix}queue` to see it.')
 
-    # TODO: lyrics
+    @commands.command()
+    async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):
+        """See the lyrics of the current song or a specific song."""
+        if not song_name and not ctx.voice_state.current:
+            return await ctx.send_error("You need to play a song then use this command or specify a song name!")
+        elif not song_name:
+            song_name = ctx.voice_state.current.source.title
+
+        try:
+            song_title, lyrics_pages, thumbnail = await self.sri_api.get_lyrics(song_name)
+        except NotFoundError:
+            return await ctx.send_error(f"I couldn't find the lyrics of **{song_name}**.\n"
+                                        f"Try writing the title in a simpler form.")
+
+        e = BaseEmbed(bot=self.bot, title=song_title)
+        e.set_thumbnail(url=thumbnail)
+
+        await menu_stuff.paginate(bot=self.bot,
+                                  ctx=ctx,
+                                  embed=e,
+                                  item_per_page=1,
+                                  blocks=lyrics_pages,
+                                  extra_sep='\n')
 
 
 def setup(bot):

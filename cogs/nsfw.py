@@ -12,7 +12,7 @@ class NSFW(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        self.api = NSFWAPIs(self.bot.db)
+        self.api = NSFWAPIs(self.bot.db, self.bot.http_session)
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 

@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
+import aiohttp
 import asyncpg
 import discord
 from discord.ext import commands
@@ -43,7 +44,10 @@ class MidoBot(commands.AutoShardedBot):
         self.prefix_cache = {}
         self.main_color = 0x15a34a
 
+        self.http_session = aiohttp.ClientSession()
+
     async def close(self):
+        await self.http_session.close()
         await self.db.close()
         await super().close()
 
