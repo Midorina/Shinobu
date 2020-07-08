@@ -316,6 +316,11 @@ class GuildDB(BaseDBModel):
         self.bye_channel_id: int = guild_db.get('bye_channel_id')
         self.bye_message: str = guild_db.get('bye_message')
 
+        # assignable roles
+        self.assignable_role_ids: List[int] = guild_db.get('assignable_role_ids')
+        self.assignable_roles_are_exclusive: bool = guild_db.get('exclusive_assignable_roles')
+
+        # music
         self.volume: int = guild_db.get('volume')
 
     @classmethod
@@ -324,7 +329,7 @@ class GuildDB(BaseDBModel):
 
         if not guild_db:
             guild_db = await db.fetchrow(
-                """INSERT INTO guilds(id) VALUES ($1) RETURNING *""", guild_id)
+                """INSERT INTO guilds(id) VALUES ($1) RETURNING *;""", guild_id)
 
         return cls(guild_db, db)
 
@@ -377,6 +382,28 @@ class GuildDB(BaseDBModel):
         await self.db.execute(
             """UPDATE guilds SET bye_channel_id=$1, bye_message=$2 WHERE id=$3;""",
             channel_id, msg, self.id)
+
+    async def add_assignable_role(self, role_id: int):
+        self.assignable_role_ids.append(role_id)
+        await self.db.execute(
+            """UPDATE guilds SET assignable_role_ids = array_append(assignable_role_ids, $1) WHERE id=$2;""",
+            role_id, self.id)
+
+    async def remove_assignable_role(self, role_id: int):
+        self.assignable_role_ids.remove(role_id)
+        await self.db.execute(
+            """UPDATE guilds SET assignable_role_ids = array_append(assignable_role_ids, $1) WHERE id=$2;""",
+            role_id, self.id)
+
+    async def toggle_exclusive_assignable_roles(self):
+        status = await self.db.fetchrow(
+            """UPDATE guilds 
+            SET exclusive_assignable_roles = NOT exclusive_assignable_roles 
+            WHERE id=$1 
+            RETURNING exclusive_assignable_roles;""",
+            self.id)
+
+        self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
 
 
 class ReminderDB(BaseDBModel):

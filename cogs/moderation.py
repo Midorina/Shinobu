@@ -578,9 +578,60 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role {role.mention} has been successfully deleted.")
 
+    @commands.command(aliases=['aar'])
+    @commands.has_permissions(manage_roles=True)
+    async def addassignablerole(self,
+                                ctx: MidoContext,
+                                role: MidoRoleConverter()):
+        """Add an assignable role.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+
+        if role.id in ctx.guild_db.assignable_role_ids:
+            return await ctx.send_error(f"Role {role.mention} is already in your assignable role list.")
+
+        await ctx.guild_db.add_assignable_role(role_id=role.id)
+
+        await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.")
+
+    @commands.command(aliases=['rar'])
+    @commands.has_permissions(manage_roles=True)
+    async def removeassignablerole(self,
+                                   ctx: MidoContext,
+                                   role: MidoRoleConverter()):
+        """Remove a role from the assignable role list.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+
+        if role.id not in ctx.guild_db.assignable_role_ids:
+            return await ctx.send_error(f"Role {role.mention} is not in your assignable role list.")
+
+        await ctx.guild_db.remove_assignable_role(role_id=role.id)
+
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.")
+
+    @commands.command(aliases=['ear'])
+    @commands.has_permissions(manage_roles=True)
+    async def exclusiveassignablerole(self,
+                                      ctx: MidoContext):
+        """Toggle exclusive assignable roles. If enabled, users can only have 1 assignable role.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+        await ctx.guild_db.toggle_exclusive_assignable_roles()
+
+        if ctx.guild_db.assignable_roles_are_exclusive:
+            await ctx.send_success("Assignable roles are exclusive from now on.")
+        else:
+            await ctx.send_success("Assignable roles are no longer exclusive.")
+
     @setrole.before_invoke
     @removerole.before_invoke
     @deleterole.before_invoke
+    @addassignablerole.before_invoke
+    @removeassignablerole.before_invoke
     async def ensure_role_hierarchy(self, ctx: MidoContext):
         role = None
         for arg in ctx.args:
@@ -610,6 +661,7 @@ class Moderation(commands.Cog):
 
         You need to have Manage Messages permission to use this command.
         """
+
         def prune_check(m):
             if not target_user:
                 return True
