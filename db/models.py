@@ -392,7 +392,7 @@ class GuildDB(BaseDBModel):
     async def remove_assignable_role(self, role_id: int):
         self.assignable_role_ids.remove(role_id)
         await self.db.execute(
-            """UPDATE guilds SET assignable_role_ids = array_append(assignable_role_ids, $1) WHERE id=$2;""",
+            """UPDATE guilds SET assignable_role_ids = array_remove(assignable_role_ids, $1) WHERE id=$2;""",
             role_id, self.id)
 
     async def toggle_exclusive_assignable_roles(self):
