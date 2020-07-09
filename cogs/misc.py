@@ -9,6 +9,7 @@ from discord.ext import commands
 
 from main import MidoBot
 from services import checks, context, base_embed
+from services.exceptions import EmbedError
 from services.time import MidoTime
 
 
@@ -272,6 +273,27 @@ class Misc(commands.Cog):
         await ctx.send("Shutting down...")
 
         await self.bot.logout()
+
+    @checks.owner_only()
+    @commands.command(hidden=True)
+    async def setavatar(self, ctx, new_av: str = None):
+        if new_av:
+            av_link = new_av
+
+        else:
+            if ctx.message.attachments:
+                av_link = ctx.message.attachments[0].url
+            else:
+                return await ctx.send("You have to either attach an image to your message or give a picture URL!")
+
+        async with self.bot.http_session.get(av_link) as r:
+            if r.status == 200:
+                img_bytes = await r.read()
+            else:
+                raise EmbedError("Invalid URL!")
+
+        await self.bot.user.edit(avatar=img_bytes)
+        await ctx.send("Avatar has been successfully updated.")
 
 
 def setup(bot):
