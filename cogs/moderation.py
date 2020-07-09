@@ -517,15 +517,15 @@ class Moderation(commands.Cog):
         """
         log = await ModLog.get_by_id(ctx.db, log_id=case_id, guild_id=ctx.guild.id)
         if not log:
-            return await ctx.send("No logs have been found with that case ID.")
+            raise EmbedError("No logs have been found with that case ID.")
 
         if log.executor_id != ctx.author.id and not ctx.author.guild_permissions.administrator:
-            return await ctx.send("You have to be the executor of this case "
-                                  "or have Administrator permission in the server to do that!")
+            raise EmbedError("You have to be the executor of this case "
+                             "or have Administrator permission in the server to do that!")
 
         await log.change_reason(new_reason)
 
-        await ctx.send(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
+        await ctx.send_success(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
 
     @commands.command(aliases=['sr', 'giverole', 'gr'])
     @commands.has_permissions(manage_roles=True)
@@ -543,7 +543,7 @@ class Moderation(commands.Cog):
 
         await member.add_roles(role, reason=f'Role has been added by {ctx.author}.')
 
-        await ctx.send(f"Role {role.mention} has been successfully given to {member.mention}.")
+        await ctx.send_success(f"Role {role.mention} has been successfully given to {member.mention}.")
 
     @commands.command(aliases=['rr'])
     @commands.has_permissions(manage_roles=True)
@@ -564,6 +564,20 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
+    @commands.command(aliases=['cr'])
+    @commands.has_permissions(manage_roles=True)
+    async def createrole(self,
+                         ctx: MidoContext,
+                         role_name: str):
+        """Create a role.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+        role = await ctx.guild.create_role(name=role_name,
+                                           reason=f'Role was created using {ctx.prefix}createrole')
+
+        await ctx.send_success(f"Role {role.mention} has been successfully created!")
+
     @commands.command(aliases=['dr'])
     @commands.has_permissions(manage_roles=True)
     async def deleterole(self,
@@ -576,7 +590,7 @@ class Moderation(commands.Cog):
 
         await role.delete(reason=f'Role got deleted by {ctx.author}.')
 
-        await ctx.send_success(f"Role {role.mention} has been successfully deleted.")
+        await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
     @commands.command(aliases=['aar'])
     @commands.has_permissions(manage_roles=True)
@@ -589,11 +603,12 @@ class Moderation(commands.Cog):
         """
 
         if role.id in ctx.guild_db.assignable_role_ids:
-            return await ctx.send_error(f"Role {role.mention} is already in your assignable role list.")
+            raise EmbedError(f"Role {role.mention} is already in your assignable role list.")
 
         await ctx.guild_db.add_assignable_role(role_id=role.id)
 
-        await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.")
+        await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.",
+                               footer=False)
 
     @commands.command(aliases=['rar'])
     @commands.has_permissions(manage_roles=True)
@@ -606,11 +621,12 @@ class Moderation(commands.Cog):
         """
 
         if role.id not in ctx.guild_db.assignable_role_ids:
-            return await ctx.send_error(f"Role {role.mention} is not in your assignable role list.")
+            raise EmbedError(f"Role {role.mention} is not in your assignable role list.")
 
         await ctx.guild_db.remove_assignable_role(role_id=role.id)
 
-        await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.")
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.",
+                               footer=False)
 
     @commands.command(aliases=['ear'])
     @commands.has_permissions(manage_roles=True)
@@ -626,6 +642,76 @@ class Moderation(commands.Cog):
             await ctx.send_success("Assignable roles are exclusive from now on.")
         else:
             await ctx.send_success("Assignable roles are no longer exclusive.")
+
+    @commands.command(aliases=['lar'])
+    @commands.has_permissions(manage_roles=True)
+    async def listassignableroles(self,
+                                  ctx: MidoContext):
+        """List all assignable roles available.
+
+        You need the **Manage Roles** permissions to use this command.
+        """
+        e = BaseEmbed(bot=ctx.bot, title="Assignable Roles")
+        e.set_footer(text=f"Assignable Roles Are Exclusive: {ctx.guild_db.assignable_roles_are_exclusive}")
+
+        if ctx.guild_db.assignable_role_ids:
+            e.description = ""
+            index = 1  # this is cuz if we cant find the role, it'll skip an index
+            for role_id in ctx.guild_db.assignable_role_ids:
+                role = ctx.guild.get_role(role_id)
+                if not role:
+                    await ctx.guild_db.remove_assignable_role(role_id)
+                else:
+                    e.description += f"{index}. {role.mention} \n"
+                    index += 1
+        else:
+            e.description = f"No assignable roles. You can add one using `{ctx.prefix}aar`"
+
+        await ctx.send(embed=e)
+
+    @commands.command(aliases=['iam'])
+    @commands.has_permissions(manage_roles=True)
+    async def join(self,
+                   ctx: MidoContext,
+                   role: MidoRoleConverter()):
+        """Join an assignable role."""
+        if role.id not in ctx.guild_db.assignable_role_ids:
+            raise EmbedError("That role is not assignable.")
+
+        # already has that role check
+        if role in ctx.author.roles:
+            raise EmbedError(f"You already have the {role.mention} role.")
+
+        await ctx.author.add_roles(role, reason=f'Role has been added using {ctx.prefix}join')
+
+        if ctx.guild_db.assignable_roles_are_exclusive:
+            for role_id in ctx.guild_db.assignable_role_ids:
+                _role = ctx.guild.get_role(role_id)
+
+                if not _role:
+                    await ctx.guild_db.remove_assignable_role(role_id)
+                elif role_id != role.id:
+                    await ctx.author.remove_roles(_role,
+                                                  reason=f'Role has been removed cuz assignable roles are exclusive.')
+
+        await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
+
+    @commands.command(aliases=['iamn'])
+    @commands.has_permissions(manage_roles=True)
+    async def leave(self,
+                    ctx: MidoContext,
+                    role: MidoRoleConverter()):
+        """Leave an assignable role."""
+        if role.id not in ctx.guild_db.assignable_role_ids:
+            raise EmbedError("That role is not assignable.")
+
+        # already has that role check
+        if role not in ctx.author.roles:
+            raise EmbedError(f"You don't even the {role.mention} role.")
+
+        await ctx.author.remove_roles(role, reason=f'Role has been removed using {ctx.prefix}leave')
+
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from you!")
 
     @setrole.before_invoke
     @removerole.before_invoke
@@ -669,7 +755,7 @@ class Moderation(commands.Cog):
                 return m.author.id == target_user.id
 
         if number <= 0:
-            return ctx.send_error("Invalid message amount. It can't be less than or equal to 0.")
+            raise EmbedError("Invalid message amount. It can't be less than or equal to 0.")
         elif number > 100:
             number = 100
 
