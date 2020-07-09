@@ -252,7 +252,8 @@ class Moderation(commands.Cog):
                                            "but I couldn't configure it's permissions "
                                            "for some channels due to missing permissions.\n"
                                            "If you'd like me to configure it properly for every channel, "
-                                           "please delete the role Muted role and use the mute command again "
+                                           f"please delete the {muted_role.mention} role "
+                                           f"and use the `mute` command again "
                                            "after giving me proper permissions.")
                 else:
                     await msg.edit(content="Mute role has been successfully created and configured for all channels!")
