@@ -24,23 +24,31 @@ class YTDLSource(discord.PCMVolumeTransformer):
         'format': 'bestaudio/best',
         'extractaudio': True,
         'audioformat': 'mp3',
-        'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+        # 'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
         'restrictfilenames': True,
-        'playlistend': 100,
+        # 'playlistend': 100,
         'nocheckcertificate': True,
-        'ignoreerrors': False,
+        'ignoreerrors': True,
         'logtostderr': False,
         'quiet': True,
         'no_warnings': True,
         'default_search': 'auto',
         'source_address': '0.0.0.0',
-        'cachedir': False
+        'cachedir': False,
+        # 'cookiefile': 'other/cookies.txt',
+        # 'useragent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
+        'verbose': True
     }
 
     FFMPEG_OPTIONS = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn',
     }
+
+    BLACKLISTED_TITLES = [
+        '[Deleted video]',
+        '[Private video]'
+    ]
 
     ytdl = youtube_dl.YoutubeDL(YTDL_OPTIONS)
 
@@ -75,23 +83,38 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return '**{0.title}** by **{0.uploader}**'.format(self)
 
     @classmethod
-    async def create_source(cls, ctx: context.MidoContext, search: str, *, loop: asyncio.BaseEventLoop = None):
-        loop = loop or asyncio.get_event_loop()
+    async def create_source(cls,
+                            ctx: context.MidoContext,
+                            search: str,
+                            process: bool = True,
+                            loop: asyncio.BaseEventLoop = asyncio.get_event_loop()):
+        if search in cls.BLACKLISTED_TITLES:
+            return None
 
-        partial = functools.partial(cls.ytdl.extract_info, url=search, download=False, process=True)
-        processed_info = await loop.run_in_executor(None, partial)
-
-        if processed_info is None:
+        try:
+            partial = functools.partial(cls.ytdl.extract_info, url=search, download=False, process=process)
+            processed_info = await loop.run_in_executor(None, partial)
+            if not processed_info:
+                raise youtube_dl.DownloadError('No processed info.')
+        except youtube_dl.DownloadError:
             return None
 
         # if we have a list of entries (most likely a playlist or a search)
         if 'entries' in processed_info:
-            return [cls(ctx, discord.FFmpegPCMAudio(song['url'], **cls.FFMPEG_OPTIONS), data=song)
-                    for song in processed_info['entries']]
+            if process is True:
+                return [cls(ctx, discord.FFmpegPCMAudio(song['url'], **cls.FFMPEG_OPTIONS), data=song)
+                        for song in processed_info['entries']]
+            else:
+                return [song['title'] for song in processed_info['entries']]
 
         # if a song link is provided
         else:
-            return [cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
+            if process is True:
+                return [
+                    cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
+            else:
+                print(processed_info)
+                return [processed_info['webpage_url']]
 
     @property
     def played_duration(self) -> str:
@@ -220,8 +243,8 @@ class VoiceState:
 
             if not self.loop:
                 try:
-                    async with timeout(60):
-                        self.current = await self.songs.get()
+                    async with timeout(180):
+                        self.current: Song = await self.songs.get()
                 except asyncio.TimeoutError:
                     return self.bot.loop.create_task(self.stop())
 
@@ -260,7 +283,7 @@ class Music(commands.Cog):
         self.voice_states = {}
 
         self.sri_api = SomeRandomAPI(self.bot.http_session)
-        self.spotify_api = SpotifyAPI(self.bot.config['spotify_credentials'], self.bot.http_session)
+        self.spotify_api = SpotifyAPI(self.bot.http_session, self.bot.config['spotify_credentials'])
 
     def get_voice_state(self, guild: GuildDB) -> VoiceState:
         state = self.voice_states.get(guild.id)
@@ -391,10 +414,7 @@ class Music(commands.Cog):
 
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: context.MidoContext):
-        """Skip the currently playing song.
-        A number of skip votes are required depending on how many people there are in the voice channel.
-        **Server moderators can use `{0.prefix}forceskip` to force this action.**
-        """
+        """Skip the currently playing song."""
         if not ctx.voice_state.is_playing:
             return await ctx.send_error('Not playing any music right now...')
 
@@ -436,7 +456,7 @@ class Music(commands.Cog):
     @commands.command(name='forceskip', aliases=['fskip'])
     @commands.has_permissions(manage_guild=True)
     async def _force_skip(self, ctx: context.MidoContext):
-        """Skip the currently playing song without requiring votes.
+        """Skip the currently playing song without requiring votes if enabled.
 
         You need the **Manage Server** permission to use this command."""
         if not ctx.voice_state.is_playing:
@@ -520,42 +540,37 @@ class Music(commands.Cog):
                 return await ctx.send_error('Bot is already in a voice channel.')
 
         if not ctx.voice_state.voice:
-            await ctx.invoke(self._join)
+            self.bot.loop.create_task(ctx.invoke(self._join))
 
-        msg = await ctx.send_success("I'm processing your request, please wait...", footer=False)
+        msg_task = self.bot.loop.create_task(ctx.send_success("Processing...", footer=False))
 
         # checks
         async with ctx.typing():
+            # get song names
             if search.startswith('https://open.spotify.com/'):
                 search: list = await self.spotify_api.get_song_names(search)
-
-            try:
-                if isinstance(search, list):
-                    songs = []
-                    for query in search:
-                        song = await YTDLSource.create_source(ctx, query, loop=self.bot.loop)
-                        if not song:
-                            pass
-                        songs.append(song[0])
-                else:
-                    songs = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
-            except youtube_dl.DownloadError:
-                return await ctx.send_error("Unsupported URL.")
-
-            if not songs:
-                return await ctx.send_error(f'Couldn\'t find anything that matches `{search}`')
             else:
-                for song in songs:
-                    s_obj = Song(song)
+                search: list = await YTDLSource.create_source(ctx, search, process=False, loop=self.bot.loop)
+
+            if not search:
+                return await ctx.send_error(f"Couldn't find anything that matches `{search}`.")
+
+            songs = []
+            for query in search:
+                source = await YTDLSource.create_source(ctx, query, process=True, loop=self.bot.loop)
+                if source:
+                    s_obj = Song(source[0])
+                    songs.append(s_obj)
                     await ctx.voice_state.songs.put(s_obj)
 
-                # if its a playlist
-                if len(songs) > 1:
-                    await ctx.edit_custom(msg, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
-                                               f'You can type `{ctx.prefix}queue` to see it.')
-                else:
-                    await ctx.edit_custom(msg, f'**{s_obj.source.title}** has been successfully added to the queue.\n\n'
-                                               f'You can type `{ctx.prefix}queue` to see it.')
+            msg = msg_task.result()
+            # if its a playlist
+            if len(songs) > 1:
+                await ctx.edit_custom(msg, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
+                                           f'You can type `{ctx.prefix}queue` to see it.')
+            else:
+                await ctx.edit_custom(msg, f'**{songs[0].source.title}** has been successfully added to the queue.\n\n'
+                                           f'You can type `{ctx.prefix}queue` to see it.')
 
     @commands.command()
     async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):
