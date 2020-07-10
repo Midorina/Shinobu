@@ -15,6 +15,7 @@ class MidoBotAPI:
     def __init__(self, session: ClientSession):
         self.session = session
 
+
 class CachedImageAPI(MidoBotAPI):
     def __init__(self, session: ClientSession, db: Pool):
         super(CachedImageAPI, self).__init__(session)
@@ -304,4 +305,3 @@ class SomeRandomAPI(MidoBotAPI):
             thumbnail = list(response['thumbnail'].values())[0]
 
             return title, lyrics, thumbnail
-
