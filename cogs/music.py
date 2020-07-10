@@ -285,9 +285,9 @@ class Music(commands.Cog):
     async def cog_before_invoke(self, ctx: context.MidoContext):
         ctx.voice_state = self.get_voice_state(ctx.guild_db)
 
-    @commands.command(name='connect', aliases=['join'])
+    @commands.command(name='connect')
     async def _join(self, ctx: context.MidoContext):
-        """Make me join a voice channel."""
+        """Make me connect to your voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.send_error('You are not connected to any voice channel.')
 
@@ -311,9 +311,9 @@ class Music(commands.Cog):
         else:
             await ctx.message.add_reaction('👍')
 
-    @commands.command(name='disconnect', aliases=['leave', 'destroy', 'd'])
+    @commands.command(name='disconnect', aliases=['destroy', 'd'])
     async def _leave(self, ctx: context.MidoContext):
-        """Make me leave the voice channel."""
+        """Make me disconnect from your voice channel."""
         if ctx.voice_client:
             await ctx.voice_client.disconnect(force=True)
 
