@@ -1,5 +1,6 @@
 import ast
 import itertools
+import multiprocessing
 import os
 import time
 
@@ -268,10 +269,13 @@ class Misc(commands.Cog):
 
     @commands.command(hidden=True)
     @checks.owner_only()
-    async def shutdown(self, ctx):
+    async def shutdown(self, ctx, *, force: str = None):
         await ctx.send("Shutting down...")
 
-        await self.bot.logout()
+        if force == '-f':
+            multiprocessing.Process(target=os.system, args=('pm2 stop midobot',)).start()
+
+        await self.bot.close()
 
 
 def setup(bot):
