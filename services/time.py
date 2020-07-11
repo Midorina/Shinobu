@@ -1,15 +1,15 @@
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
 from discord.ext.commands import BadArgument
 
 time_multipliers = {
-    's': 1,
-    'm': 60,
-    'h': 60 * 60,
-    'd': 60 * 60 * 24,
-    'w': 60 * 60 * 24 * 7,
+    's' : 1,
+    'm' : 60,
+    'h' : 60 * 60,
+    'd' : 60 * 60 * 24,
+    'w' : 60 * 60 * 24 * 7,
     'mo': 60 * 60 * 24 * 7 * 4
 }
 

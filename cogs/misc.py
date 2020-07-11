@@ -3,6 +3,7 @@ import itertools
 import multiprocessing
 import os
 import time
+from datetime import datetime
 
 import discord
 import psutil
@@ -64,6 +65,10 @@ class MidoHelp(commands.HelpCommand):
             e.add_field(name=f"**__{str(cog)}__**",
                         value="\n".join([f'{self.context.prefix}**{c.name}**' for c in _commands]),
                         inline=True)
+
+        e.set_footer(text=f"{total} Commands",
+                     icon_url=self.context.bot.user.avatar_url)
+        e.timestamp = datetime.utcnow()
 
         await self.context.send(embed=e)
 

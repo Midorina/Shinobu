@@ -3,7 +3,7 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import EmbedError, SilenceError, NotFoundError, MusicError
+from services.exceptions import EmbedError, MusicError, NotFoundError, SilenceError
 
 
 class Errors(commands.Cog):

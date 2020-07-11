@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 class Google:
     USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/ 58.0.3029.81 Safari/537.36"
     DEFAULT_HEADERS = {
-        'User-Agent': USER_AGENT,
+        'User-Agent'     : USER_AGENT,
         "Accept-Language": "en-US,en;q=0.5",
     }
 

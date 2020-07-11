@@ -6,7 +6,7 @@ from typing import List, Tuple
 from aiohttp import ClientSession
 from asyncpg.pool import Pool
 
-from services.exceptions import NotFoundError, InvalidURL
+from services.exceptions import InvalidURL, NotFoundError
 
 
 # TODO: make use of the cache for real in the future.
@@ -102,13 +102,13 @@ class NSFWAPIs(CachedImageAPI):
             rand_page = random.randrange(max_range) if max_range else 0
 
             async with self.session.get(self.dapi_links[dapi], params={
-                'page': 'dapi',
-                's': 'post',
-                'q': 'index',
-                'tags': " ".join(tags),
+                'page' : 'dapi',
+                's'    : 'post',
+                'q'    : 'index',
+                'tags' : " ".join(tags),
                 'limit': 100,
-                'json': 1,
-                'pid': rand_page,
+                'json' : 1,
+                'pid'  : rand_page,
                 # **self.bot.config['gelbooru_credentials']
             }) as response:
                 # lower the range
@@ -173,7 +173,7 @@ class NSFWAPIs(CachedImageAPI):
             }
         else:
             params = {
-                'limit': 200,
+                'limit' : 200,
                 'random': 'true'
             }
 

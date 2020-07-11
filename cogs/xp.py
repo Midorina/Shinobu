@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from db.models import MemberDB, UserDB, XpAnnouncement
 from main import MidoBot
-from services import context, checks
+from services import checks, context
 from services.converters import MidoMemberConverter
 
 

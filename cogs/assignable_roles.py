@@ -8,7 +8,7 @@ from services.exceptions import EmbedError
 from services.security_stuff import ensure_role_hierarchy
 
 
-class Assignable_Roles(commands.Cog):
+class Assignable_Roles(commands.Cog, name='Assignable Roles'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

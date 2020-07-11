@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from db.models import UserDB, GuildDB, MemberDB
+from db.models import GuildDB, MemberDB, UserDB
 from services.base_embed import BaseEmbed
 
 
@@ -28,7 +28,7 @@ class MidoContext(commands.Context):
         embed = BaseEmbed(bot=self.bot,
                           color=discord.Colour.red(),
                           description=error_message,
-                          footer=False)
+                          default_footer=False)
         return await self.send(embed=embed)
 
     async def send_success(self, sucess_message: str, **kwargs):
