@@ -11,38 +11,38 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
-from db.models import MidoTime, GuildDB
+from db.models import GuildDB, MidoTime
 from main import MidoBot
-from services import menu_stuff, context
-from services.apis import SpotifyAPI, SomeRandomAPI
+from services import context, menu_stuff
+from services.apis import SomeRandomAPI, SpotifyAPI
 from services.base_embed import BaseEmbed
 from services.exceptions import MusicError, NotFoundError
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
     YTDL_OPTIONS = {
-        'format': 'bestaudio/best',
-        'extractaudio': True,
-        'audioformat': 'mp3',
+        'format'            : 'bestaudio/best',
+        'extractaudio'      : True,
+        'audioformat'       : 'mp3',
         # 'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-        'restrictfilenames': True,
+        'restrictfilenames' : True,
         # 'playlistend': 100,
         'nocheckcertificate': True,
-        'ignoreerrors': True,
-        'logtostderr': False,
-        'quiet': True,
-        'no_warnings': True,
-        'default_search': 'auto',
-        'source_address': '0.0.0.0',
-        'cachedir': False,
+        'ignoreerrors'      : True,
+        'logtostderr'       : False,
+        'quiet'             : True,
+        'no_warnings'       : True,
+        'default_search'    : 'auto',
+        'source_address'    : '0.0.0.0',
+        'cachedir'          : False,
         # 'cookiefile': 'other/cookies.txt',
         # 'useragent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
-        'verbose': True
+        'verbose'           : True
     }
 
     FFMPEG_OPTIONS = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        'options': '-vn',
+        'options'       : '-vn',
     }
 
     BLACKLISTED_TITLES = [

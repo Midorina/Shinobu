@@ -9,7 +9,7 @@ import psutil
 from discord.ext import commands
 
 from main import MidoBot
-from services import checks, context, base_embed
+from services import base_embed, checks, context
 from services.exceptions import EmbedError
 from services.time import MidoTime
 
@@ -18,8 +18,8 @@ class MidoHelp(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
             'cooldown': commands.Cooldown(rate=1, per=1.0, type=commands.BucketType.member),
-            'help': 'Shows help about the bot or a command.',
-            'aliases': ['h']
+            'help'    : 'Shows help about the bot or a command.',
+            'aliases' : ['h']
         })
         self.verify_checks = False
 
@@ -142,10 +142,10 @@ class Misc(commands.Cog):
         insert_returns(body)
 
         env = {
-            'bot': ctx.bot,
-            'discord': discord,
-            'commands': commands,
-            'ctx': ctx,
+            'bot'       : ctx.bot,
+            'discord'   : discord,
+            'commands'  : commands,
+            'ctx'       : ctx,
             '__import__': __import__
         }
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
