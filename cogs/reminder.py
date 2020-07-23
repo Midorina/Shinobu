@@ -8,7 +8,7 @@ from db.models import ReminderDB
 from main import MidoBot
 from services.base_embed import BaseEmbed
 from services.context import MidoContext
-from services.time import MidoTime
+from services.time_stuff import MidoTime
 
 
 class Reminder(commands.Cog):

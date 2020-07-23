@@ -12,7 +12,7 @@ from discord.ext import commands
 from main import MidoBot
 from services import base_embed, checks, context
 from services.exceptions import EmbedError
-from services.time import MidoTime
+from services.time_stuff import MidoTime
 
 
 class MidoHelp(commands.HelpCommand):

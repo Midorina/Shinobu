@@ -5,7 +5,7 @@ from typing import List
 
 from asyncpg import Record, pool
 
-from services.time import MidoTime
+from services.time_stuff import MidoTime
 
 with open('config.json') as f:
     config = json.load(f)

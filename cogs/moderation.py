@@ -11,7 +11,7 @@ from services.converters import MidoMemberConverter, MidoRoleConverter
 from services.exceptions import EmbedError
 from services.menu_stuff import paginate, yes_no
 from services.security_stuff import ensure_role_hierarchy
-from services.time import MidoTime
+from services.time_stuff import MidoTime
 
 action_emotes = {
     'kick': '👢',
