@@ -20,6 +20,10 @@ from services.exceptions import MusicError, NotFoundError
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
+    # youtube_dl.utils.std_headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
+    youtube_dl.utils.std_headers[
+        'User-Agent'] = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+
     YTDL_OPTIONS = {
         'format'            : 'bestaudio/best',
         'extractaudio'      : True,
@@ -36,7 +40,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
         'source_address'    : '0.0.0.0',
         'cachedir'          : False,
         # 'cookiefile': 'other/cookies.txt',
-        # 'useragent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
         'verbose'           : True
     }
 
@@ -113,7 +116,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 return [
                     cls(ctx, discord.FFmpegPCMAudio(processed_info['url'], **cls.FFMPEG_OPTIONS), data=processed_info)]
             else:
-                print(processed_info)
                 return [processed_info['webpage_url']]
 
     @property
@@ -542,7 +544,7 @@ class Music(commands.Cog):
         if not ctx.voice_state.voice:
             self.bot.loop.create_task(ctx.invoke(self._join))
 
-        msg_task = self.bot.loop.create_task(ctx.send_success("Processing...", footer=False))
+        msg_task = self.bot.loop.create_task(ctx.send_success("Processing...", default_footer=False))
 
         # checks
         async with ctx.typing():
@@ -551,9 +553,6 @@ class Music(commands.Cog):
                 search: list = await self.spotify_api.get_song_names(search)
             else:
                 search: list = await YTDLSource.create_source(ctx, search, process=False, loop=self.bot.loop)
-
-            if not search:
-                return await ctx.send_error(f"Couldn't find anything that matches `{search}`.")
 
             songs = []
             for query in search:
@@ -568,9 +567,12 @@ class Music(commands.Cog):
             if len(songs) > 1:
                 await ctx.edit_custom(msg, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
                                            f'You can type `{ctx.prefix}queue` to see it.')
-            else:
+            # single query
+            elif len(songs) == 1:
                 await ctx.edit_custom(msg, f'**{songs[0].source.title}** has been successfully added to the queue.\n\n'
                                            f'You can type `{ctx.prefix}queue` to see it.')
+            else:
+                await ctx.edit_custom(msg, f"Couldn't find anything that matches `{search[0]}`.")
 
     @commands.command()
     async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):
