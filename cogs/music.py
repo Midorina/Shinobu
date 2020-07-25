@@ -345,7 +345,7 @@ class Music(commands.Cog):
             await ctx.voice_state.stop()
             del self.voice_states[ctx.guild.id]
 
-            await ctx.send_success("I've successfully left the voice channel.", footer=False)
+            await ctx.send_success("I've successfully left the voice channel.")
 
         else:
             return await ctx.send_error("I'm not currently not in a voice channel! (or am I 🤔)")
@@ -357,7 +357,7 @@ class Music(commands.Cog):
             return await ctx.send_error('Nothing is being played at the moment.')
 
         if volume is None:
-            return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%', footer=False)
+            return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%')
 
         elif volume == 0:
             return await ctx.send_error(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
@@ -368,7 +368,7 @@ class Music(commands.Cog):
         ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
 
-        await ctx.send_success(f'Volume is set to **{volume}**%', footer=False)
+        await ctx.send_success(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now(self, ctx: context.MidoContext):
@@ -386,7 +386,7 @@ class Music(commands.Cog):
 
         elif ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
             ctx.voice_state.voice.pause()
-            await ctx.send_success("⏯ Paused.", footer=False)
+            await ctx.send_success("⏯ Paused.")
 
         else:
             await ctx.send_error("I'm not currently playing any music!")
@@ -398,7 +398,7 @@ class Music(commands.Cog):
 
         elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.resume()
-            await ctx.send_success('⏯ Resumed.', footer=False)
+            await ctx.send_success('⏯ Resumed.')
 
         else:
             await ctx.send_error("I'm not currently playing any music!")
@@ -410,7 +410,7 @@ class Music(commands.Cog):
         if ctx.voice_state.is_playing:
             ctx.voice_state.voice.stop()
             ctx.voice_state.songs.clear()
-            await ctx.send_success('⏹ Stopped.', footer=False)
+            await ctx.send_success('⏹ Stopped.')
         else:
             await ctx.send_error("I'm not currently playing any music!")
 
@@ -435,7 +435,7 @@ class Music(commands.Cog):
                 or len(ctx.voice_state.skip_votes) >= required_votes  # if it reached the required vote amount
                 or self.forcekip_by_default):  # if forceskip is enabled
             ctx.voice_state.skip()
-            await ctx.send_success('⏭ Skipped.', footer=False)
+            await ctx.send_success('⏭ Skipped.')
 
         elif voter.id not in ctx.voice_state.skip_votes:
             ctx.voice_state.skip_votes.append(voter.id)
@@ -443,14 +443,14 @@ class Music(commands.Cog):
             total_votes = len(ctx.voice_state.skip_votes)
             if total_votes >= required_votes:
                 ctx.voice_state.skip()
-                await ctx.send_success('⏭ Skipped.', footer=False)
+                await ctx.send_success('⏭ Skipped.')
 
             else:
                 base_string = f'Skip vote added, currently at **{total_votes}/{required_votes}**'
                 if ctx.author.guild_permissions.manage_guild is True:
                     base_string += f'\n\n**You can force this action by typing `{ctx.prefix}forceskip`**'
 
-                return await ctx.send_success(base_string, footer=False)
+                return await ctx.send_success(base_string)
 
         else:
             await ctx.send_error('You have already voted to skip this song.')
@@ -465,7 +465,7 @@ class Music(commands.Cog):
             return await ctx.send_error('Not playing any music right now...')
 
         ctx.voice_state.skip()
-        await ctx.send_success('⏭ Skipped.', footer=False)
+        await ctx.send_success('⏭ Skipped.')
 
     @commands.command(name='queue', aliases=['q'])
     async def _queue(self, ctx: context.MidoContext):
@@ -504,7 +504,7 @@ class Music(commands.Cog):
             return await ctx.send_error('The queue is empty.')
 
         ctx.voice_state.songs.shuffle()
-        await ctx.send_success('Successfully shuffled the song queue.', footer=False)
+        await ctx.send_success('Successfully shuffled the song queue.')
 
     @commands.command(name='remove')
     async def _remove(self, ctx: context.MidoContext, index: int):
@@ -519,7 +519,7 @@ class Music(commands.Cog):
             return await ctx.send_error("You are not the requester of this song!")
 
         ctx.voice_state.songs.remove(index - 1)
-        await ctx.send_success('✅ Removed the song.', footer=False)
+        await ctx.send_success('✅ Removed the song.')
 
     # This command has been disabled due to issues its causing.
     # @commands.command(name='loop')
@@ -544,7 +544,7 @@ class Music(commands.Cog):
         if not ctx.voice_state.voice:
             self.bot.loop.create_task(ctx.invoke(self._join))
 
-        msg_task = self.bot.loop.create_task(ctx.send_success("Processing...", default_footer=False))
+        msg_task = self.bot.loop.create_task(ctx.send_success("Processing..."))
 
         # checks
         async with ctx.typing():
@@ -588,7 +588,7 @@ class Music(commands.Cog):
             return await ctx.send_error(f"I couldn't find the lyrics of **{song_name}**.\n"
                                         f"Try writing the title in a simpler form.")
 
-        e = BaseEmbed(bot=self.bot, title=song_title)
+        e = BaseEmbed(bot=self.bot, title=song_title, default_footer=True)
         e.set_thumbnail(url=thumbnail)
 
         await menu_stuff.paginate(bot=self.bot,

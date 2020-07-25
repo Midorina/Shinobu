@@ -4,7 +4,7 @@ import discord
 
 
 class BaseEmbed(discord.Embed):
-    def __init__(self, bot, default_footer=True, image_url=None, **kwargs):
+    def __init__(self, bot, default_footer=False, image_url=None, **kwargs):
         super().__init__(**kwargs)
         self.bot = bot
 

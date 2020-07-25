@@ -27,8 +27,7 @@ class Assignable_Roles(commands.Cog, name='Assignable Roles'):
 
         await ctx.guild_db.add_assignable_role(role_id=role.id)
 
-        await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.",
-                               footer=False)
+        await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.")
 
     @commands.command(aliases=['rar'])
     @commands.has_permissions(manage_roles=True)
@@ -45,8 +44,7 @@ class Assignable_Roles(commands.Cog, name='Assignable Roles'):
 
         await ctx.guild_db.remove_assignable_role(role_id=role.id)
 
-        await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.",
-                               footer=False)
+        await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.")
 
     @commands.command(aliases=['ear'])
     @commands.has_permissions(manage_roles=True)
@@ -71,7 +69,7 @@ class Assignable_Roles(commands.Cog, name='Assignable Roles'):
 
         You need the **Manage Roles** permissions to use this command.
         """
-        e = BaseEmbed(bot=ctx.bot, title="Assignable Roles")
+        e = BaseEmbed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
         e.set_footer(text=f"Assignable Roles Are Exclusive: {ctx.guild_db.assignable_roles_are_exclusive}")
 
         if ctx.guild_db.assignable_role_ids:

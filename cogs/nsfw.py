@@ -36,7 +36,6 @@ class NSFW(commands.Cog):
     async def boobs(self, ctx):
         """Get a random boob picture."""
         e = BaseEmbed(bot=self.bot,
-                      default_footer=False,
                       image_url=await self.api.get('boobs'))
         await ctx.send(embed=e)
 
@@ -44,7 +43,6 @@ class NSFW(commands.Cog):
     async def butts(self, ctx):
         """Get a random butt picture."""
         e = BaseEmbed(bot=self.bot,
-                      default_footer=False,
                       image_url=await self.api.get('butts'))
         await ctx.send(embed=e)
 

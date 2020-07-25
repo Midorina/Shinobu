@@ -20,8 +20,7 @@ class Shitposting(commands.Cog):
             user = user.display_name
 
         embed = BaseEmbed(ctx.bot,
-                          title=f"{user}'s Penis Size",
-                          default_footer=False)
+                          title=f"{user}'s Penis Size")
 
         embed.description = "8" + "=" * random.randrange(20) + "D"
 
@@ -33,7 +32,7 @@ class Shitposting(commands.Cog):
         if isinstance(user, discord.Member):
             user = user.display_name
 
-        embed = BaseEmbed(ctx.bot, default_footer=False)
+        embed = BaseEmbed(ctx.bot)
 
         embed.description = f"{user} is **{random.randrange(101)}% gay 🏳️‍🌈**"
 

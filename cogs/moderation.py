@@ -628,7 +628,7 @@ class Moderation(commands.Cog):
         # then delete the rest
         deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
 
-        return await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", footer=False)
+        return await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.")
 
 
 def setup(bot):

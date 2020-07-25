@@ -55,7 +55,8 @@ class MidoHelp(commands.HelpCommand):
         e = base_embed.BaseEmbed(self.context.bot,
                                  title='MidoBot Commands',
                                  description=f'You can type `{self.context.prefix}help <command>` '
-                                             f'to see additional info about a command.')
+                                             f'to see additional info about a command.',
+                                 default_footer=True)
         for cog, _commands in itertools.groupby(entries, key=key):
             _commands = sorted(_commands, key=lambda c: c.name)
             if len(_commands) == 0:
@@ -86,7 +87,7 @@ class MidoHelp(commands.HelpCommand):
         if command.hidden:
             raise commands.CommandInvokeError("That is a hidden command. Sorry.")
 
-        embed = base_embed.BaseEmbed(self.context.bot)
+        embed = base_embed.BaseEmbed(self.context.bot, default_footer=True)
         self.common_command_formatting(embed, command)
         await self.context.send(content=content, embed=embed)
 

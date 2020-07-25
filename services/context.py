@@ -27,8 +27,7 @@ class MidoContext(commands.Context):
     async def send_error(self, error_message: str):
         embed = BaseEmbed(bot=self.bot,
                           color=discord.Colour.red(),
-                          description=error_message,
-                          default_footer=False)
+                          description=error_message)
         return await self.send(embed=embed)
 
     async def send_success(self, sucess_message: str, **kwargs):
