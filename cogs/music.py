@@ -90,9 +90,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
                             ctx: context.MidoContext,
                             search: str,
                             process: bool = True,
-                            loop: asyncio.BaseEventLoop = asyncio.get_event_loop()):
+                            loop: asyncio.BaseEventLoop = asyncio.get_event_loop()) -> list:
         if search in cls.BLACKLISTED_TITLES:
-            return None
+            return []
 
         try:
             partial = functools.partial(cls.ytdl.extract_info, url=search, download=False, process=process)
@@ -100,7 +100,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             if not processed_info:
                 raise youtube_dl.DownloadError('No processed info.')
         except youtube_dl.DownloadError:
-            return None
+            return []
 
         # if we have a list of entries (most likely a playlist or a search)
         if 'entries' in processed_info:
