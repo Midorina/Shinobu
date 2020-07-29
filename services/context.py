@@ -24,16 +24,18 @@ class MidoContext(commands.Context):
         except AttributeError:
             self.user_db = await UserDB.get_or_create(self.db, self.author.id)
 
-    async def send_error(self, error_message: str):
+    async def send_error(self, message: str = 'Error!') -> discord.Message:
         embed = BaseEmbed(bot=self.bot,
                           color=discord.Colour.red(),
-                          description=error_message)
+                          description=message)
+
         return await self.send(embed=embed)
 
-    async def send_success(self, sucess_message: str, **kwargs):
+    async def send_success(self, message: str = 'Success!', **kwargs) -> discord.Message:
         embed = BaseEmbed(bot=self.bot,
-                          description=sucess_message,
+                          description=message,
                           **kwargs)
+
         return await self.send(embed=embed)
 
     @staticmethod
