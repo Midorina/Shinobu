@@ -224,6 +224,7 @@ class UserDB(BaseDBModel):
 
 
 class MemberDB(BaseDBModel):
+    # noinspection PyTypeChecker
     def __init__(self, member_db: Record, db_conn: pool.Pool):
         super(MemberDB, self).__init__(member_db, db_conn)
 

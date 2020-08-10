@@ -211,11 +211,8 @@ class SpotifyAPI(MidoBotAPI):
 
     @staticmethod
     def get_search_query_from_track_obj(track: dict):
-        query = ""
-
-        query += ", ".join(artist['name'] for artist in track['artists'])
-        query += ' - '
-        query += track['name']
+        query = ", ".join(artist['name'] for artist in track['artists'])
+        query += f" - {track['name']}"
 
         return query
 

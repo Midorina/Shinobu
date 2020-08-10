@@ -563,6 +563,10 @@ class Music(commands.Cog):
                     await ctx.voice_state.songs.put(s_obj)
 
             msg = msg_task.result()
+            # if its the first song in the queue, just delete the msg
+            if len(ctx.voice_state.songs) == 1 and not ctx.voice_state.is_playing:
+                return await msg.delete()
+
             # if its a playlist
             if len(songs) > 1:
                 await ctx.edit_custom(msg, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
