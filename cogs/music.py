@@ -532,7 +532,7 @@ class Music(commands.Cog):
     #     await ctx.message.add_reaction('✅')
 
     @commands.command(name='play')
-    async def _play(self, ctx: context.MidoContext, *, search: str):
+    async def _play(self, ctx: context.MidoContext, *, query: str):
         """Queue a song to play!"""
         if not ctx.author.voice or not ctx.author.voice.channel:
             return await ctx.send_error('You are not connected to any voice channel.')
@@ -549,14 +549,14 @@ class Music(commands.Cog):
         # checks
         async with ctx.typing():
             # get song names
-            if search.startswith('https://open.spotify.com/'):
-                search: list = await self.spotify_api.get_song_names(search)
+            if query.startswith('https://open.spotify.com/'):
+                search: list = await self.spotify_api.get_song_names(query)
             else:
-                search: list = await YTDLSource.create_source(ctx, search, process=False, loop=self.bot.loop)
+                search: list = await YTDLSource.create_source(ctx, query, process=False, loop=self.bot.loop)
 
             songs = []
-            for query in search:
-                source = await YTDLSource.create_source(ctx, query, process=True, loop=self.bot.loop)
+            for _query in search:
+                source = await YTDLSource.create_source(ctx, _query, process=True, loop=self.bot.loop)
                 if source:
                     s_obj = Song(source[0])
                     songs.append(s_obj)
@@ -576,7 +576,7 @@ class Music(commands.Cog):
                 await ctx.edit_custom(msg, f'**{songs[0].source.title}** has been successfully added to the queue.\n\n'
                                            f'You can type `{ctx.prefix}queue` to see it.')
             else:
-                await ctx.edit_custom(msg, f"Couldn't find anything that matches `{search[0]}`.")
+                await ctx.edit_custom(msg, f"Couldn't find anything that matches `{query}`.")
 
     @commands.command()
     async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):

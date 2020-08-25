@@ -7,6 +7,7 @@ from aiohttp import ClientSession
 from asyncpg.pool import Pool
 
 from services.exceptions import InvalidURL, NotFoundError
+from services.time_stuff import MidoTime
 
 
 # TODO: make use of the cache for real in the future.
@@ -204,6 +205,7 @@ class SpotifyAPI(MidoBotAPI):
 
         self.token = None
         self.token_type = None
+        self.expire_date: MidoTime = None
 
     @property
     def auth_header(self):
@@ -215,6 +217,13 @@ class SpotifyAPI(MidoBotAPI):
         query += f" - {track['name']}"
 
         return query
+
+    async def _request(self, link: str) -> dict:
+        if not self.token or self.expire_date.end_date_has_passed:
+            await self.get_token()
+
+        async with self.session.get(link, headers=self.auth_header) as r:
+            return await r.json()
 
     async def get_token(self):
         param = {'grant_type': 'client_credentials'}
@@ -229,6 +238,7 @@ class SpotifyAPI(MidoBotAPI):
 
             self.token = token_dict['access_token']
             self.token_type = token_dict['token_type']
+            self.expire_date = MidoTime.add_to_current_date_and_get(token_dict['expires_in'])
 
     async def get_song_names(self, url: str):
         url_type = url.split('/')[3]
@@ -239,20 +249,18 @@ class SpotifyAPI(MidoBotAPI):
         else:
             raise InvalidURL
 
-        if not self.token:
-            await self.get_token()
+        response = await self._request(f'https://api.spotify.com/v1/{url_type}/{_id}')
 
-        async with self.session.get(f'https://api.spotify.com/v1/{url_type}/{_id}', headers=self.auth_header) as r:
-            response = await r.json()
+        if url_type == 'tracks':
+            track_list = [response]
+        elif url_type == 'albums':
+            track_list = response['tracks']['items']
+        elif url_type == 'playlists':
+            track_list = [item['track'] for item in response['tracks']['items']]
+        else:
+            raise InvalidURL
 
-            if url_type == 'tracks':
-                track_list = [response]
-            elif url_type == 'albums':
-                track_list = response['tracks']['items']
-            elif url_type == 'playlists':
-                track_list = [item['track'] for item in response['tracks']['items']]
-
-            return [self.get_search_query_from_track_obj(track) for track in track_list]
+        return [self.get_search_query_from_track_obj(track) for track in track_list]
 
 
 class SomeRandomAPI(MidoBotAPI):
