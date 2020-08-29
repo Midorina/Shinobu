@@ -3,14 +3,14 @@ from discord.ext import commands
 
 from main import MidoBot
 from services import base_embed, context, menu_stuff
-from services.google_search import Google
+from services.apis import Google
 
 
 class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        self.google: Google = Google()
+        self.google: Google = Google(self.bot.http_session)
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
@@ -26,7 +26,7 @@ class Searches(commands.Cog):
         e.description = ""
         for result in results[:5]:
             e.add_field(name=result.url_simple,
-                        value=f"[{result.title}]({result.url})\n" \
+                        value=f"[{result.title}]({result.url})\n"
                               f"{result.description}\n‎\n",
                         inline=False)
 

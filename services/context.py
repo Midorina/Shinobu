@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from db.models import GuildDB, MemberDB, UserDB
+from models.db_models import GuildDB, MemberDB, UserDB
 from services.base_embed import BaseEmbed
 
 

@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 from aiohttp import ClientSession
 from asyncpg.pool import Pool
+from bs4 import BeautifulSoup
 
 from services.exceptions import InvalidURL, NotFoundError
 from services.time_stuff import MidoTime
@@ -13,8 +14,20 @@ from services.time_stuff import MidoTime
 # TODO: make use of the cache for real in the future.
 
 class MidoBotAPI:
+    USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) " \
+                 "AppleWebKit/537.36 (KHTML, like Gecko) " \
+                 "Chrome/ 58.0.3029.81 Safari/537.36"
+    DEFAULT_HEADERS = {
+        'User-Agent'     : USER_AGENT,
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+
     def __init__(self, session: ClientSession):
         self.session = session
+
+    @classmethod
+    def get_aiohttp_session(cls):
+        return ClientSession(headers=cls.DEFAULT_HEADERS)
 
 
 class CachedImageAPI(MidoBotAPI):
@@ -91,7 +104,7 @@ class NSFWAPIs(CachedImageAPI):
                 data = await r.json()
                 return [f"http://media.o{_type}.ru/" + image['preview'] for image in data]
             else:
-                raise Exception('Couldn\t fetch image. Please try again later.')
+                raise Exception("Couldn't fetch image. Please try again later.")
 
     async def _get_nsfw_dapi(self, dapi='rule34', tags=None) -> List[str]:
         images = []
@@ -197,14 +210,15 @@ class NSFWAPIs(CachedImageAPI):
 
 
 class SpotifyAPI(MidoBotAPI):
+    # noinspection PyTypeChecker
     def __init__(self, session: ClientSession, credentials: dict):
         super(SpotifyAPI, self).__init__(session)
 
-        self.client_id = credentials.get('client_id')
-        self.client_secret = credentials.get('client_secret')
+        self.client_id: str = credentials.get('client_id')
+        self.client_secret: str = credentials.get('client_secret')
 
-        self.token = None
-        self.token_type = None
+        self.token: str = None
+        self.token_type: str = None
         self.expire_date: MidoTime = None
 
     @property
@@ -310,3 +324,84 @@ class SomeRandomAPI(MidoBotAPI):
             thumbnail = list(response['thumbnail'].values())[0]
 
             return title, lyrics, thumbnail
+
+
+class Google(MidoBotAPI):
+    class SearchResult:
+        def __init__(self, title, url, description):
+            self.title = title
+            self.url = url
+            self.description = description
+
+        @property
+        def url_simple(self):
+            simple = '/'.join(self.url.split('/')[2:])
+
+            # if there's a slash at the end, remove it for clarity
+            if simple[-1] == '/':
+                simple = simple[:-1]
+
+            # if its too long, cut it and add 3 dots to the end
+            if len(simple) > 63:
+                simple = simple[:60] + '...'
+
+            return simple
+
+        def __str__(self):
+            return str(self.__dict__)
+
+        def __repr__(self):
+            return self.__str__()
+
+    def __init__(self, session: ClientSession):
+        super(Google, self).__init__(session)
+
+    async def search(self, query: str):
+        async with self.session.get(f"https://www.google.com/search?q={query}&hl=en") as r:
+            if r.status == 200:
+                soup = BeautifulSoup(await r.read(), "lxml")
+                return self.parse_results(soup.find_all("div", {'class': ['r', 's']}))
+
+            else:
+                raise Exception('There has been an error. Please try again later.')
+
+    def parse_results(self, results):
+        actual_results = []
+
+        # migrate the r and s classes
+        for i in range(0, len(results), 2):
+            try:
+                r = next(results[i].children)
+                s = None
+
+                # find the span
+                for children in results[i + 1].children:
+                    if children.span:
+                        s = children
+                        break
+
+                if not s:  # its probably a book or something at this point
+                    continue
+                else:
+                    actual_results.append((r, s))
+
+            except IndexError:
+                break
+
+        search_results = []
+
+        for main, description in actual_results:
+            try:
+                url = main["href"]
+                title = next(main.stripped_strings)
+                description = description.span.get_text()
+                if not title:
+                    continue
+
+            except KeyError:
+                continue
+
+            else:
+                search_results.append(self.SearchResult(title, url, description))
+
+        return search_results
