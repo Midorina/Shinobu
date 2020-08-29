@@ -3,13 +3,12 @@ import logging
 import os
 from datetime import datetime, timezone
 
-import aiohttp
 import asyncpg
 import discord
 from discord.ext import commands
 
-from db.models import GuildDB, MidoTime
-from services import context
+from models.db_models import GuildDB, MidoTime
+from services import apis, context
 
 
 async def _get_prefix(_bot, msg: discord.Message):
@@ -22,6 +21,7 @@ async def _get_prefix(_bot, msg: discord.Message):
 
 
 class MidoBot(commands.AutoShardedBot):
+    # noinspection PyTypeChecker
     def __init__(self):
         super().__init__(
             command_prefix=_get_prefix,
@@ -34,6 +34,7 @@ class MidoBot(commands.AutoShardedBot):
         self.first_time = True
 
         self.db: asyncpg.pool.Pool = None
+
         self.log_channel = None
         self.logger = logging.getLogger('MidoBot')
 
@@ -44,7 +45,7 @@ class MidoBot(commands.AutoShardedBot):
         self.prefix_cache = {}
         self.main_color = 0x15a34a
 
-        self.http_session = aiohttp.ClientSession()
+        self.http_session = apis.MidoBotAPI.get_aiohttp_session()
 
     async def close(self):
         await self.http_session.close()
@@ -136,5 +137,4 @@ class MidoBot(commands.AutoShardedBot):
         self.command_counter += 1
 
     def run(self):
-        # self.remove_command("help")
         super().run(self.config["token"])

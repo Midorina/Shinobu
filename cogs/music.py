@@ -11,14 +11,15 @@ import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
 
-from db.models import GuildDB, MidoTime
 from main import MidoBot
+from models.db_models import GuildDB, MidoTime
 from services import context, menu_stuff
 from services.apis import SomeRandomAPI, SpotifyAPI
 from services.base_embed import BaseEmbed
 from services.exceptions import MusicError, NotFoundError
 
 
+# TODO: use ffmpeg to seek
 class YTDLSource(discord.PCMVolumeTransformer):
     # youtube_dl.utils.std_headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
     youtube_dl.utils.std_headers[
@@ -541,7 +542,7 @@ class Music(commands.Cog):
             if ctx.voice_client.channel != ctx.author.voice.channel:
                 return await ctx.send_error('Bot is already in a voice channel.')
 
-        if not ctx.voice_state.voice:
+        if not ctx.voice_client:
             self.bot.loop.create_task(ctx.invoke(self._join))
 
         msg_task = self.bot.loop.create_task(ctx.send_success("Processing..."))

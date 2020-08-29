@@ -4,8 +4,8 @@ from typing import Union
 import discord
 from discord.ext import commands
 
-from db.models import UserDB
 from main import MidoBot
+from models.db_models import UserDB
 from services import checks, context
 from services.converters import MidoMemberConverter
 from services.exceptions import EmbedError

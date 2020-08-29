@@ -3,8 +3,8 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from db.models import MemberDB, UserDB, XpAnnouncement
 from main import MidoBot
+from models.db_models import MemberDB, UserDB, XpAnnouncement
 from services import checks, context
 from services.converters import MidoMemberConverter
 
