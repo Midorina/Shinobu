@@ -1,14 +1,14 @@
 from discord.ext import commands
 
 from main import MidoBot
-from services.base_embed import BaseEmbed
 from services.context import MidoContext
 from services.converters import MidoRoleConverter
+from services.embed import MidoEmbed
 from services.exceptions import EmbedError
 from services.security_stuff import ensure_role_hierarchy
 
 
-class Assignable_Roles(commands.Cog, name='Assignable Roles'):
+class AssignableRoles(commands.Cog, name='Assignable Roles'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -69,7 +69,7 @@ class Assignable_Roles(commands.Cog, name='Assignable Roles'):
 
         You need the **Manage Roles** permissions to use this command.
         """
-        e = BaseEmbed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
+        e = MidoEmbed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
         e.set_footer(text=f"Assignable Roles Are Exclusive: {ctx.guild_db.assignable_roles_are_exclusive}")
 
         if ctx.guild_db.assignable_role_ids:
@@ -138,4 +138,4 @@ class Assignable_Roles(commands.Cog, name='Assignable Roles'):
 
 
 def setup(bot):
-    bot.add_cog(Assignable_Roles(bot))
+    bot.add_cog(AssignableRoles(bot))

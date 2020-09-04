@@ -86,7 +86,7 @@ class MidoTime:
             return 's' if n > 1 else ''
 
         if not total_seconds and not short:
-            return None
+            return ''
 
         # precise result for music
         # rough result for moderation commands
@@ -128,9 +128,8 @@ class MidoTime:
         return sep.join(str_blocks)
 
     @classmethod
-    async def convert(cls, ctx, argument):
-        """Converts a time length argument into MidoTime object.
-        """
+    async def convert(cls, ctx, argument):  # ctx arg is passed no matter what
+        """Converts a time length argument into MidoTime object."""
         length_in_seconds = 0
 
         index = 0

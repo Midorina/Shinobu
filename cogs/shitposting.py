@@ -5,8 +5,8 @@ import discord
 from discord.ext import commands
 
 from main import MidoBot
-from services.base_embed import BaseEmbed
 from services.converters import MidoMemberConverter
+from services.embed import MidoEmbed
 
 
 class Shitposting(commands.Cog):
@@ -19,7 +19,7 @@ class Shitposting(commands.Cog):
         if isinstance(user, discord.Member):
             user = user.display_name
 
-        embed = BaseEmbed(ctx.bot,
+        embed = MidoEmbed(ctx.bot,
                           title=f"{user}'s Penis Size")
 
         embed.description = "8" + "=" * random.randrange(20) + "D"
@@ -32,7 +32,7 @@ class Shitposting(commands.Cog):
         if isinstance(user, discord.Member):
             user = user.display_name
 
-        embed = BaseEmbed(ctx.bot)
+        embed = MidoEmbed(ctx.bot)
 
         embed.description = f"{user} is **{random.randrange(101)}% gay 🏳️‍🌈**"
 

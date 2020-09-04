@@ -3,8 +3,8 @@ from discord.ext import commands
 
 from main import MidoBot
 from services.apis import NSFWAPIs
-from services.base_embed import BaseEmbed
 from services.context import MidoContext
+from services.embed import MidoEmbed
 from services.exceptions import EmbedError, NotFoundError
 
 
@@ -34,21 +34,21 @@ class NSFW(commands.Cog):
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx):
         """Get a random boob picture."""
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       image_url=await self.api.get('boobs'))
         await ctx.send(embed=e)
 
     @commands.command(aliases=['butt'])
     async def butts(self, ctx):
         """Get a random butt picture."""
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       image_url=await self.api.get('butts'))
         await ctx.send(embed=e)
 
     @commands.command()
     async def gelbooru(self, ctx, *tags):
         """Get a random image from Gelbooru."""
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       image_url=await self.api.get('gelbooru', tags))
         e.set_footer(text="Gelbooru")
         await ctx.send(embed=e)
@@ -58,7 +58,7 @@ class NSFW(commands.Cog):
         """Get a random image from Gelbooru."""
         random_img = await self.api.get('rule34', tags)
 
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       description=f"If it doesn't load, click [here]({random_img}).",
                       image_url=random_img)
         e.set_footer(text="Rule 34")
@@ -67,7 +67,7 @@ class NSFW(commands.Cog):
     @commands.command()
     async def danbooru(self, ctx, *tags):
         """Get a random image from Danbooru."""
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       image_url=await self.api.get('danbooru', tags))
         e.set_footer(text="Danbooru")
         await ctx.send(embed=e)

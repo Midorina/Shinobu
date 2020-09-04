@@ -13,9 +13,9 @@ from discord.ext import commands
 
 from main import MidoBot
 from models.db_models import GuildDB, MidoTime
-from services import context, menu_stuff
+from services import context
 from services.apis import SomeRandomAPI, SpotifyAPI
-from services.base_embed import BaseEmbed
+from services.embed import MidoEmbed
 from services.exceptions import EmbedError, MusicError, NotFoundError
 
 
@@ -193,6 +193,7 @@ class SongQueue(asyncio.Queue):
         self._queue.clear()
 
     def shuffle(self):
+        # noinspection PyTypeChecker
         random.shuffle(self._queue)
 
     def remove(self, index: int):
@@ -491,14 +492,14 @@ class Music(commands.Cog):
                           f"{song.requester}`")
             queue_duration += song.source.data.get('duration')
 
-        embed = (discord.Embed(color=self.bot.main_color)
+        embed = (MidoEmbed(self.bot)
                  .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
                  .set_footer(text=f"{int(current.source.volume * 100)}% | "
                                   f"{len(ctx.voice_state.songs) + 1} Songs | "
                                   f"{MidoTime.parse_seconds_to_str(queue_duration, short=True, sep=':')} in Total",
                              icon_url="https://i.imgur.com/T0532pn.png")
                  )
-        await menu_stuff.paginate(self.bot, ctx, embed, blocks, item_per_page=5, add_page_info_to='author')
+        await embed.paginate(ctx, blocks, item_per_page=5, add_page_info_to='author')
 
     @commands.command(name='shuffle')
     async def _shuffle(self, ctx: context.MidoContext):
@@ -595,15 +596,14 @@ class Music(commands.Cog):
             raise EmbedError(f"I couldn't find the lyrics of **{song_name}**.\n"
                              f"Try writing the title in a simpler form.")
 
-        e = BaseEmbed(bot=self.bot, title=song_title, default_footer=True)
+        e = MidoEmbed(bot=self.bot, title=song_title, default_footer=True)
         e.set_thumbnail(url=thumbnail)
 
-        await menu_stuff.paginate(bot=self.bot,
-                                  ctx=ctx,
-                                  embed=e,
-                                  item_per_page=1,
-                                  blocks=lyrics_pages,
-                                  extra_sep='\n')
+        await e.paginate(
+            ctx=ctx,
+            item_per_page=1,
+            blocks=lyrics_pages,
+            extra_sep='\n')
 
 
 def setup(bot):

@@ -38,3 +38,7 @@ class MidoRoleConverter(commands.RoleConverter):
                     raise commands.BadArgument(f"Role \"{argument}\" not found.")
 
         return role
+
+
+def readable_bigint(number: int) -> str:
+    return '{:,}'.format(number)

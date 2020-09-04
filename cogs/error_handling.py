@@ -55,11 +55,11 @@ class Errors(commands.Cog):
         elif isinstance(error, commands.MissingRequiredArgument):
             return await ctx.send_help(entity=ctx.command,
                                        content=f"**You are missing this required argument: "
-                                               f"`{error.param.name}`**\n\u200b")
+                                               f"`{error.param.name}`**")
 
         elif isinstance(error, (commands.BadArgument, commands.ExpectedClosingQuoteError)):
             return await ctx.send_help(entity=ctx.command,
-                                       content=f"**{error}**\n\u200b")
+                                       content=f"**{error}**")
 
         elif isinstance(error, discord.HTTPException):
             if error.code == 0:

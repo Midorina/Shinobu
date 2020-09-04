@@ -61,14 +61,14 @@ class ModLog(BaseDBModel):
 
     @classmethod
     async def get_by_id(cls, db: pool.Pool, guild_id: int, log_id: int):
-        log = await db.fetchrow("""SELECT * FROM modlogs WHERE id=$1 and guild_id=$2;""", log_id, guild_id)
+        log = await db.fetchrow("""SELECT * FROM modlogs WHERE id=$1 AND guild_id=$2;""", log_id, guild_id)
 
         return cls(log, db) if log else None
 
     @classmethod
     async def get_logs(cls, db: pool.Pool, guild_id: int, user_id: int):
         logs = await db.fetch(
-            """SELECT * FROM modlogs WHERE guild_id=$1 and user_id=$2 and hidden=FALSE ORDER BY date DESC;""",
+            """SELECT * FROM modlogs WHERE guild_id=$1 AND user_id=$2 AND hidden=FALSE ORDER BY date DESC;""",
             guild_id, user_id)
 
         return [cls(log, db) for log in logs]
@@ -100,10 +100,10 @@ class ModLog(BaseDBModel):
         return cls(new_modlog_db, db_conn)
 
     async def delete_from_db(self):
-        await self.db.execute("""DELETE from modlogs WHERE id=$1;""", self.id)
+        await self.db.execute("""DELETE FROM modlogs WHERE id=$1;""", self.id)
 
     async def complete(self):
-        await self.db.execute("""UPDATE modlogs SET done=True WHERE id=$1;""", self.id)
+        await self.db.execute("""UPDATE modlogs SET done=TRUE WHERE id=$1;""", self.id)
 
     async def change_reason(self, new_reason: str):
         await self.db.execute("""UPDATE modlogs SET reason=$1 WHERE id=$2;""", new_reason, self.id)
@@ -111,7 +111,7 @@ class ModLog(BaseDBModel):
     @staticmethod
     async def hide_logs(db: pool.Pool, guild_id: int, user_id: int):
         await db.execute(
-            """UPDATE modlogs SET hidden=TRUE WHERE guild_id=$1 and user_id=$2;""", guild_id, user_id)
+            """UPDATE modlogs SET hidden=TRUE WHERE guild_id=$1 AND user_id=$2;""", guild_id, user_id)
 
 
 def calculate_xp_data(total_xp: int):
@@ -189,7 +189,7 @@ class UserDB(BaseDBModel):
                              f"Try again after **{self.xp_status.remaining_string}**.")
         else:
             await self.db.execute(
-                """UPDATE users SET xp = xp + $1, last_xp_gain = $2 where id=$3""",
+                """UPDATE users SET xp = xp + $1, last_xp_gain = $2 WHERE id=$3""",
                 amount, datetime.now(timezone.utc), self.id)
 
             self.total_xp += amount
@@ -199,7 +199,7 @@ class UserDB(BaseDBModel):
 
     async def remove_xp(self, amount: int) -> int:
         await self.db.execute(
-            """UPDATE users SET xp = xp - $1 where id=$2""",
+            """UPDATE users SET xp = xp - $1 WHERE id=$2""",
             amount, self.id)
 
         self.total_xp -= amount
@@ -223,14 +223,15 @@ class UserDB(BaseDBModel):
 
         return result['row_number']
 
-    async def get_top_10(self):
-        top_10 = await self.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
-        return [UserDB(user, self.db) for user in top_10]
+    @classmethod
+    async def get_top_10(cls, db):
+        top_10 = await db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
+        return [UserDB(user, db) for user in top_10]
 
     @classmethod
-    async def get_claimed_waifus_by(self, user_id: int, db):
+    async def get_claimed_waifus_by(cls, user_id: int, db):
         ret = await db.fetch("SELECT * FROM users WHERE waifu_claimer_id=$1;", user_id)
-        return [UserDB(user, db) for user in ret]
+        return [cls(user, db) for user in ret]
 
 
 class MemberDB(BaseDBModel):
@@ -255,11 +256,11 @@ class MemberDB(BaseDBModel):
         guild_db = await GuildDB.get_or_create(db, guild_id)
 
         member_db = await db.fetchrow(
-            """SELECT * FROM members WHERE guild_id=$1 and user_id=$2;""", guild_id, member_id)
+            """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
 
         if not member_db:
             member_db = await db.fetchrow(
-                """INSERT INTO members (guild_id, user_id) values($1, $2) RETURNING *;""", guild_id, member_id)
+                """INSERT INTO members (guild_id, user_id) VALUES($1, $2) RETURNING *;""", guild_id, member_id)
 
         member_obj = cls(member_db, db)
         member_obj.guild = guild_db
@@ -273,7 +274,7 @@ class MemberDB(BaseDBModel):
                              f"Try again after **{self.xp_date_status.remaining_string}**.")
         else:
             await self.db.execute(
-                """UPDATE members SET xp = xp + $1, last_xp_gain = $2 where guild_id=$3 and user_id=$4""",
+                """UPDATE members SET xp = xp + $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",
                 amount, datetime.now(timezone.utc), self.guild.id, self.id)
 
             self.total_xp += amount
@@ -336,7 +337,7 @@ class GuildDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, db: pool.Pool, guild_id: int):
-        guild_db = await db.fetchrow("""SELECT * from guilds where id=$1;""", guild_id)
+        guild_db = await db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
 
         if not guild_db:
             guild_db = await db.fetchrow(
@@ -346,7 +347,7 @@ class GuildDB(BaseDBModel):
 
     async def change_prefix(self, new_prefix: str) -> str:
         await self.db.execute(
-            """UPDATE guilds SET prefix=$1 where id=$2;""", new_prefix, self.id)
+            """UPDATE guilds SET prefix=$1 WHERE id=$2;""", new_prefix, self.id)
 
         self.prefix = new_prefix
         return self.prefix

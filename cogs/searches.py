@@ -2,7 +2,7 @@ import asyncurban
 from discord.ext import commands
 
 from main import MidoBot
-from services import base_embed, context, menu_stuff
+from services import context, embed
 from services.apis import Google
 
 
@@ -19,7 +19,7 @@ class Searches(commands.Cog):
         """Makes a Google search."""
 
         results = await self.google.search(query=search)
-        e = base_embed.BaseEmbed(self.bot)
+        e = embed.MidoEmbed(self.bot)
         e.set_author(icon_url="https://w7.pngwing.com/pngs/506/509/png-transparent-google-company-text-logo.png",
                      name=f"Google: {search}")
 
@@ -44,7 +44,7 @@ class Searches(commands.Cog):
 
         blocks = list()
 
-        e = base_embed.BaseEmbed(self.bot)
+        e = embed.MidoEmbed(self.bot)
         for word in word_list:
             base = f"**[{word.word}]({word.permalink})**\n\n{word.definition.replace('[', '**').replace(']', '**')}"
 
@@ -53,7 +53,7 @@ class Searches(commands.Cog):
 
             blocks.append(base)
 
-        await menu_stuff.paginate(self.bot, ctx, embed=e, blocks=blocks, item_per_page=1)
+        await e.paginate(ctx, blocks=blocks, item_per_page=1)
 
 
 def setup(bot):

@@ -10,7 +10,9 @@ import psutil
 from discord.ext import commands
 
 from main import MidoBot
-from services import base_embed, checks, context
+from services import checks
+from services.context import MidoContext
+from services.embed import MidoEmbed
 from services.exceptions import EmbedError
 from services.time_stuff import MidoTime
 
@@ -27,7 +29,7 @@ class MidoHelp(commands.HelpCommand):
     def command_not_found(self, string):
         return f'Couldn\'t find any command called `{string}`'
 
-    async def on_help_command_error(self, ctx: context.MidoContext, error):
+    async def on_help_command_error(self, ctx: MidoContext, error):
         if isinstance(error, commands.CommandInvokeError):
             await ctx.send(str(error.original))
 
@@ -52,11 +54,11 @@ class MidoHelp(commands.HelpCommand):
         entries = await self.filter_commands(self.context.bot.commands, sort=True, key=key)
         total = 0
 
-        e = base_embed.BaseEmbed(self.context.bot,
-                                 title='MidoBot Commands',
-                                 description=f'You can type `{self.context.prefix}help <command>` '
-                                             f'to see additional info about a command.',
-                                 default_footer=True)
+        e = MidoEmbed(self.context.bot,
+                      title='MidoBot Commands',
+                      description=f'You can type `{self.context.prefix}help <command>` '
+                                  f'to see additional info about a command.',
+                      default_footer=True)
         for cog, _commands in itertools.groupby(entries, key=key):
             _commands = sorted(_commands, key=lambda c: c.name)
             if len(_commands) == 0:
@@ -87,7 +89,7 @@ class MidoHelp(commands.HelpCommand):
         if command.hidden:
             raise commands.CommandInvokeError("That is a hidden command. Sorry.")
 
-        embed = base_embed.BaseEmbed(self.context.bot, default_footer=True)
+        embed = MidoEmbed(self.context.bot, default_footer=True)
         self.common_command_formatting(embed, command)
         await self.context.send(content=content, embed=embed)
 
@@ -160,7 +162,7 @@ class Misc(commands.Cog):
         await ctx.send(result)
 
     @commands.command()
-    async def ping(self, ctx: context.MidoContext):
+    async def ping(self, ctx: MidoContext):
         """Ping me to check the latency!"""
         if ctx.guild:
             color = ctx.guild.me.top_role.color
@@ -179,7 +181,7 @@ class Misc(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def prefix(self, ctx: context.MidoContext, *, prefix: str = None):
+    async def prefix(self, ctx: MidoContext, *, prefix: str = None):
         """See or change the prefix.
 
         You need the **Administrator** permission to change the prefix.
@@ -200,7 +202,7 @@ class Misc(commands.Cog):
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
-    async def delete_commands(self, ctx: context.MidoContext):
+    async def delete_commands(self, ctx: MidoContext):
         """Enable or disable the deletion of commands after completion.
 
         You need the **Administrator** permission to use this command.
@@ -214,7 +216,7 @@ class Misc(commands.Cog):
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
     @commands.command(aliases=['info', 'stats'])
-    async def about(self, ctx):
+    async def about(self, ctx: MidoContext):
         """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owners'][0])
 

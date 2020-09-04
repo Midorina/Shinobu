@@ -146,7 +146,7 @@ class XP(commands.Cog):
     @commands.guild_only()
     async def show_global_leaderboard(self, ctx: context.MidoContext):
         """See the global XP leaderboard."""
-        top_10 = await ctx.user_db.get_top_10()
+        top_10 = await ctx.user_db.get_top_10(ctx.db)
 
         e = self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
 

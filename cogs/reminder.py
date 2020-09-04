@@ -6,8 +6,8 @@ from discord.ext import commands
 
 from main import MidoBot
 from models.db_models import ReminderDB
-from services.base_embed import BaseEmbed
 from services.context import MidoContext
+from services.embed import MidoEmbed
 from services.time_stuff import MidoTime
 
 
@@ -36,7 +36,7 @@ class Reminder(commands.Cog):
         else:
             channel = self.bot.get_channel(reminder.channel_id)
 
-        e = BaseEmbed(bot=self.bot,
+        e = MidoEmbed(bot=self.bot,
                       title="A Friendly Reminder:",
                       description=reminder.content)
         e.add_field(name="Creator",

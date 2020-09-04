@@ -5,11 +5,10 @@ from discord.ext import commands, tasks
 
 from main import MidoBot
 from models.db_models import GuildDB, ModLog
-from services.base_embed import BaseEmbed
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter
+from services.embed import MidoEmbed
 from services.exceptions import EmbedError
-from services.menu_stuff import paginate, yes_no
 from services.security_stuff import ensure_role_hierarchy
 from services.time_stuff import MidoTime
 
@@ -213,6 +212,7 @@ class Moderation(commands.Cog):
 
         muted_role = discord.utils.find(lambda m: m.name.lower() == 'muted', guild.roles)
 
+        msg = None
         if not muted_role:
             if ctx:
                 msg = await ctx.send("Creating the mute role and configuring it, please wait...")
@@ -235,11 +235,11 @@ class Moderation(commands.Cog):
 
                     # if its a text channel
                     if isinstance(channel, discord.TextChannel):
-                        overwrite.send_messages = False
-                        overwrite.add_reactions = False
+                        setattr(overwrite, 'send_messages', False)
+                        setattr(overwrite, 'add_reactions', False)
                     # if its a voice channel
                     if isinstance(channel, discord.VoiceChannel):
-                        overwrite.speak = False
+                        setattr(overwrite, 'speak', False)
 
                     await channel.set_permissions(target=muted_role,
                                                   overwrite=overwrite,
@@ -276,7 +276,7 @@ class Moderation(commands.Cog):
                                          user_id=target.id,
                                          reason=reason,
                                          executor_id=ctx.author.id,
-                                         type=ModLog.Type.KICK)
+                                         _type=ModLog.Type.KICK)
 
         await ctx.send(f"`{modlog.id}` {action_emotes['kick']} "
                        f"User {getattr(target, 'mention', target.id)} has been **kicked** "
@@ -322,7 +322,7 @@ class Moderation(commands.Cog):
                                          user_id=target.id,
                                          reason=reason,
                                          executor_id=ctx.author.id,
-                                         type=ModLog.Type.BAN,
+                                         _type=ModLog.Type.BAN,
                                          length=length)
 
         await ctx.send(f"`{modlog.id}` {action_emotes['ban']} "
@@ -355,7 +355,7 @@ class Moderation(commands.Cog):
             await ModLog.add_modlog(db_conn=ctx.db,
                                     guild_id=ctx.guild.id,
                                     user_id=target.id,
-                                    type=ModLog.Type.UNBAN,
+                                    _type=ModLog.Type.UNBAN,
                                     executor_id=ctx.author.id,
                                     reason=reason)
 
@@ -409,7 +409,7 @@ class Moderation(commands.Cog):
                                          user_id=target.id,
                                          reason=reason,
                                          executor_id=ctx.author.id,
-                                         type=ModLog.Type.MUTE,
+                                         _type=ModLog.Type.MUTE,
                                          length=length)
 
         await ctx.send(f"`{modlog.id}` {action_emotes['mute']} "
@@ -444,7 +444,7 @@ class Moderation(commands.Cog):
                                 user_id=target.id,
                                 reason=reason,
                                 executor_id=ctx.author.id,
-                                type=ModLog.Type.UNMUTE)
+                                _type=ModLog.Type.UNMUTE)
 
         await ctx.send(f"User **{getattr(target, 'mention', target.id)}** "
                        f"has been **unmuted** "
@@ -465,7 +465,7 @@ class Moderation(commands.Cog):
         if not logs:
             return await ctx.send("No logs have been found for that user.")
 
-        e = BaseEmbed(self.bot)
+        e = MidoEmbed(self.bot)
         e.set_author(icon_url=getattr(target, 'avatar_url', None),
                      name=f"Logs of {target}")
         e.set_footer(text=f"{len(logs)} Logs")
@@ -485,7 +485,7 @@ class Moderation(commands.Cog):
 
             log_blocks.append(log_description)
 
-        await paginate(self.bot, ctx, blocks=log_blocks, embed=e, extra_sep='\n')
+        await e.paginate(ctx, blocks=log_blocks, extra_sep='\n')
 
     @commands.command()
     @commands.has_permissions(administrator=True)
@@ -496,9 +496,8 @@ class Moderation(commands.Cog):
 
         You need to have the Administrator permission to use this command.
         """
-
-        msg = await ctx.send(f"Are you sure you'd like to reset the logs of **{target}**?")
-        yes = await yes_no(self.bot, ctx.author.id, msg)
+        msg = await ctx.send_success(f"Are you sure you'd like to reset the logs of **{target}**?")
+        yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
 
         if not yes:
             return await msg.edit(content="Request has been declined.")

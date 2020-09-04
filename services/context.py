@@ -2,10 +2,11 @@ import discord
 from discord.ext import commands
 
 from models.db_models import GuildDB, MemberDB, UserDB
-from services.base_embed import BaseEmbed
+from services.embed import MidoEmbed
 
 
 class MidoContext(commands.Context):
+    # noinspection PyTypeChecker
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.db = self.bot.db
@@ -25,14 +26,14 @@ class MidoContext(commands.Context):
             self.user_db = await UserDB.get_or_create(self.db, self.author.id)
 
     async def send_error(self, message: str = 'Error!') -> discord.Message:
-        embed = BaseEmbed(bot=self.bot,
+        embed = MidoEmbed(bot=self.bot,
                           color=discord.Colour.red(),
                           description=message)
 
         return await self.send(embed=embed)
 
     async def send_success(self, message: str = 'Success!', **kwargs) -> discord.Message:
-        embed = BaseEmbed(bot=self.bot,
+        embed = MidoEmbed(bot=self.bot,
                           description=message,
                           **kwargs)
 
