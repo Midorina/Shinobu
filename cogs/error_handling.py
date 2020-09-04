@@ -3,7 +3,7 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import EmbedError, MusicError, NotFoundError, SilenceError
+from services.exceptions import EmbedError, InsufficientCash, MusicError, NotFoundError, SilenceError
 
 
 class Errors(commands.Cog):
@@ -26,6 +26,9 @@ class Errors(commands.Cog):
 
         if isinstance(error, ignored):
             return
+
+        elif isinstance(error, InsufficientCash):
+            return await ctx.send_error("You don't have enough money to do that!")
 
         elif isinstance(error, commands.NoPrivateMessage):
             return await ctx.send_error("This command can not be used through DMs!")
@@ -51,7 +54,8 @@ class Errors(commands.Cog):
 
         elif isinstance(error, commands.MissingRequiredArgument):
             return await ctx.send_help(entity=ctx.command,
-                                       content=f"**You are missing this required argument: `{error.param.name}`**\n\u200b")
+                                       content=f"**You are missing this required argument: "
+                                               f"`{error.param.name}`**\n\u200b")
 
         elif isinstance(error, (commands.BadArgument, commands.ExpectedClosingQuoteError)):
             return await ctx.send_help(entity=ctx.command,
