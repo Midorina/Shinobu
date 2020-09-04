@@ -5,6 +5,8 @@ from typing import List
 
 from asyncpg import Record, pool
 
+from models.waifu_models import Waifu
+from services.exceptions import InsufficientCash
 from services.time_stuff import MidoTime
 
 with open('config.json') as f:
@@ -76,7 +78,7 @@ class ModLog(BaseDBModel):
                          db_conn: pool.Pool,
                          guild_id: int,
                          user_id: int,
-                         type: Type,
+                         _type: Type,
                          executor_id: int,
                          reason: str = None,
                          length: MidoTime = None,
@@ -88,7 +90,7 @@ class ModLog(BaseDBModel):
             RETURNING *;""",
             guild_id,
             user_id,
-            type.value,
+            _type.value,
             reason,
             executor_id,
             getattr(length, 'remaining_in_seconds', None),
@@ -144,12 +146,14 @@ class UserDB(BaseDBModel):
         self.daily_date_status = MidoTime.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
                                                                        config['cooldowns']['daily'])
 
+        self.waifu: Waifu = Waifu(self)
+
     @classmethod
     async def get_or_create(cls, db: pool.Pool, user_id: int):
         user_db = await db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
         if not user_db:
             user_db = await db.fetchrow(
-                """INSERT INTO users (id) values($1) RETURNING *;""", user_id)
+                """INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
 
         return cls(user_db, db)
 
@@ -158,25 +162,26 @@ class UserDB(BaseDBModel):
             """UPDATE users SET level_up_notification=$1 WHERE id=$2;""",
             new_preference.value, self.id)
 
-    async def add_cash(self, amount: int, daily=False) -> int:
+    async def add_cash(self, amount: int, daily=False):
         if daily:
             await self.db.execute(
-                """UPDATE users SET cash = cash + $1, last_daily_claim=$2 where id=$3;""",
+                """UPDATE users SET cash = cash + $1, last_daily_claim=$2 WHERE id=$3;""",
                 amount, datetime.now(timezone.utc), self.id)
         else:
             await self.db.execute(
-                """UPDATE users SET cash = cash + $1 where id=$2;""",
+                """UPDATE users SET cash = cash + $1 WHERE id=$2;""",
                 amount, self.id)
 
         self.cash += amount
-        return self.cash
 
-    async def remove_cash(self, amount: int) -> int:
+    async def remove_cash(self, amount: int, force=False):
+        if force is False and self.cash < amount:
+            raise InsufficientCash
+
         await self.db.execute(
-            """UPDATE users SET cash = cash - $1 where id=$2;""", amount, self.id)
+            """UPDATE users SET cash = cash - $1 WHERE id=$2;""", amount, self.id)
 
         self.cash -= amount
-        return self.cash
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_status.end_date_has_passed and not owner:
@@ -221,6 +226,11 @@ class UserDB(BaseDBModel):
     async def get_top_10(self):
         top_10 = await self.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
         return [UserDB(user, self.db) for user in top_10]
+
+    @classmethod
+    async def get_claimed_waifus_by(self, user_id: int, db):
+        ret = await db.fetch("SELECT * FROM users WHERE waifu_claimer_id=$1;", user_id)
+        return [UserDB(user, db) for user in ret]
 
 
 class MemberDB(BaseDBModel):
