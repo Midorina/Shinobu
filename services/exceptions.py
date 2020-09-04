@@ -19,3 +19,7 @@ class MusicError(CommandError):
 
 class InvalidURL(CommandError):
     pass
+
+
+class InsufficientCash(CommandError):
+    pass

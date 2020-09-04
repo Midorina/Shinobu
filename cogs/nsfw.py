@@ -5,7 +5,7 @@ from main import MidoBot
 from services.apis import NSFWAPIs
 from services.base_embed import BaseEmbed
 from services.context import MidoContext
-from services.exceptions import NotFoundError, SilenceError
+from services.exceptions import EmbedError, NotFoundError
 
 
 class NSFW(commands.Cog):
@@ -27,8 +27,7 @@ class NSFW(commands.Cog):
             raise commands.CommandOnCooldown(bucket, retry_after)
 
         if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
-            await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
-            raise SilenceError
+            raise EmbedError('This command can only be used in channels that are marked as NSFW.')
 
         return True
 

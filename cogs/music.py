@@ -16,12 +16,14 @@ from models.db_models import GuildDB, MidoTime
 from services import context, menu_stuff
 from services.apis import SomeRandomAPI, SpotifyAPI
 from services.base_embed import BaseEmbed
-from services.exceptions import MusicError, NotFoundError
+from services.exceptions import EmbedError, MusicError, NotFoundError
 
 
 # TODO: use ffmpeg to seek
 class YTDLSource(discord.PCMVolumeTransformer):
-    # youtube_dl.utils.std_headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36'
+    # youtube_dl.utils.std_headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) ' \
+    #                                              'AppleWebKit/537.36 (KHTML, like Gecko) ' \
+    #                                              'Chrome/51.0.2704.103 Safari/537.36'
     youtube_dl.utils.std_headers[
         'User-Agent'] = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
 
@@ -315,11 +317,11 @@ class Music(commands.Cog):
     async def _join(self, ctx: context.MidoContext):
         """Make me connect to your voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
-            return await ctx.send_error('You are not connected to any voice channel.')
+            raise EmbedError('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
-                return await ctx.send_error('Bot is already in a voice channel.')
+                raise EmbedError('Bot is already in a voice channel.')
 
         destination = ctx.author.voice.channel
         if ctx.voice_state.voice:
@@ -349,22 +351,22 @@ class Music(commands.Cog):
             await ctx.send_success("I've successfully left the voice channel.")
 
         else:
-            return await ctx.send_error("I'm not currently not in a voice channel! (or am I 🤔)")
+            raise EmbedError("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
     async def _volume(self, ctx: context.MidoContext, volume: int = None):
         """Change or see the volume."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send_error('Nothing is being played at the moment.')
+            raise EmbedError('Nothing is being played at the moment.')
 
         if volume is None:
             return await ctx.send_success(f'Current volume: **{ctx.voice_state.volume}**%')
 
         elif volume == 0:
-            return await ctx.send_error(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
+            raise EmbedError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
 
         elif volume < 0 or volume > 100:
-            return await ctx.send_error('The volume must be **between 0 and 100!**')
+            raise EmbedError('The volume must be **between 0 and 100!**')
 
         ctx.voice_state.volume = volume
         await ctx.guild_db.change_volume(volume)
@@ -377,32 +379,32 @@ class Music(commands.Cog):
         if ctx.voice_state.current:
             await ctx.send(embed=ctx.voice_state.current.create_embed())
         else:
-            await ctx.send_error("I'm not currently playing any music!")
+            raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='pause', aliases=['p'])
     async def _pause(self, ctx: context.MidoContext):
         """Pause the song."""
         if ctx.voice_state.voice.is_paused():
-            await ctx.send_error(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
+            raise EmbedError(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
 
         elif ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
             ctx.voice_state.voice.pause()
             await ctx.send_success("⏯ Paused.")
 
         else:
-            await ctx.send_error("I'm not currently playing any music!")
+            raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='resume')
     async def _resume(self, ctx: context.MidoContext):
         if not ctx.voice_state.voice.is_paused():
-            await ctx.send_error(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
+            raise EmbedError(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
 
         elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.resume()
             await ctx.send_success('⏯ Resumed.')
 
         else:
-            await ctx.send_error("I'm not currently playing any music!")
+            raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='stop')
     async def _stop(self, ctx: context.MidoContext):
@@ -413,18 +415,18 @@ class Music(commands.Cog):
             ctx.voice_state.songs.clear()
             await ctx.send_success('⏹ Stopped.')
         else:
-            await ctx.send_error("I'm not currently playing any music!")
+            raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: context.MidoContext):
         """Skip the currently playing song."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send_error('Not playing any music right now...')
+            raise EmbedError('Not playing any music right now...')
 
         voter = ctx.message.author
         vc = ctx.voice_state.voice.channel
         if ctx.author not in vc.members:
-            return await ctx.send_error("You are not in the voice channel!")
+            raise EmbedError("You are not in the voice channel!")
 
         people_in_vc = len(vc.members) - 1
         if people_in_vc <= 2:
@@ -454,7 +456,7 @@ class Music(commands.Cog):
                 return await ctx.send_success(base_string)
 
         else:
-            await ctx.send_error('You have already voted to skip this song.')
+            raise EmbedError('You have already voted to skip this song.')
 
     @commands.command(name='forceskip', aliases=['fskip'])
     @commands.has_permissions(manage_guild=True)
@@ -463,7 +465,7 @@ class Music(commands.Cog):
 
         You need the **Manage Server** permission to use this command."""
         if not ctx.voice_state.is_playing:
-            return await ctx.send_error('Not playing any music right now...')
+            raise EmbedError('Not playing any music right now...')
 
         ctx.voice_state.skip()
         await ctx.send_success('⏭ Skipped.')
@@ -472,7 +474,7 @@ class Music(commands.Cog):
     async def _queue(self, ctx: context.MidoContext):
         """See the current song queue."""
         if len(ctx.voice_state.songs) == 0 and not ctx.voice_state.current:
-            return await ctx.send_error(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
+            raise EmbedError(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
 
         blocks = []
         current = ctx.voice_state.current
@@ -502,7 +504,7 @@ class Music(commands.Cog):
     async def _shuffle(self, ctx: context.MidoContext):
         """Shuffle the song queue."""
         if len(ctx.voice_state.songs) == 0:
-            return await ctx.send_error('The queue is empty.')
+            raise EmbedError('The queue is empty.')
 
         ctx.voice_state.songs.shuffle()
         await ctx.send_success('Successfully shuffled the song queue.')
@@ -511,13 +513,13 @@ class Music(commands.Cog):
     async def _remove(self, ctx: context.MidoContext, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_state.songs) == 0:
-            return await ctx.send_error('The queue is empty.')
+            raise EmbedError('The queue is empty.')
 
         if not 0 < index <= len(ctx.voice_state.songs):
-            return await ctx.send_error("Please specify a proper index!")
+            raise EmbedError("Please specify a proper index!")
 
         if ctx.author.id != ctx.voice_state.songs[index - 1].requester.id:
-            return await ctx.send_error("You are not the requester of this song!")
+            raise EmbedError("You are not the requester of this song!")
 
         ctx.voice_state.songs.remove(index - 1)
         await ctx.send_success('✅ Removed the song.')
@@ -536,11 +538,11 @@ class Music(commands.Cog):
     async def _play(self, ctx: context.MidoContext, *, query: str):
         """Queue a song to play!"""
         if not ctx.author.voice or not ctx.author.voice.channel:
-            return await ctx.send_error('You are not connected to any voice channel.')
+            raise EmbedError('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
-                return await ctx.send_error('Bot is already in a voice channel.')
+                raise EmbedError('Bot is already in a voice channel.')
 
         if not ctx.voice_client:
             self.bot.loop.create_task(ctx.invoke(self._join))
@@ -583,15 +585,15 @@ class Music(commands.Cog):
     async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):
         """See the lyrics of the current song or a specific song."""
         if not song_name and not ctx.voice_state.current:
-            return await ctx.send_error("You need to play a song then use this command or specify a song name!")
+            raise EmbedError("You need to play a song then use this command or specify a song name!")
         elif not song_name:
             song_name = ctx.voice_state.current.source.title
 
         try:
             song_title, lyrics_pages, thumbnail = await self.sri_api.get_lyrics(song_name)
         except NotFoundError:
-            return await ctx.send_error(f"I couldn't find the lyrics of **{song_name}**.\n"
-                                        f"Try writing the title in a simpler form.")
+            raise EmbedError(f"I couldn't find the lyrics of **{song_name}**.\n"
+                             f"Try writing the title in a simpler form.")
 
         e = BaseEmbed(bot=self.bot, title=song_title, default_footer=True)
         e.set_thumbnail(url=thumbnail)
