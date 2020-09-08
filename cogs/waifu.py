@@ -18,6 +18,12 @@ class Waifu(commands.Cog):
 
     @commands.command(aliases=['waifugift'])
     async def gift(self, ctx: MidoContext, item_name: str = None, target: MidoMemberConverter() = None):
+        """
+        Use this command without any parameters to see the item shop.
+        Specify the item name and a waifu to send a gift to them.
+
+        Sending a gift increases the target waifu's price by half of the item's value.
+        """
         if not item_name and not target:
             e = MidoEmbed(ctx.bot)
 
@@ -46,6 +52,9 @@ class Waifu(commands.Cog):
 
     @commands.command(aliases=['waifuinfo'])
     async def waifustats(self, ctx: MidoContext, target: MidoMemberConverter() = None):
+        """
+        See the waifu stats of yourself or any other waifu.
+        """
         if target:
             target_db = await UserDB.get_or_create(ctx.db, target.id)
         else:
@@ -89,17 +98,20 @@ class Waifu(commands.Cog):
         Setting affinity will reduce their `{0.prefix}claim` on you by 20%.
         Provide no parameters to clear your affinity. 30 minutes cooldown.
         """
-        previous_affinity = self.bot.get_user(ctx.user_db.waifu.affinity_id)
+        if ctx.user_db.waifu.affinity_id == target.id:
+            raise EmbedError(f"You already have affinity towards {target.mention}. "
+                             f"Use `{ctx.prefix}affinity` without any parameters to clear your affinity.")
+        elif not target and not ctx.user_db.waifu.affinity_id:
+            raise EmbedError("Your affinity is already empty.")
 
         await ctx.user_db.waifu.change_affinity(target.id if target else None)
+
+        previous_affinity = self.bot.get_user(ctx.user_db.waifu.affinity_id)
 
         if not target:
             await ctx.send_success("You've successfully cleared your affinity.")
         elif not previous_affinity:
             await ctx.send_success(f"You've successfully set your affinity towards **{target.display_name}**.")
-        elif previous_affinity.id == target.id:
-            raise EmbedError(f"You already have affinity towards {target.mention}. "
-                             f"Use `{ctx.prefix}affinity` without any parameters to clear your affinity.")
         else:
             await ctx.send_success(f"**{ctx.author.display_name}** changed their affinity "
                                    f"from **{previous_affinity.display_name}** to **{target.display_name}**."
