@@ -31,6 +31,35 @@ class Moderation(commands.Cog):
         else:
             return True
 
+    @tasks.loop(seconds=30.0)
+    async def check_modlogs(self):
+        open_modlogs = await ModLog.get_open_logs(self.bot.db)
+
+        for modlog in open_modlogs:
+            # if its the time
+            if modlog.time_status.end_date_has_passed:
+                guild = self.bot.get_guild(modlog.guild_id)
+
+                if modlog.type == ModLog.Type.BAN:
+                    member = discord.Object(id=modlog.user_id)
+                    await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
+
+                elif modlog.type == ModLog.Type.MUTE:
+                    member = guild.get_member(modlog.user_id)
+                    if member:
+                        mute_role = await self.get_or_create_muted_role(guild)
+                        if mute_role in member.roles:
+                            await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unmute)')
+
+                await modlog.complete()
+
+    def cog_unload(self):
+        self.check_modlogs.cancel()
+
+    @check_modlogs.before_loop
+    async def before_modlog_checks(self):
+        await self.bot.wait_until_ready()
+
     @staticmethod
     def parse_welcome_bye_msg(member: discord.Member, msg: str):
         placeholders = {
@@ -94,10 +123,10 @@ class Moderation(commands.Cog):
         """
         if not channel:
             if not ctx.guild_db.welcome_channel_id:
-                return await ctx.send("Welcome feature has already been disabled.")
+                raise EmbedError("Welcome feature has already been disabled.")
             else:
                 await ctx.guild_db.set_welcome(channel_id=None)
-                return await ctx.send("Welcome feature has been successfully disabled.")
+                return await ctx.send_success("Welcome feature has been successfully disabled.")
         else:
             if isinstance(channel, str):
                 if channel.lower() == 'dm':
@@ -113,8 +142,8 @@ class Moderation(commands.Cog):
                 message = 'Hey {member_mention}! Welcome to **{server_name}**.'
 
             await ctx.guild_db.set_welcome(channel_id=channel_id, msg=message)
-            await ctx.send(f"Success! New members will be welcomed in {channel_str} with this mesage:\n"
-                           f"`{message}`")
+            await ctx.send_success(f"Success! New members will be welcomed in {channel_str} with this mesage:\n"
+                                   f"`{message}`")
 
     @commands.command(aliases=['goodbye'])
     async def bye(self,
@@ -143,59 +172,19 @@ class Moderation(commands.Cog):
         """
         if not channel:
             if not ctx.guild_db.bye_channel_id:
-                return await ctx.send("Goodbye feature has already been disabled.")
+                raise EmbedError("Goodbye feature has already been disabled.")
             else:
                 await ctx.guild_db.set_bye(channel_id=None)
-                return await ctx.send("Goodbye feature has been successfully disabled.")
+                return await ctx.send_success("Goodbye feature has been successfully disabled.")
         else:
             if not message:
                 message = '{member_name_discrim} just left the server...'
 
             await ctx.guild_db.set_bye(channel_id=channel.id, msg=message)
-            await ctx.send(f"Success! "
-                           f"I'll now say goodbye in {channel.mention} to members that leave with this mesage:\n"
-                           f"`{message}`")
-
-    @tasks.loop(seconds=30.0)
-    async def check_modlogs(self):
-        open_modlogs = await self.bot.db.fetch(
-            """
-            SELECT 
-                *
-            FROM 
-                modlogs 
-            WHERE 
-                length_in_seconds IS NOT NULL 
-                AND type = ANY($1) 
-                AND done IS NOT TRUE;""", [ModLog.Type.MUTE.value, ModLog.Type.BAN.value])
-
-        for modlog in open_modlogs:
-            # convert it to local obj
-            modlog = ModLog(modlog, self.bot.db)
-
-            # if its the time
-            if modlog.time_status.end_date_has_passed:
-                guild = self.bot.get_guild(modlog.guild_id)
-
-                if modlog.type == ModLog.Type.BAN:
-                    member = discord.Object(id=modlog.user_id)
-                    await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
-
-                elif modlog.type == ModLog.Type.MUTE:
-                    member = guild.get_member(modlog.user_id)
-                    if member:
-                        mute_role = await self.get_or_create_muted_role(guild)
-                        if mute_role in member.roles:
-                            await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unban)')
-
-                await modlog.complete()
-
-    def cog_unload(self):
-        self.check_modlogs.cancel()
-
-    @check_modlogs.before_loop
-    async def before_modlog_checks(self):
-        await self.bot.wait_until_ready()
+            await ctx.send_success(f"Success! "
+                                   f"I'll now say goodbye in {channel.mention} to members that leave "
+                                   f"with this mesage:\n"
+                                   f"`{message}`")
 
     @staticmethod
     def get_reason_string(reason=None) -> str:
@@ -278,10 +267,10 @@ class Moderation(commands.Cog):
                                          executor_id=ctx.author.id,
                                          _type=ModLog.Type.KICK)
 
-        await ctx.send(f"`{modlog.id}` {action_emotes['kick']} "
-                       f"User {getattr(target, 'mention', target.id)} has been **kicked** "
-                       f"by {ctx.author.mention}"
-                       f"{self.get_reason_string(reason)}")
+        await ctx.send_success(f"`{modlog.id}` {action_emotes['kick']} "
+                               f"User {getattr(target, 'mention', target.id)} has been **kicked** "
+                               f"by {ctx.author.mention}"
+                               f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.has_permissions(ban_members=True)
@@ -325,12 +314,12 @@ class Moderation(commands.Cog):
                                          _type=ModLog.Type.BAN,
                                          length=length)
 
-        await ctx.send(f"`{modlog.id}` {action_emotes['ban']} "
-                       f"User **{getattr(target, 'mention', target.id)}** "
-                       f"has been **banned** "
-                       f"by {ctx.author.mention} "
-                       f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
-                       f"{self.get_reason_string(reason)}")
+        await ctx.send_success(f"`{modlog.id}` {action_emotes['ban']} "
+                               f"User **{getattr(target, 'mention', target.id)}** "
+                               f"has been **banned** "
+                               f"by {ctx.author.mention} "
+                               f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
+                               f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.has_permissions(ban_members=True)
@@ -346,7 +335,7 @@ class Moderation(commands.Cog):
 
         user_is_banned = await ctx.guild.fetch_ban(target)
         if not user_is_banned:
-            return await ctx.send("That user isn't banned.")
+            raise EmbedError("That user isn't banned.")
 
         else:
             await ctx.guild.unban(target, reason=f"User unbanned by {ctx.author}"
@@ -359,10 +348,10 @@ class Moderation(commands.Cog):
                                     executor_id=ctx.author.id,
                                     reason=reason)
 
-            await ctx.send(f"User **{getattr(target, 'mention', target.id)}** "
-                           f"has been **unbanned** "
-                           f"by {ctx.author.mention}"
-                           f"{self.get_reason_string(reason)}")
+            await ctx.send_success(f"User **{getattr(target, 'mention', target.id)}** "
+                                   f"has been **unbanned** "
+                                   f"by {ctx.author.mention}"
+                                   f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
@@ -399,7 +388,7 @@ class Moderation(commands.Cog):
         mute_role = await self.get_or_create_muted_role(ctx)
 
         if mute_role in target.roles:
-            return await ctx.send("That user is already muted!")
+            raise EmbedError("That user is already muted!")
 
         await target.add_roles(mute_role, reason=f"User muted by {ctx.author}"
                                                  f"{self.get_reason_string(reason)}")
@@ -412,12 +401,12 @@ class Moderation(commands.Cog):
                                          _type=ModLog.Type.MUTE,
                                          length=length)
 
-        await ctx.send(f"`{modlog.id}` {action_emotes['mute']} "
-                       f"User **{getattr(target, 'mention', target.id)}** "
-                       f"has been **muted** "
-                       f"by {ctx.author.mention} "
-                       f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
-                       f"{self.get_reason_string(reason)}")
+        await ctx.send_success(f"`{modlog.id}` {action_emotes['mute']} "
+                               f"User **{getattr(target, 'mention', target.id)}** "
+                               f"has been **muted** "
+                               f"by {ctx.author.mention} "
+                               f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
+                               f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.has_permissions(manage_roles=True)
@@ -434,7 +423,7 @@ class Moderation(commands.Cog):
         mute_role = await self.get_or_create_muted_role(ctx)
 
         if mute_role not in target.roles:
-            return await ctx.send("That user is not muted!")
+            raise EmbedError("That user is not muted!")
 
         await target.remove_roles(mute_role, reason=f"User unmuted by {ctx.author}"
                                                     f"{self.get_reason_string(reason)}")
@@ -446,10 +435,10 @@ class Moderation(commands.Cog):
                                 executor_id=ctx.author.id,
                                 _type=ModLog.Type.UNMUTE)
 
-        await ctx.send(f"User **{getattr(target, 'mention', target.id)}** "
-                       f"has been **unmuted** "
-                       f"by {ctx.author.mention}"
-                       f"{self.get_reason_string(reason)}")
+        await ctx.send_success(f"User **{getattr(target, 'mention', target.id)}** "
+                               f"has been **unmuted** "
+                               f"by {ctx.author.mention}"
+                               f"{self.get_reason_string(reason)}")
 
     @commands.command()
     @commands.has_permissions(ban_members=True, kick_members=True)
@@ -461,9 +450,9 @@ class Moderation(commands.Cog):
         You need Kick Members and Ban Members permissions to use this command.
         """
 
-        logs = await ModLog.get_logs(ctx.db, ctx.guild.id, target.id)
+        logs = await ModLog.get_guild_logs(ctx.db, ctx.guild.id, target.id)
         if not logs:
-            return await ctx.send("No logs have been found for that user.")
+            raise EmbedError("No logs have been found for that user.")
 
         e = MidoEmbed(self.bot)
         e.set_author(icon_url=getattr(target, 'avatar_url', None),
@@ -627,7 +616,7 @@ class Moderation(commands.Cog):
         # then delete the rest
         deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
 
-        return await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.")
+        await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.")
 
 
 def setup(bot):

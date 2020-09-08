@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List
 
-from asyncpg import Record, pool
+from asyncpg import Record
+from asyncpg.pool import Pool
 
 from models.waifu_models import Waifu
 from services.exceptions import InsufficientCash
@@ -24,7 +25,7 @@ class XpAnnouncement(Enum):
 
 
 class BaseDBModel:
-    def __init__(self, data: Record, db: pool.Pool):
+    def __init__(self, data: Record, db: Pool):
         self.db = db
         self.data = data
 
@@ -42,7 +43,7 @@ class ModLog(BaseDBModel):
         BAN = 2
         UNBAN = 3
 
-    def __init__(self, modlog_db: Record, db_conn: pool.Pool):
+    def __init__(self, modlog_db: Record, db_conn: Pool):
         super(ModLog, self).__init__(modlog_db, db_conn)
 
         self.guild_id = modlog_db.get('guild_id')
@@ -60,13 +61,13 @@ class ModLog(BaseDBModel):
         self.done = modlog_db.get('done')
 
     @classmethod
-    async def get_by_id(cls, db: pool.Pool, guild_id: int, log_id: int):
+    async def get_by_id(cls, db: Pool, guild_id: int, log_id: int):
         log = await db.fetchrow("""SELECT * FROM modlogs WHERE id=$1 AND guild_id=$2;""", log_id, guild_id)
 
         return cls(log, db) if log else None
 
     @classmethod
-    async def get_logs(cls, db: pool.Pool, guild_id: int, user_id: int):
+    async def get_guild_logs(cls, db: Pool, guild_id: int, user_id: int):
         logs = await db.fetch(
             """SELECT * FROM modlogs WHERE guild_id=$1 AND user_id=$2 AND hidden=FALSE ORDER BY date DESC;""",
             guild_id, user_id)
@@ -74,8 +75,23 @@ class ModLog(BaseDBModel):
         return [cls(log, db) for log in logs]
 
     @classmethod
+    async def get_open_logs(cls, db):
+        ret = await db.fetch(
+            """
+            SELECT 
+                *
+            FROM 
+                modlogs 
+            WHERE 
+                length_in_seconds IS NOT NULL 
+                AND type = ANY($1) 
+                AND done IS NOT TRUE;""", (ModLog.Type.MUTE.value, ModLog.Type.BAN.value))
+
+        return [cls(x, db) for x in ret]
+
+    @classmethod
     async def add_modlog(cls,
-                         db_conn: pool.Pool,
+                         db_conn: Pool,
                          guild_id: int,
                          user_id: int,
                          _type: Type,
@@ -93,7 +109,7 @@ class ModLog(BaseDBModel):
             _type.value,
             reason,
             executor_id,
-            getattr(length, 'remaining_in_seconds', None),
+            getattr(length, 'remaining_seconds', None),
             datetime.now(timezone.utc)
         )
 
@@ -109,7 +125,7 @@ class ModLog(BaseDBModel):
         await self.db.execute("""UPDATE modlogs SET reason=$1 WHERE id=$2;""", new_reason, self.id)
 
     @staticmethod
-    async def hide_logs(db: pool.Pool, guild_id: int, user_id: int):
+    async def hide_logs(db: Pool, guild_id: int, user_id: int):
         await db.execute(
             """UPDATE modlogs SET hidden=TRUE WHERE guild_id=$1 AND user_id=$2;""", guild_id, user_id)
 
@@ -132,7 +148,7 @@ def calculate_xp_data(total_xp: int):
 
 
 class UserDB(BaseDBModel):
-    def __init__(self, user_db: Record, db_conn: pool.Pool):
+    def __init__(self, user_db: Record, db_conn: Pool):
         super(UserDB, self).__init__(user_db, db_conn)
 
         self.cash: int = user_db.get('cash')
@@ -149,7 +165,7 @@ class UserDB(BaseDBModel):
         self.waifu: Waifu = Waifu(self)
 
     @classmethod
-    async def get_or_create(cls, db: pool.Pool, user_id: int):
+    async def get_or_create(cls, db: Pool, user_id: int):
         user_db = await db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
         if not user_db:
             user_db = await db.fetchrow(
@@ -236,7 +252,7 @@ class UserDB(BaseDBModel):
 
 class MemberDB(BaseDBModel):
     # noinspection PyTypeChecker
-    def __init__(self, member_db: Record, db_conn: pool.Pool):
+    def __init__(self, member_db: Record, db_conn: Pool):
         super(MemberDB, self).__init__(member_db, db_conn)
 
         self.id = member_db.get('user_id')
@@ -251,7 +267,7 @@ class MemberDB(BaseDBModel):
             member_db.get('last_xp_gain'), config['cooldowns']['xp'])
 
     @classmethod
-    async def get_or_create(cls, db: pool.Pool, guild_id: int, member_id: int):
+    async def get_or_create(cls, db: Pool, guild_id: int, member_id: int):
         user_db = await UserDB.get_or_create(db, member_id)
         guild_db = await GuildDB.get_or_create(db, guild_id)
 
@@ -313,7 +329,7 @@ class MemberDB(BaseDBModel):
 
 
 class GuildDB(BaseDBModel):
-    def __init__(self, guild_db: Record, db_conn: pool.Pool):
+    def __init__(self, guild_db: Record, db_conn: Pool):
         super(GuildDB, self).__init__(guild_db, db_conn)
 
         self.prefix: str = guild_db.get('prefix')
@@ -336,7 +352,7 @@ class GuildDB(BaseDBModel):
         self.volume: int = guild_db.get('volume')
 
     @classmethod
-    async def get_or_create(cls, db: pool.Pool, guild_id: int):
+    async def get_or_create(cls, db: Pool, guild_id: int):
         guild_db = await db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
 
         if not guild_db:
@@ -423,7 +439,7 @@ class ReminderDB(BaseDBModel):
         DM = 0
         TEXT_CHANNEL = 1
 
-    def __init__(self, data: Record, db: pool.Pool):
+    def __init__(self, data: Record, db: Pool):
         super(ReminderDB, self).__init__(data, db)
 
         self.author_id: int = data.get('author_id')
@@ -441,7 +457,7 @@ class ReminderDB(BaseDBModel):
 
     @classmethod
     async def create(cls,
-                     db: pool.Pool,
+                     db: Pool,
                      author_id: int,
                      channel_id: int,
                      channel_type: ChannelType,
@@ -456,7 +472,7 @@ class ReminderDB(BaseDBModel):
         return cls(created, db)
 
     @classmethod
-    async def get_uncompleted_reminders(cls, db: pool.Pool):
+    async def get_uncompleted_reminders(cls, db: Pool):
         reminders = await db.fetch("""SELECT * FROM reminders WHERE done IS NOT TRUE;""")
         return [cls(reminder, db) for reminder in reminders]
 
