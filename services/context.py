@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 
+from cogs.music import VoiceState
 from models.db_models import GuildDB, MemberDB, UserDB
 from services.embed import MidoEmbed
 
@@ -14,6 +15,9 @@ class MidoContext(commands.Context):
         self.guild_db: GuildDB = None
         self.member_db: MemberDB = None
         self.user_db: UserDB = None
+
+        # music cog
+        self.voice_state: VoiceState = None
 
     async def attach_db_objects(self):
         try:

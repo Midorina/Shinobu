@@ -5,6 +5,7 @@ import functools
 import itertools
 import math
 import random
+from typing import Dict
 
 import discord
 import youtube_dl
@@ -12,9 +13,9 @@ from async_timeout import timeout
 from discord.ext import commands
 
 from main import MidoBot
-from models.db_models import GuildDB, MidoTime
-from services import context
+from models.db_models import MidoTime
 from services.apis import SomeRandomAPI, SpotifyAPI
+from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError, MusicError, NotFoundError
 
@@ -58,7 +59,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     ytdl = youtube_dl.YoutubeDL(YTDL_OPTIONS)
 
-    def __init__(self, ctx: context.MidoContext, source: discord.FFmpegPCMAudio, *, data: dict, volume: int = 10):
+    def __init__(self, ctx: MidoContext, source: discord.FFmpegPCMAudio, *, data: dict, volume: int = 10):
         super().__init__(source, volume / 100)
 
         self.requester = ctx.author
@@ -90,7 +91,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def create_source(cls,
-                            ctx: context.MidoContext,
+                            ctx: MidoContext,
                             search: str,
                             process: bool = True,
                             loop: asyncio.BaseEventLoop = asyncio.get_event_loop()) -> list:
@@ -201,13 +202,13 @@ class SongQueue(asyncio.Queue):
 
 
 class VoiceState:
+    # noinspection PyTypeChecker
     def __init__(self, bot: MidoBot):
         self.bot = bot
+        self.exists: bool = True
 
-        self.current = None
-        # noinspection PyTypeChecker
+        self.current: Song = None
         self.voice: discord.VoiceClient = None
-        self.exists = True
         self.next = asyncio.Event()
         self.songs = SongQueue()
 
@@ -241,7 +242,7 @@ class VoiceState:
 
     @property
     def is_playing(self):
-        return self.voice and self.current
+        return self.voice is not None and self.voice.is_playing()
 
     async def audio_player_task(self):
         while True:
@@ -250,11 +251,10 @@ class VoiceState:
             if not self.loop:
                 try:
                     async with timeout(180):
-                        self.current: Song = await self.songs.get()
+                        self.current = await self.songs.get()
                 except asyncio.TimeoutError:
                     return self.bot.loop.create_task(self.stop())
 
-            self.current.source.volume = self._volume / 100
             self.voice.play(self.current.source, after=self.play_next_song)
             await self.current.source.channel.send(embed=self.current.create_embed())
 
@@ -286,24 +286,26 @@ class Music(commands.Cog):
         self.bot = bot
 
         self.forcekip_by_default = True
-        self.voice_states = {}
+        self.voice_states: Dict[VoiceState] = {}
 
         self.sri_api = SomeRandomAPI(self.bot.http_session)
         self.spotify_api = SpotifyAPI(self.bot.http_session, self.bot.config['spotify_credentials'])
 
-    def get_voice_state(self, guild: GuildDB) -> VoiceState:
-        state = self.voice_states.get(guild.id)
+    def get_voice_state(self, ctx: MidoContext) -> VoiceState:
+        state = self.voice_states.get(ctx.guild.id)
 
         if not state or not state.exists:
             state = VoiceState(self.bot)
-            state.volume = guild.volume
-            self.voice_states[guild.id] = state
+            state.volume = ctx.guild_db.volume
+            state.voice = ctx.voice_client
+
+            self.voice_states[ctx.guild.id] = state
 
         return state
 
-    async def cog_check(self, ctx: context.MidoContext):
+    async def cog_check(self, ctx: MidoContext):
         if not ctx.guild:
-            raise commands.NoPrivateMessage('This command can\'t be used in DM channels.')
+            raise commands.NoPrivateMessage
 
         return True
 
@@ -311,11 +313,11 @@ class Music(commands.Cog):
         for state in self.voice_states.values():
             self.bot.loop.create_task(state.stop())
 
-    async def cog_before_invoke(self, ctx: context.MidoContext):
-        ctx.voice_state = self.get_voice_state(ctx.guild_db)
+    async def cog_before_invoke(self, ctx: MidoContext):
+        ctx.voice_state = self.get_voice_state(ctx)
 
     @commands.command(name='connect')
-    async def _join(self, ctx: context.MidoContext):
+    async def _join(self, ctx: MidoContext):
         """Make me connect to your voice channel."""
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise EmbedError('You are not connected to any voice channel.')
@@ -341,7 +343,7 @@ class Music(commands.Cog):
             await ctx.message.add_reaction('👍')
 
     @commands.command(name='disconnect', aliases=['destroy', 'd'])
-    async def _leave(self, ctx: context.MidoContext):
+    async def _leave(self, ctx: MidoContext):
         """Make me disconnect from your voice channel."""
         if ctx.voice_client:
             await ctx.voice_client.disconnect(force=True)
@@ -355,7 +357,7 @@ class Music(commands.Cog):
             raise EmbedError("I'm not currently not in a voice channel! (or am I 🤔)")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
-    async def _volume(self, ctx: context.MidoContext, volume: int = None):
+    async def _volume(self, ctx: MidoContext, volume: int = None):
         """Change or see the volume."""
         if not ctx.voice_state.is_playing:
             raise EmbedError('Nothing is being played at the moment.')
@@ -375,7 +377,7 @@ class Music(commands.Cog):
         await ctx.send_success(f'Volume is set to **{volume}**%')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
-    async def _now(self, ctx: context.MidoContext):
+    async def _now(self, ctx: MidoContext):
         """See what's currently playing."""
         if ctx.voice_state.current:
             await ctx.send(embed=ctx.voice_state.current.create_embed())
@@ -383,12 +385,12 @@ class Music(commands.Cog):
             raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='pause', aliases=['p'])
-    async def _pause(self, ctx: context.MidoContext):
+    async def _pause(self, ctx: MidoContext):
         """Pause the song."""
         if ctx.voice_state.voice.is_paused():
             raise EmbedError(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
 
-        elif ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
+        elif ctx.voice_state.is_playing:
             ctx.voice_state.voice.pause()
             await ctx.send_success("⏯ Paused.")
 
@@ -396,7 +398,7 @@ class Music(commands.Cog):
             raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='resume')
-    async def _resume(self, ctx: context.MidoContext):
+    async def _resume(self, ctx: MidoContext):
         if not ctx.voice_state.voice.is_paused():
             raise EmbedError(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
 
@@ -408,7 +410,7 @@ class Music(commands.Cog):
             raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='stop')
-    async def _stop(self, ctx: context.MidoContext):
+    async def _stop(self, ctx: MidoContext):
         """Stop playing and clear the queue."""
 
         if ctx.voice_state.is_playing:
@@ -419,7 +421,7 @@ class Music(commands.Cog):
             raise EmbedError("I'm not currently playing any music!")
 
     @commands.command(name='skip', aliases=['next'])
-    async def _skip(self, ctx: context.MidoContext):
+    async def _skip(self, ctx: MidoContext):
         """Skip the currently playing song."""
         if not ctx.voice_state.is_playing:
             raise EmbedError('Not playing any music right now...')
@@ -461,7 +463,7 @@ class Music(commands.Cog):
 
     @commands.command(name='forceskip', aliases=['fskip'])
     @commands.has_permissions(manage_guild=True)
-    async def _force_skip(self, ctx: context.MidoContext):
+    async def _force_skip(self, ctx: MidoContext):
         """Skip the currently playing song without requiring votes if enabled.
 
         You need the **Manage Server** permission to use this command."""
@@ -472,7 +474,7 @@ class Music(commands.Cog):
         await ctx.send_success('⏭ Skipped.')
 
     @commands.command(name='queue', aliases=['q'])
-    async def _queue(self, ctx: context.MidoContext):
+    async def _queue(self, ctx: MidoContext):
         """See the current song queue."""
         if len(ctx.voice_state.songs) == 0 and not ctx.voice_state.current:
             raise EmbedError(f'The queue is empty. Try queueing songs with `{ctx.prefix}play song_name`')
@@ -502,7 +504,7 @@ class Music(commands.Cog):
         await embed.paginate(ctx, blocks, item_per_page=5, add_page_info_to='author')
 
     @commands.command(name='shuffle')
-    async def _shuffle(self, ctx: context.MidoContext):
+    async def _shuffle(self, ctx: MidoContext):
         """Shuffle the song queue."""
         if len(ctx.voice_state.songs) == 0:
             raise EmbedError('The queue is empty.')
@@ -511,7 +513,7 @@ class Music(commands.Cog):
         await ctx.send_success('Successfully shuffled the song queue.')
 
     @commands.command(name='remove')
-    async def _remove(self, ctx: context.MidoContext, index: int):
+    async def _remove(self, ctx: MidoContext, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_state.songs) == 0:
             raise EmbedError('The queue is empty.')
@@ -536,7 +538,7 @@ class Music(commands.Cog):
     #     await ctx.message.add_reaction('✅')
 
     @commands.command(name='play')
-    async def _play(self, ctx: context.MidoContext, *, query: str):
+    async def _play(self, ctx: MidoContext, *, query: str):
         """Queue a song to play!"""
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise EmbedError('You are not connected to any voice channel.')
@@ -583,7 +585,7 @@ class Music(commands.Cog):
                 await ctx.edit_custom(msg, f"Couldn't find anything that matches `{query}`.")
 
     @commands.command()
-    async def lyrics(self, ctx: context.MidoContext, *, song_name: str = None):
+    async def lyrics(self, ctx: MidoContext, *, song_name: str = None):
         """See the lyrics of the current song or a specific song."""
         if not song_name and not ctx.voice_state.current:
             raise EmbedError("You need to play a song then use this command or specify a song name!")
