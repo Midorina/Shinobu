@@ -8,7 +8,8 @@ import discord
 from discord.ext import commands
 
 from models.db_models import GuildDB, MidoTime
-from services import apis, context
+from services.apis import MidoBotAPI
+from services.context import MidoContext
 
 
 async def _get_prefix(_bot, msg: discord.Message):
@@ -45,7 +46,7 @@ class MidoBot(commands.AutoShardedBot):
         self.prefix_cache = {}
         self.main_color = 0x15a34a
 
-        self.http_session = apis.MidoBotAPI.get_aiohttp_session()
+        self.http_session = MidoBotAPI.get_aiohttp_session()
 
     async def close(self):
         await self.http_session.close()
@@ -86,7 +87,7 @@ class MidoBot(commands.AutoShardedBot):
         await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
     async def process_commands(self, message):
-        ctx = await self.get_context(message, cls=context.MidoContext)
+        ctx = await self.get_context(message, cls=MidoContext)
 
         if ctx.command is None:
             return
