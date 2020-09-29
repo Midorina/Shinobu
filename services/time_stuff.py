@@ -135,6 +135,8 @@ class MidoTime:
         index = 0
         while argument:
             if argument[index].isdigit():
+                if argument[index] == argument[-1]:  # if its the last index
+                    raise BadArgument("Invalid time format!")
                 index += 1
                 continue
 

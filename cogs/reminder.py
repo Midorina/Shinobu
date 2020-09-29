@@ -115,10 +115,10 @@ class Reminder(commands.Cog):
                                            date_obj=length)
         self.add_reminder(reminder)
 
-        await ctx.send(f"Success! "
-                       f"**{channel.mention}** will be reminded "
-                       f"to **{message}** in "
-                       f"**{length.initial_remaining_string}**. `{length.end_date_string}`")
+        await ctx.send_success(f"Success! "
+                               f"**{channel.mention}** will be reminded "
+                               f"to **{message}** in "
+                               f"**{length.initial_remaining_string}**. `{length.end_date_string}`")
 
 
 # TODO: add ways to see reminders and delete them

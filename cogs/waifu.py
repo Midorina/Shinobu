@@ -98,10 +98,11 @@ class Waifu(commands.Cog):
         Setting affinity will reduce their `{0.prefix}claim` on you by 20%.
         Provide no parameters to clear your affinity. 30 minutes cooldown.
         """
-        if ctx.user_db.waifu.affinity_id == target.id:
-            raise EmbedError(f"You already have affinity towards {target.mention}. "
-                             f"Use `{ctx.prefix}affinity` without any parameters to clear your affinity.")
-        elif not target and not ctx.user_db.waifu.affinity_id:
+        if ctx.user_db.waifu.affinity_id:
+            if ctx.user_db.waifu.affinity_id == target.id:
+                raise EmbedError(f"You already have affinity towards {target.mention}. "
+                                 f"Use `{ctx.prefix}affinity` without any parameters to clear your affinity.")
+        elif not target:
             raise EmbedError("Your affinity is already empty.")
 
         await ctx.user_db.waifu.change_affinity(target.id if target else None)
