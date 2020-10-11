@@ -260,6 +260,11 @@ class UserDB(BaseDBModel):
         ret = await db.fetch("SELECT * FROM users WHERE waifu_claimer_id=$1;", user_id)
         return [cls(user, db) for user in ret]
 
+    @classmethod
+    async def get_top_expensive_waifus(cls, limit: int, db):
+        ret = await db.fetch("SELECT * FROM users ORDER BY waifu_price DESC LIMIT $1;", limit)
+        return [cls(user, db) for user in ret]
+
 
 class MemberDB(BaseDBModel):
     # noinspection PyTypeChecker

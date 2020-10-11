@@ -17,6 +17,49 @@ class Waifu(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+    @commands.command(aliases=['waifulb'])
+    async def waifuleaderboard(self, ctx: MidoContext):
+        top_5 = await UserDB.get_top_expensive_waifus(5, ctx.db)
+
+        e = MidoEmbed(self.bot)
+        e.title = "Waifu Leaderboard"
+
+        e.description = ""
+        for i, user_db in enumerate(top_5, 1):
+            user = self.bot.get_user(user_db.id)
+            user_name = str(user) if user else user_db.discord_name
+
+            # todo: make use of the name cache
+            affinity = self.bot.get_user(user_db.waifu.affinity_id)
+            affinity_name = str(affinity) if affinity else user_db.waifu.affinity_id
+
+            claimer = self.bot.get_user(user_db.waifu.claimer_id) if user_db.waifu.claimer_id else "no one."
+            claimer_name = str(claimer) if claimer else user_db.waifu.claimer_id
+
+            # if its the #1 user
+            if i == 1 and user:
+                e.set_thumbnail(url=user.avatar_url)
+
+            e.description += f"`#{i}` **{user_db.waifu.price}{Resources.emotes.currency}** " \
+                             f"**{user_name}** claimed by **{claimer_name}**\n"
+            if not affinity:
+                if not user_db.waifu.claimer_id:
+                    e.description += "... and "
+                else:
+                    e.description += f"... but "
+
+                e.description += f"{user_name}'s heart is empty :(\n"
+
+            elif affinity == claimer:
+                e.description += f"... and {user_name} likes {claimer_name} too ♥\n"
+
+            else:
+                e.description += f"... but {user_name}'s heart belongs to {affinity_name}...\n"
+
+            e.description += "\n"
+
+        await ctx.send(embed=e)
+
     @commands.command()
     async def waifureset(self, ctx: MidoContext):
         msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
@@ -79,7 +122,7 @@ class Waifu(commands.Cog):
 
         e.add_field(name="Price", value=readable_bigint(target_db.waifu.price), inline=True)
         e.add_field(name="Claimed by",
-                    value=f'<@{target_db.waifu.owner_id}>' if target_db.waifu.owner_id else 'Nobody',
+                    value=f'<@{target_db.waifu.claimer_id}>' if target_db.waifu.claimer_id else 'Nobody',
                     inline=True)
 
         e.add_field(name="Likes",
@@ -142,7 +185,7 @@ class Waifu(commands.Cog):
 
         if target.id == ctx.author.id:
             raise EmbedError("Why'd you try to do that? You technically already own yourself.")
-        elif target_db.waifu.owner_id == ctx.author.id:
+        elif target_db.waifu.claimer_id == ctx.author.id:
             raise EmbedError(f"{target.mention} is already your waifu. "
                              f"Try gifting items to them to increase their price and make them happier :)")
 
@@ -178,7 +221,7 @@ class Waifu(commands.Cog):
         if target.id == ctx.author.id:
             raise EmbedError("Why'd you try to do that? "
                              "Yes, most people hate themselves, however, life is worth living.")
-        elif target_db.waifu.owner_id != ctx.author.id:
+        elif target_db.waifu.claimer_id != ctx.author.id:
             raise EmbedError(f"{target.mention} is not your waifu!")
 
         amount = math.floor(target_db.waifu.price / 2)

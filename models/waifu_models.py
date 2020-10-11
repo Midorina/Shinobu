@@ -101,7 +101,7 @@ class Waifu:
         self.user = user
 
         self.affinity_id: int = self.user.data.get('waifu_affinity_id')
-        self.owner_id: int = self.user.data.get('waifu_claimer_id')
+        self.claimer_id: int = self.user.data.get('waifu_claimer_id')
         self.price: int = self.user.data.get('waifu_price') or BASE_WAIFU_PRICE
 
         self.affinity_changes: int = self.user.data.get('waifu_affinity_changes')
@@ -119,7 +119,7 @@ class Waifu:
         self.divorce_count = 0
         self.price = BASE_WAIFU_PRICE
         self.items = []
-        self.owner_id = None
+        self.claimer_id = None
         self.affinity_id = None
 
         await self.user.db.execute(
@@ -135,7 +135,7 @@ class Waifu:
             self.divorce_count,
             self.price,
             self.items,
-            self.owner_id,
+            self.claimer_id,
             self.affinity_id,
             self.user.id)
 
@@ -172,19 +172,19 @@ class Waifu:
         else:
             self.price = price
 
-        self.owner_id = claimer_id
+        self.claimer_id = claimer_id
 
         await self.user.db.execute("UPDATE users SET waifu_price=$1, waifu_claimer_id=$2 WHERE id=$3;",
-                                   self.price, self.owner_id, self.user.id)
+                                   self.price, self.claimer_id, self.user.id)
 
     async def _get_divorced(self):
-        if self.owner_id == self.affinity_id:
+        if self.claimer_id == self.affinity_id:
             self.price = math.floor(self.price * 0.75)
 
-        self.owner_id = None
+        self.claimer_id = None
 
         await self.user.db.execute("UPDATE users SET waifu_price=$1, waifu_claimer_id=NULL WHERE id=$2;",
-                                   self.price, self.owner_id)
+                                   self.price, self.claimer_id)
 
     async def divorce(self, waifu: Waifu):
         self.divorce_count += 1
