@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from services.apis import NSFWAPIs
 from services.context import MidoContext
 from services.embed import MidoEmbed

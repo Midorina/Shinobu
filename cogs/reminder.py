@@ -4,7 +4,7 @@ from typing import Union
 import discord
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from models.db_models import ReminderDB
 from services.context import MidoContext
 from services.embed import MidoEmbed

@@ -3,7 +3,7 @@ import typing
 import discord
 from discord.ext import commands, tasks
 
-from main import MidoBot
+from midobot import MidoBot
 from models.db_models import GuildDB, ModLog
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter

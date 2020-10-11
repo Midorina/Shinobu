@@ -1,7 +1,7 @@
 import asyncurban
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from services import context, embed
 from services.apis import Google
 

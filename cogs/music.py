@@ -5,7 +5,7 @@ from typing import Dict
 import discord
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from models.db_models import MidoTime
 from services.apis import SomeRandomAPI, SpotifyAPI
 from services.context import MidoContext

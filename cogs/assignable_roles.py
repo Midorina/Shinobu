@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from services.context import MidoContext
 from services.converters import MidoRoleConverter
 from services.embed import MidoEmbed

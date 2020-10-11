@@ -3,13 +3,14 @@ import math
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 
-from main import MidoBot
+from midobot import MidoBot
 from models.db_models import UserDB
 from models.waifu_models import Item
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, readable_bigint
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
+from services.resources import Resources
 
 
 class Waifu(commands.Cog):

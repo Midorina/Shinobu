@@ -4,7 +4,7 @@ from typing import Union
 import discord
 from discord.ext import commands
 
-from main import MidoBot
+from midobot import MidoBot
 from services.converters import MidoMemberConverter
 from services.embed import MidoEmbed
 

@@ -7,9 +7,10 @@ from datetime import datetime
 
 import discord
 import psutil
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-from main import MidoBot
+from midobot import MidoBot
+from models.db_models import UserDB
 from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed

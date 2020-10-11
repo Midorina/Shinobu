@@ -200,7 +200,7 @@ class SongQueue(asyncio.Queue):
 
 
 class VoiceState:
-    from main import MidoBot
+    from midobot import MidoBot
 
     # noinspection PyTypeChecker
     def __init__(self, bot: MidoBot):
