@@ -16,6 +16,18 @@ class Waifu(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+    @commands.command()
+    async def waifureset(self, ctx: MidoContext):
+        msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
+                                     f"This will cost you **{ctx.user_db.waifu.get_price_to_reset()}$**.\n\n"
+                                     f"*This action will reset everything **except your waifus**.*")
+
+        yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
+        if yes:
+            await ctx.user_db.waifu.reset_waifu_stats()
+
+            await ctx.edit_custom(msg, "You've successfully reset your waifu stats.")
+
     @commands.command(aliases=['waifugift'])
     async def gift(self, ctx: MidoContext, item_name: str = None, target: MidoMemberConverter() = None):
         """

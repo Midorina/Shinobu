@@ -109,6 +109,36 @@ class Waifu:
 
         self.items: List[Item] = [Item.get_with_id(x) for x in self.user.data.get('waifu_items')]
 
+    def get_price_to_reset(self):
+        return math.floor(self.price * 1.25 + (self.affinity_changes + self.divorce_count + 2) * 150)
+
+    async def reset_waifu_stats(self):
+        await self.user.remove_cash(self.get_price_to_reset())
+
+        self.affinity_changes = 0
+        self.divorce_count = 0
+        self.price = BASE_WAIFU_PRICE
+        self.items = []
+        self.owner_id = None
+        self.affinity_id = None
+
+        await self.user.db.execute(
+            """UPDATE users 
+            SET waifu_affinity_changes=$1, 
+            waifu_divorce_count=$2, 
+            waifu_price=$3, 
+            waifu_items=$4, 
+            waifu_claimer_id=$5,
+            waifu_affinity_id=$6
+            WHERE id=$7;""",
+            self.affinity_changes,
+            self.divorce_count,
+            self.price,
+            self.items,
+            self.owner_id,
+            self.affinity_id,
+            self.user.id)
+
     def get_price_to_claim(self, requester_id: int) -> int:
         if not self.price:
             self.price = BASE_WAIFU_PRICE
