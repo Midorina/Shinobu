@@ -181,14 +181,9 @@ class MidoEmbed(discord.Embed):
         try:
             reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=30.0)
 
-        except asyncio.TimeoutError:
             await msg.clear_reactions()
+        except asyncio.TimeoutError:
             return None
 
         else:
-            await msg.clear_reactions()
-            if str(reaction.emoji) == emotes[0]:
-                return True
-
-            elif str(reaction.emoji) == emotes[1]:
-                return False
+            return str(reaction.emoji) == emotes[0]

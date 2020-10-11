@@ -9,9 +9,9 @@ class MidoMemberConverter(commands.MemberConverter):
         try:
             member = await super().convert(ctx, argument)
         except commands.BadArgument:
-            # if we cant find with id, create miniature discord obj
             if argument.isdigit():
-                member = discord.Object(id=int(argument))
+                # member = discord.Object(id=int(argument))
+                member = ctx.bot.get_user(int(argument))
 
             # if its a string
             else:
@@ -27,15 +27,10 @@ class MidoRoleConverter(commands.RoleConverter):
         try:
             role = await super().convert(ctx, argument)
         except commands.BadArgument:
-            # if we cant find with id, create miniature discord obj
-            if argument.isdigit():
-                role = discord.Object(id=int(argument))
-
             # if its a string
-            else:
-                role = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
-                if not role:
-                    raise commands.BadArgument(f"Role \"{argument}\" not found.")
+            role = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
+            if not role:
+                raise commands.BadArgument(f"Role \"{argument}\" not found.")
 
         return role
 
