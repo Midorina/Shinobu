@@ -152,12 +152,14 @@ class UserDB(BaseDBModel):
         super(UserDB, self).__init__(user_db, db_conn)
 
         self.cash: int = user_db.get('cash')
+        self.discord_name = user_db.get('name_and_discriminator') or self.id
 
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
         self.xp_status = MidoTime.add_to_previous_date_and_get(
-            user_db.get('last_xp_gain'), config['cooldowns']['xp'])
+            user_db.get('last_xp_gain'), config['cooldowns']['xp']
+        )
 
         self.daily_date_status = MidoTime.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
                                                                        config['cooldowns']['daily'])
@@ -172,6 +174,15 @@ class UserDB(BaseDBModel):
                 """INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
 
         return cls(user_db, db)
+
+    @classmethod
+    async def get_all(cls, db: Pool):
+        _all = await db.fetch("SELECT * FROM users;")
+        return [cls(user_db, db) for user_db in _all]
+
+    async def update_name(self, new_name: str):
+        self.discord_name = new_name
+        await self.db.execute("UPDATE users SET name_and_discriminator=$1 WHERE id=$2;", new_name, self.id)
 
     async def change_level_up_preference(self, new_preference: XpAnnouncement):
         await self.db.execute(

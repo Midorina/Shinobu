@@ -119,9 +119,19 @@ class Misc(commands.Cog):
         bot.help_command.cog = self
 
         self.process = psutil.Process(os.getpid())
+        self.update_name_cache.start()
 
     def cog_unload(self):
         self.bot.help_command = self.old_help_command
+
+    @tasks.loop(minutes=10)
+    async def update_name_cache(self):
+        for user_db in await UserDB.get_all(self.bot.db):
+            user = self.bot.get_user(user_db.id)
+            if user and str(user) != user_db.discord_name:
+                await user_db.update_name(str(user))
+
+        self.bot.logger.info('Updated the name cache of users.')
 
     @commands.command(hidden=True)
     @checks.owner_only()
