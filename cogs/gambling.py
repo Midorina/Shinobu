@@ -75,13 +75,12 @@ class Gambling(commands.Cog):
             user = ctx.author
             user_db = ctx.user_db
 
-        await ctx.send_success(f"**{user.mention}** has **{user_db.cash}$**!")
+        await ctx.send_success(f"**{user.mention}** has **{user_db.cash}{Resources.emotes.currency}**!")
 
     @commands.command()
     async def daily(self, ctx: context.MidoContext):
         """
-        Claim {0.bot.config['daily_amount']}{0.resources.emotes.currency} for free every 12 hours
-        by upvoting [here]({0.resources.links.upvote}).
+        Claim {0.bot.config[daily_amount]}{0.resources.emotes.currency} for free every 12 hours by upvoting [here]({0.resources.links.upvote}).
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
@@ -148,7 +147,8 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
-        await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}$** to **{member.mention}**!")
+        await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}{Resources.emotes.currency}** "
+                               f"to **{member.mention}**!")
 
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
@@ -156,8 +156,8 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.add_cash(amount)
-        await member.send(f"You've been awarded **{amount}$** by the bot owner!")
-        await ctx.send_success(f"You've successfully awarded {member} with **{amount}$**!")
+        await member.send(f"You've been awarded **{amount}{Resources.emotes.currency}** by the bot owner!")
+        await ctx.send_success(f"You've successfully awarded {member} with **{amount}{Resources.emotes.currency}**!")
 
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
@@ -165,7 +165,7 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(ctx.db, member.id)
 
         await other_usr.remove_cash(amount)
-        await ctx.send_success(f"You've just removed **{amount}$** from {member}.")
+        await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
 
     @coin_flip.before_invoke
     @give_cash.before_invoke
