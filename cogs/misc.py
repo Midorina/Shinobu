@@ -318,6 +318,18 @@ class Misc(commands.Cog):
         await self.bot.user.edit(avatar=img_bytes)
         await ctx.send("Avatar has been successfully updated.")
 
+    @commands.command()
+    async def invite(self, ctx: MidoContext):
+        e = MidoEmbed(self.bot)
+        e.title = f"Invite {self.bot.user} to your server:"
+        e.description = f"[With Administrator Permission]({Resources.links.invite_admin}) (Suggested)\n" \
+                        f"[With Minimal Permissions]({Resources.links.invite_minimal})\n" \
+                        f"[With Selectable Permissions]({Resources.links.invite_selectable})\n" \
+                        f"[With No Permission]({Resources.links.invite_none})"
+        e.set_thumbnail(url=self.bot.user.avatar_url)
+
+        await ctx.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Misc(bot))
