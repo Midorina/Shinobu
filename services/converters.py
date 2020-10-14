@@ -10,11 +10,9 @@ class MidoMemberConverter(commands.MemberConverter):
             member = await super().convert(ctx, argument)
         except commands.BadArgument:
             if argument.isdigit():
-                # member = discord.Object(id=int(argument))
                 member = ctx.bot.get_user(int(argument))
 
-            # if its a string
-            else:
+            else:  # if its a string
                 member = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.members)
                 if not member:
                     raise commands.BadArgument(f"Member \"{argument}\" not found.")

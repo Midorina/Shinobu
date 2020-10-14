@@ -19,6 +19,7 @@ class Waifu(commands.Cog):
 
     @commands.command(aliases=['waifulb'])
     async def waifuleaderboard(self, ctx: MidoContext):
+        """See the global top 5 waifu list."""
         top_5 = await UserDB.get_top_expensive_waifus(5, ctx.db)
 
         e = MidoEmbed(self.bot)
@@ -62,12 +63,21 @@ class Waifu(commands.Cog):
 
     @commands.command()
     async def waifureset(self, ctx: MidoContext):
+        """
+        Reset your waifu stats by spending some money.
+        You'll get a prompt with how much you need to spend.
+        This will reset everything except your waifus.
+        """
+        price_to_reset = ctx.user_db.waifu.get_price_to_reset()
+
         msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
-                                     f"This will cost you **{ctx.user_db.waifu.get_price_to_reset()}$**.\n\n"
+                                     f"This will cost you **{price_to_reset}$**.\n\n"
                                      f"*This action will reset everything **except your waifus**.*")
 
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
         if yes:
+            await ctx.user_db.remove_cash(price_to_reset)
+
             await ctx.user_db.waifu.reset_waifu_stats()
 
             await ctx.edit_custom(msg, "You've successfully reset your waifu stats.")
