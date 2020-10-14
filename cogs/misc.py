@@ -15,6 +15,7 @@ from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
+from services.resources import Resources
 from services.time_stuff import MidoTime
 
 
@@ -241,7 +242,7 @@ class Misc(commands.Cog):
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
-                         url=self.bot.config['website'])
+                         url=Resources.links.website)
 
         embed.add_field(name="Uptime",
                         value=MidoTime.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
