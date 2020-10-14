@@ -243,6 +243,28 @@ class Waifu(commands.Cog):
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
                                    f"and got **{amount}$** in return.")
 
+    @commands.command()
+    async def waifutransfer(self, ctx: MidoContext, ex_waifu: MidoMemberConverter(), new_owner: MidoMemberConverter()):
+        """
+        Transfer the ownership of a waifu you own to another user.
+        You must pay 10% of your waifu's value for this action.
+        """
+        ex_waifu_db = await UserDB.get_or_create(ctx.db, ex_waifu.id)
+        # new_owner_db = await UserDB.get_or_create(ctx.db, new_owner.id)
+
+        if ex_waifu_db.waifu.claimer_id != ctx.author.id:
+            raise EmbedError(f'{ex_waifu.mention} is not your waifu!')
+
+        cost = math.floor(ex_waifu_db.waifu.price / 10)
+
+        await ctx.user_db.remove_cash(cost)
+
+        await ex_waifu_db.waifu.change_claimer(new_owner.id)
+
+        await ctx.send_success(f'{ctx.author.mention} successfully transferred the ownership '
+                               f'of {ex_waifu.mention} to {new_owner.mention} '
+                               f'using **{cost}{Resources.emotes.currency}**.')
+
 
 def setup(bot):
     bot.add_cog(Waifu(bot))

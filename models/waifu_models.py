@@ -112,9 +112,11 @@ class Waifu:
     def get_price_to_reset(self):
         return math.floor(self.price * 1.25 + (self.affinity_changes + self.divorce_count + 2) * 150)
 
-    async def reset_waifu_stats(self):
-        await self.user.remove_cash(self.get_price_to_reset())
+    async def change_claimer(self, new_claimer_id: int):
+        self.claimer_id = new_claimer_id
+        await self.user.db.execute("UPDATE users SET waifu_claimer_id=$1 WHERE id=$2;", self.claimer_id, self.user.id)
 
+    async def reset_waifu_stats(self):
         self.affinity_changes = 0
         self.divorce_count = 0
         self.price = BASE_WAIFU_PRICE
