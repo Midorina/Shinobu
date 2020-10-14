@@ -1,6 +1,7 @@
 import random
 from typing import Union
 
+import dbl
 import discord
 from discord.ext import commands
 
@@ -9,6 +10,7 @@ from models.db_models import UserDB
 from services import checks, context
 from services.converters import MidoMemberConverter
 from services.exceptions import EmbedError
+from services.resources import Resources
 
 
 class Gambling(commands.Cog):
@@ -34,7 +36,7 @@ class Gambling(commands.Cog):
             },
             "tails": {
                 "aliases": ['tails', 'tail', 't'],
-                "images": [
+                "images" : [
                     "https://i.imgur.com/rOxePah.png",  # 1
                     "https://i.imgur.com/C1LkEY4.png",  # 0.50
                     "https://i.imgur.com/pPDQ1xj.png",  # 0.25
@@ -45,10 +47,28 @@ class Gambling(commands.Cog):
             }
         }
 
+        # dbl stuff
+        self.dblpy = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'])
+        self.votes = set()
+
+    def cog_unload(self):
+        self.bot.loop.create_task(self.dblpy.close())
+
+    @commands.Cog.listener()
+    async def on_dbl_vote(self, data):
+        self.votes.add(int(data['user']))
+        self.bot.logger.info('Received an upvote and its been added to the set!\n'
+                             '{}'.format(data))
+
+    @commands.Cog.listener()
+    async def on_dbl_test(self, data):
+        self.votes.add(int(data['user']))
+        self.bot.logger.info('Received a test and its been added to the set!\n'
+                             '{}'.format(data))
+
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: context.MidoContext, *, user: MidoMemberConverter() = None):
-        """Check the cash status of you or someone else.
-        """
+        """Check the cash status of you or someone else."""
         if user:
             user_db = await UserDB.get_or_create(ctx.db, user.id)
         else:
@@ -59,17 +79,28 @@ class Gambling(commands.Cog):
 
     @commands.command()
     async def daily(self, ctx: context.MidoContext):
-        """Claim 250$ for free every 24 hours."""
+        """
+        Claim {0.bot.config['daily_amount']}{0.resources.emotes.currency} for free every 12 hours
+        by upvoting [here]({0.resources.links.upvote}).
+        """
         daily_status = ctx.user_db.daily_date_status
+        daily_amount = self.bot.config['daily_amount']
+
+        has_voted = ctx.author.id in self.votes or await self.dblpy.get_user_vote(ctx.author.id)
 
         if not daily_status.end_date_has_passed:
             raise EmbedError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
+        elif not has_voted:
+            raise EmbedError(f"It seems like you haven't voted yet. "
+                             f"Vote [here]({Resources.links.upvote}), then use this command again "
+                             f"to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
-            daily_amount = self.bot.config['daily_amount']
+            self.votes.remove(ctx.author.id)
             await ctx.user_db.add_cash(daily_amount, daily=True)
-            await ctx.send_success(f"You've successfully claimed your daily **{daily_amount}$**!")
+            await ctx.send_success(f"You've successfully claimed "
+                                   f"your daily **{daily_amount}{Resources.emotes.currency}**!")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip'])
     async def coin_flip(self, ctx: context.MidoContext, amount: Union[int, str], guessed_side: str):
