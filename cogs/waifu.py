@@ -30,12 +30,8 @@ class Waifu(commands.Cog):
             user = self.bot.get_user(user_db.id)
             user_name = str(user) if user else user_db.discord_name
 
-            # todo: make use of the name cache
-            affinity = self.bot.get_user(user_db.waifu.affinity_id)
-            affinity_name = str(affinity) if affinity else user_db.waifu.affinity_id
-
-            claimer = self.bot.get_user(user_db.waifu.claimer_id) if user_db.waifu.claimer_id else "no one."
-            claimer_name = str(claimer) if claimer else user_db.waifu.claimer_id
+            affinity_name = self.bot.get_user_name(user_db.waifu.affinity_id)
+            claimer_name = self.bot.get_user_name(user_db.waifu.claimer_id) if user_db.waifu.claimer_id else "no one."
 
             # if its the #1 user
             if i == 1 and user:
@@ -43,7 +39,7 @@ class Waifu(commands.Cog):
 
             e.description += f"`#{i}` **{user_db.waifu.price}{Resources.emotes.currency}** " \
                              f"**{user_name}** claimed by **{claimer_name}**\n"
-            if not affinity:
+            if not user_db.waifu.affinity_id:
                 if not user_db.waifu.claimer_id:
                     e.description += "... and "
                 else:
@@ -51,7 +47,7 @@ class Waifu(commands.Cog):
 
                 e.description += f"{user_name}'s heart is empty :(\n"
 
-            elif affinity == claimer:
+            elif user_db.waifu.affinity_id == user_db.waifu.claimer_id:
                 e.description += f"... and {user_name} likes {claimer_name} too ♥\n"
 
             else:
@@ -71,7 +67,7 @@ class Waifu(commands.Cog):
         price_to_reset = ctx.user_db.waifu.get_price_to_reset()
 
         msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
-                                     f"This will cost you **{price_to_reset}$**.\n\n"
+                                     f"This will cost you **{price_to_reset}{Resources.emotes.currency}**.\n\n"
                                      f"*This action will reset everything **except your waifus**.*")
 
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
@@ -95,7 +91,8 @@ class Waifu(commands.Cog):
 
             item_blocks = []
             for item in Item.get_all():
-                item_blocks.append(f'**{item.emote_n_name}** -> {readable_bigint(item.price)}$')
+                item_blocks.append(
+                    f'**{item.emote_n_name}** -> {readable_bigint(item.price)}{Resources.emotes.currency}')
 
             await e.paginate(ctx, item_blocks, item_per_page=9)
         else:
@@ -208,14 +205,18 @@ class Waifu(commands.Cog):
 
         await target_db.waifu.get_claimed(ctx.author.id, price)
 
+        base_msg = f"{ctx.author.mention} claimed {target.mention} as their waifu " \
+                   f"for **{price}{Resources.emotes.currency}**!\n"
+
         if target_db.waifu.affinity_id == ctx.author.id:
-            await ctx.send_success(f"{ctx.author.mention} claimed {target.mention} as their waifu for **{price}$**!\n"
+            await ctx.send_success(base_msg +
                                    f"\n"
                                    f"🎉 Their love is fulfilled! 🎉\n"
                                    f"\n"
-                                   f"{target.mention}'s new value is {target_db.waifu.price}$!")
+                                   f"{target.mention}'s new value is "
+                                   f"**{target_db.waifu.price}{Resources.emotes.currency}**!")
         else:
-            await ctx.send_success(f"{ctx.author.mention} claimed {target.mention} as their waifu for **{price}$**!")
+            await ctx.send_success(base_msg)
 
     @commands.command(rate=1, per=21600, type=BucketType.user)  # 6 hours
     async def divorce(self, ctx: MidoContext, target: MidoMemberConverter()):
@@ -248,10 +249,11 @@ class Waifu(commands.Cog):
                                    f"Guess it was a "
                                    f"[1 sided love](https://open.spotify.com/track/39bs2V8huzcmWoeSlHKZeP).\n"
                                    f"\n"
-                                   f"{target.mention} received **{amount}$** as compensation.")
+                                   f"{target.mention} received **{amount}{Resources.emotes.currency}** "
+                                   f"as compensation.")
         else:
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
-                                   f"and got **{amount}$** in return.")
+                                   f"and got **{amount}{Resources.emotes.currency}** in return.")
 
     @commands.command()
     async def waifutransfer(self, ctx: MidoContext, ex_waifu: MidoMemberConverter(), new_owner: MidoMemberConverter()):

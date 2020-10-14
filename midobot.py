@@ -7,7 +7,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from models.db_models import GuildDB, MidoTime
+from models.db_models import GuildDB, MidoTime, UserDB
 from services.apis import MidoBotAPI
 from services.context import MidoContext
 
@@ -136,6 +136,14 @@ class MidoBot(commands.AutoShardedBot):
                          )
 
         self.command_counter += 1
+
+    async def get_user_name(self, _id: int, user_db: UserDB = None):
+        user = self.get_user(_id)
+        if user:
+            return str(user)
+        else:
+            user_db = user_db or await UserDB.get_or_create(self.db, _id)
+            return user_db.discord_name
 
     def run(self):
         super().run(self.config["token"])
