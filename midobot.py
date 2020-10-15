@@ -79,7 +79,7 @@ class MidoBot(commands.AutoShardedBot):
 
             self.load_cogs()
             self.uptime = MidoTime(start_date=datetime.now(timezone.utc))
-            self.log_channel = self.get_channel(self.config['log_channel'])
+            self.log_channel = self.get_channel(self.config['log_channel_id'])
             self.logger.info(f"{self.user} is ready.")
             self.first_time = False
             await self.log_channel.send("I'm ready!")

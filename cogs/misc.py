@@ -145,7 +145,7 @@ class Misc(commands.Cog):
     @commands.command(aliases=['info', 'stats'])
     async def about(self, ctx: MidoContext):
         """See some info and stats about me!"""
-        mido = self.bot.get_user(self.bot.config['owners'][0])
+        mido = self.bot.get_user(self.bot.config['owner_ids'][0])
 
         memory = self.process.memory_info().rss / 10 ** 6
 

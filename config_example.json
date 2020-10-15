@@ -1,0 +1,36 @@
+{
+  "token"               : "token",
+  "playing"             : "m.help",
+  "default_prefix"      : "m.",
+  "log_channel_id"      : 0,
+  "daily_amount"        : 250,
+  "base_waifu_price"    : 200,
+  "owner_ids"           : [
+    90076279646212096
+  ],
+  "cooldowns"           : {
+    "daily": 43200,
+    "xp"   : 60
+  },
+  "db_credentials"      : {
+    "user"    : "user",
+    "password": "password",
+    "database": "MidoBot",
+    "host"    : "127.0.0.1"
+  },
+  "gelbooru_credentials": {
+    "api_key": "api_key",
+    "user_id": 0
+  },
+  "spotify_credentials" : {
+    "client_id"    : "client_id",
+    "client_secret": "client_secret"
+  },
+  "dbl_credentials"     : {
+    "token"       : "token",
+    "webhook_auth": "auth",
+    "webhook_port": 0,
+    "webhook_path": "/path",
+    "auto"        : true
+  }
+}

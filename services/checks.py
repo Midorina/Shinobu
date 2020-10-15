@@ -8,7 +8,7 @@ with open('config.json') as f:
 
 def owner_only():
     def pred(ctx):
-        if ctx.author.id in config["owners"]:
+        if ctx.author.id in config["owner_ids"]:
             return True
 
     return commands.check(pred)
