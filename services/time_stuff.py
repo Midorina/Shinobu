@@ -38,6 +38,17 @@ class MidoTime:
         return self.end_date <= datetime.now(timezone.utc)
 
     @property
+    def passed_seconds(self):
+        """Returns the time that has passed since the start."""
+        remaining_in_float = (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
+
+        return math.ceil(remaining_in_float)
+
+    @property
+    def passed_string(self):
+        return self.parse_seconds_to_str(self.passed_seconds)
+
+    @property
     def remaining_seconds(self):
         if self.end_date:
             remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)

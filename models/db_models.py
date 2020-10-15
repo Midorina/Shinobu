@@ -488,9 +488,14 @@ class ReminderDB(BaseDBModel):
         return cls(created, db)
 
     @classmethod
-    async def get_uncompleted_reminders(cls, db: Pool):
-        reminders = await db.fetch("""SELECT * FROM reminders WHERE done IS NOT TRUE;""")
-        return [cls(reminder, db) for reminder in reminders]
+    async def get_uncompleted_reminders(cls, db: Pool, user_id: int = None):
+        if user_id is not None:
+            reminders = await db.fetch("""SELECT * FROM reminders WHERE author_id=$1 AND done IS NOT TRUE;""", user_id)
+        else:
+            reminders = await db.fetch("""SELECT * FROM reminders WHERE done IS NOT TRUE;""")
+
+        return list(sorted((cls(reminder, db) for reminder in reminders), key=lambda x: x.time_obj.end_date))
 
     async def complete(self):
+        self.done = True
         await self.db.execute("""UPDATE reminders SET done=TRUE WHERE id=$1;""", self.id)

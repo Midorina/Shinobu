@@ -8,6 +8,7 @@ from midobot import MidoBot
 from models.db_models import ReminderDB
 from services.context import MidoContext
 from services.embed import MidoEmbed
+from services.exceptions import EmbedError
 from services.time_stuff import MidoTime
 
 
@@ -120,8 +121,59 @@ class Reminder(commands.Cog):
                                f"to **{message}** in "
                                f"**{length.initial_remaining_string}**. `{length.end_date_string}`")
 
+    @commands.command()
+    async def remindlist(self,
+                         ctx: MidoContext):
+        """See the list of your reminders."""
+        reminders = await ReminderDB.get_uncompleted_reminders(ctx.db, user_id=ctx.author.id)
 
-# TODO: add ways to see reminders and delete them
+        if not reminders:
+            raise EmbedError("You don't have any reminders!")
+
+        e = MidoEmbed(self.bot)
+        e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar_url)
+
+        blocks = []
+        for i, reminder in enumerate(reminders, 1):
+            block = f'**#{i}**\n' \
+                    f'`Remaining:` **{reminder.time_obj.remaining_string}** ({reminder.time_obj.end_date_string})\n'
+
+            if reminder.channel_type == ReminderDB.ChannelType.DM:
+                block += f'`Channel:` **DM**\n'
+            else:
+                block += f'`Channel:` <#{reminder.channel_id}>\n'
+
+            block += f'`Message:` {reminder.content}'
+
+            blocks.append(block)
+
+        await e.paginate(ctx, blocks, extra_sep='\n')
+
+    @commands.command(aliases=['reminddel'])
+    async def reminddelete(self,
+                           ctx: MidoContext,
+                           reminder_index: int):
+        """
+        Delete a reminder you have using its index.
+
+        You can see a complete list of your reminders and their indexes using `{0.prefix}remindlist`
+        """
+
+        reminders = await ReminderDB.get_uncompleted_reminders(ctx.db, user_id=ctx.author.id)
+
+        if not reminders:
+            raise EmbedError("You don't have any reminders!")
+
+        try:
+            reminder_to_remove = reminders[reminder_index - 1]
+        except IndexError:
+            raise EmbedError("Invalid reminder index!")
+
+        self.cancel_reminder(reminder_to_remove)
+        await reminder_to_remove.complete()
+
+        await ctx.send_success(f"Reminder **#{reminder_index}** has been successfully deleted.")
+
 
 def setup(bot):
     bot.add_cog(Reminder(bot))
