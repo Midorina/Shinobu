@@ -152,8 +152,7 @@ class Misc(commands.Cog):
         embed = discord.Embed(color=self.bot.main_color)
 
         embed.description = f"I'm a general purpose bot that features various stuff! " \
-                            f"Type `{ctx.prefix}help` to learn more.\n\n" \
-                            f"[Click here to invite me to your server!]({self.bot.config['invite_link']})"
+                            f"Type `{ctx.prefix}help` to learn more.\n\n"
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
@@ -163,26 +162,24 @@ class Misc(commands.Cog):
                         value=MidoTime.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
                         inline=True)
 
-        embed.add_field(name="Usage",
-                        value="Memory: {:.2f} MB\n"
-                              "CPU: {}%".format(memory, self.process.cpu_percent(interval=1)),
-                        inline=True)
+        embed.add_field(name="Discord Stats",
+                        value=f"{len(self.bot.guilds)} Guilds\n"
+                              f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels\n"
+                              f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
 
-        embed.add_field(name="Guild Count",
-                        value=f"{len(self.bot.guilds)} Guilds",
-                        inline=True)
-
-        embed.add_field(name="Channel Count",
-                        value=f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels",
-                        inline=True)
-
-        embed.add_field(name="Member Count",
-                        value=f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
                         inline=True)
 
         embed.add_field(name="Message Count",
                         value=f"{self.bot.message_counter} Messags\n"
                               f"{self.bot.command_counter} Commands",
+                        inline=True)
+
+        embed.add_field(name="Performance",
+                        value="Music Players: {}\n"
+                              "CPU: {}%\n"
+                              "Memory: {:.2f} MB\n".format(len(self.bot.get_cog('Music').voice_states),
+                                                           self.process.cpu_percent(interval=1),
+                                                           memory),
                         inline=True)
 
         embed.set_footer(icon_url=mido.avatar_url,
