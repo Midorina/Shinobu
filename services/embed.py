@@ -24,7 +24,7 @@ class MidoEmbed(discord.Embed):
             self.set_image(url=image_url)
 
     @staticmethod
-    def filter_blocks(blocks: List[str], extra_sep='') -> List[str]:
+    def filter_blocks(blocks: List[str]) -> List[str]:
         filtered_blocks = list()
 
         for block in blocks:
@@ -32,9 +32,6 @@ class MidoEmbed(discord.Embed):
                 filtered_blocks.append(block[:2040] + '...')
             else:
                 filtered_blocks.append(block)
-
-        if extra_sep:
-            filtered_blocks = [x + extra_sep for x in filtered_blocks]
 
         return filtered_blocks
 
@@ -98,7 +95,7 @@ class MidoEmbed(discord.Embed):
             else:
                 await msg.edit(embed=_e)
 
-        filtered_blocks = self.filter_blocks(blocks, extra_sep=extra_sep)
+        filtered_blocks = self.filter_blocks(blocks)
 
         page = 1
         total_pages = math.ceil(len(filtered_blocks) / item_per_page)
