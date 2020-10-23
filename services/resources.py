@@ -1,7 +1,6 @@
 import json
 
 
-# TODO: make use of this.
 def dict_to_variables(obj, file_path: str):
     with open(file_path) as f:
         _dict = json.load(f)

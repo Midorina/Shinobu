@@ -13,7 +13,7 @@
     "xp"   : 60
   },
   "db_credentials"      : {
-    "user"    : "user",
+    "user"    : "mido",
     "password": "password",
     "database": "MidoBot",
     "host"    : "127.0.0.1"
