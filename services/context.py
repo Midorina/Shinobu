@@ -19,8 +19,8 @@ class MidoContext(commands.Context):
         self.user_db: UserDB = None
 
         # music cog
-        from services.music import VoiceState
-        self.voice_state: VoiceState = None
+        from services.music import VoicePlayer
+        self.voice_player: VoicePlayer = None
 
     async def attach_db_objects(self):
         try:

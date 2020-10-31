@@ -169,7 +169,7 @@ class Misc(commands.Cog):
                         inline=True)
 
         # embed.add_field(name="Message Count",
-        #                 value=f"{self.bot.message_counter} Messags\n"
+        #                 value=f"{self.bot.message_counter} Messages\n"
         #                       f"{self.bot.command_counter} Commands",
         #                 inline=True)
 

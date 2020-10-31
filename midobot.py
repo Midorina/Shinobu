@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import asyncpg
 import discord
+import wavelink
 from discord.ext import commands
 
 from models.db_models import GuildDB, MidoTime, UserDB
@@ -26,7 +27,8 @@ class MidoBot(commands.AutoShardedBot):
     def __init__(self):
         super().__init__(
             command_prefix=_get_prefix,
-            case_insensitive=True
+            case_insensitive=True,
+            intents=intents
         )
 
         with open('config.json') as f:
@@ -48,9 +50,14 @@ class MidoBot(commands.AutoShardedBot):
 
         self.http_session = MidoBotAPI.get_aiohttp_session()
 
+        self.wavelink: wavelink.Client = None
+
     async def close(self):
         await self.http_session.close()
         await self.db.close()
+        for node in self.wavelink.nodes:
+            await node.destroy()
+
         await super().close()
 
     async def prepare_db(self):
@@ -76,6 +83,7 @@ class MidoBot(commands.AutoShardedBot):
 
             # prefix cache
             self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
+            self.wavelink = wavelink.Client(bot=self)
 
             self.load_cogs()
             self.uptime = MidoTime(start_date=datetime.now(timezone.utc))

@@ -32,5 +32,15 @@
     "webhook_port": 0,
     "webhook_path": "/path",
     "auto"        : true
-  }
+  },
+  "lavalink_nodes"      : [
+    {
+      "host"      : "0.0.0.0",
+      "port"      : 80,
+      "rest_uri"  : "http://0.0.0.0:80",
+      "password"  : "pw",
+      "identifier": "identifier",
+      "region"    : "europe"
+    }
+  ]
 }
