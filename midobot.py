@@ -22,6 +22,11 @@ async def _get_prefix(_bot, msg: discord.Message):
         return commands.when_mentioned_or(_bot.config["default_prefix"])(_bot, msg)
 
 
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = True
+
+
 class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
     def __init__(self):
