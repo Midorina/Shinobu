@@ -285,6 +285,19 @@ class SomeRandomAPI(MidoBotAPI):
     def __init__(self, session: ClientSession):
         super(SomeRandomAPI, self).__init__(session)
 
+    async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
+        async with self.session.get(self.URLs['lyrics'], params={'title': title}) as r:
+            response = await r.json()
+
+            if 'error' in response:
+                raise NotFoundError
+
+            title = f"{response['author']} - {response['title']}"
+            lyrics = self.parse_lyrics_for_discord(response['lyrics'])
+            thumbnail = list(response['thumbnail'].values())[0]
+
+            return title, lyrics, thumbnail
+
     @staticmethod
     def split_lyrics(lyrics: str):
         pages = []
@@ -311,19 +324,6 @@ class SomeRandomAPI(MidoBotAPI):
             lyrics_pages = [lyrics]
 
         return lyrics_pages
-
-    async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
-        async with self.session.get(self.URLs['lyrics'], params={'title': title}) as r:
-            response = await r.json()
-
-            if 'error' in response:
-                raise NotFoundError
-
-            title = f"{response['author']} - {response['title']}"
-            lyrics = self.parse_lyrics_for_discord(response['lyrics'])
-            thumbnail = list(response['thumbnail'].values())[0]
-
-            return title, lyrics, thumbnail
 
 
 class Google(MidoBotAPI):

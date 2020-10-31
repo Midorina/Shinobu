@@ -41,7 +41,6 @@ class Item:
 
     @classmethod
     def get_emotes_and_amounts(cls, items: List[Item]) -> List[Tuple[str, int]]:
-        print("items:", items)
         items = list(sorted(items, key=lambda x: x.price))
         clean_dict = {}
         for item in items:

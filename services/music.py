@@ -207,10 +207,11 @@ class VoiceState:
         self.bot = bot
         self.exists: bool = True
 
-        self.current: Song = None
-        self.voice: discord.VoiceClient = None
-        self.next = asyncio.Event()
         self.songs = SongQueue()
+        self.current: Song = None
+        self.next = asyncio.Event()
+
+        self.voice: discord.VoiceClient = None
 
         self._loop = False
         self._volume = 10
@@ -250,7 +251,7 @@ class VoiceState:
 
             if not self.loop:
                 try:
-                    async with timeout(180):
+                    async with timeout(5):
                         self.current = await self.songs.get()
                 except asyncio.TimeoutError:
                     return self.bot.loop.create_task(self.stop())

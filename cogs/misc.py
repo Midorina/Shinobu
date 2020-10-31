@@ -166,13 +166,12 @@ class Misc(commands.Cog):
                         value=f"{len(self.bot.guilds)} Guilds\n"
                               f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels\n"
                               f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
-
                         inline=True)
 
-        embed.add_field(name="Message Count",
-                        value=f"{self.bot.message_counter} Messags\n"
-                              f"{self.bot.command_counter} Commands",
-                        inline=True)
+        # embed.add_field(name="Message Count",
+        #                 value=f"{self.bot.message_counter} Messags\n"
+        #                       f"{self.bot.command_counter} Commands",
+        #                 inline=True)
 
         embed.add_field(name="Performance",
                         value="Music Players: {}\n"
@@ -189,16 +188,24 @@ class Misc(commands.Cog):
 
     @commands.command(hidden=True)
     @checks.owner_only()
-    async def reload(self, ctx):
+    async def reload(self, ctx, cog_name: str = None):
+        cog_counter = 0
         for file in os.listdir("cogs"):
             if file.endswith(".py"):
                 name = file[:-3]
+
+                # if a cog name is provided, and its not the cog we want, skip
+                if cog_name and name != cog_name:
+                    continue
+
                 try:
                     self.bot.reload_extension(f"cogs.{name}")
                 except discord.ext.commands.ExtensionNotLoaded:
                     self.bot.load_extension(f"cogs.{name}")
+                finally:
+                    cog_counter += 1
 
-        await ctx.send("Successfully reloaded all cogs!")
+        await ctx.send(f"Successfully reloaded **{cog_counter}** cog(s)!")
 
     @commands.command(hidden=True)
     @checks.owner_only()

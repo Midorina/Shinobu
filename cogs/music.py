@@ -3,7 +3,7 @@ import math
 from typing import Dict
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from midobot import MidoBot
 from models.db_models import MidoTime
@@ -19,10 +19,18 @@ class Music(commands.Cog):
         self.bot = bot
 
         self.forcekip_by_default = True
-        self.voice_states: Dict[VoiceState] = {}
+        self.voice_states: Dict[int, VoiceState] = {}
 
         self.sri_api = SomeRandomAPI(self.bot.http_session)
         self.spotify_api = SpotifyAPI(self.bot.http_session, self.bot.config['spotify_credentials'])
+
+        self.check_voice_states.start()
+
+    @tasks.loop(seconds=5.0)
+    async def check_voice_states(self):
+        for server_id, state in self.voice_states.items():
+            if not state.exists:
+                del self.voice_states[server_id]
 
     def get_voice_state(self, ctx: MidoContext) -> VoiceState:
         state = self.voice_states.get(ctx.guild.id)
