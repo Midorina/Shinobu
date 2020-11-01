@@ -42,5 +42,9 @@
       "identifier": "identifier",
       "region"    : "europe"
     }
-  ]
+  ],
+  "reddit_credentials"  : {
+    "client_id"    : "",
+    "client_secret": ""
+  }
 }

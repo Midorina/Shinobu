@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List
+from typing import List, Union
 
 from asyncpg import Record
 from asyncpg.pool import Pool
@@ -499,3 +499,31 @@ class ReminderDB(BaseDBModel):
     async def complete(self):
         self.done = True
         await self.db.execute("""UPDATE reminders SET done=TRUE WHERE id=$1;""", self.id)
+
+
+class CachedImage(BaseDBModel):
+    def __init__(self, data: Record, db: Pool):
+        super().__init__(data, db)
+
+        self.api_name: str = data.get('api_name')
+        self.url: str = data.get('url')
+        self.tags: List[str] = data.get('tags')
+
+    @classmethod
+    async def get_random(cls, db: Pool, api_names: Union[str, List[str]], gif=False):
+        if isinstance(api_names, str):
+            api_names = [api_names]
+
+        if not gif:
+            ret = await db.fetchrow("SELECT * FROM api_cache "
+                                    "WHERE api_name = ANY($1) AND url NOT LIKE '%.gif%' "
+                                    "ORDER BY random() LIMIT 1;",
+                                    api_names)
+        else:
+            ret = await db.fetchrow(
+                "SELECT * FROM api_cache "
+                "WHERE api_name = ANY($1) "
+                "ORDER BY random() LIMIT 1;",
+                api_names)
+
+        return cls(ret, db)

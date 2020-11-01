@@ -1,22 +1,27 @@
+import asyncio
 import base64
 import json
 import random
 from typing import List, Tuple
 
+import asyncpraw
 from aiohttp import ClientSession
+from anekos import NSFWImageTags, NekosLifeClient, SFWImageTags
+from anekos.client import Tag
 from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 
+from models.db_models import CachedImage
 from services.exceptions import InvalidURL, NotFoundError
+from services.resources import Resources
 from services.time_stuff import MidoTime
 
-
-# TODO: make use of the cache for real in the future.
 
 class MidoBotAPI:
     USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/ 58.0.3029.81 Safari/537.36"
+
     DEFAULT_HEADERS = {
         'User-Agent'     : USER_AGENT,
         "Accept-Language": "en-US,en;q=0.5",
@@ -36,14 +41,206 @@ class CachedImageAPI(MidoBotAPI):
 
         self.db = db
 
-    async def add_to_db(self, api_name: str, urls: List[str]) -> None:
+    async def add_to_db(self, api_name: str, urls: List[str], tags: List[str] = None) -> None:
+        if tags is None:
+            tags = []
+
         if urls:
             await self.db.executemany(
-                """INSERT INTO api_cache(api_name, url) VALUES ($1, $2) ON CONFLICT DO NOTHING;""",
-                [(api_name, url) for url in urls])
+                """INSERT INTO api_cache(api_name, url, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;""",
+                [(api_name, url, tags) for url in urls])
 
 
-class NSFWAPIs(CachedImageAPI):
+class NekoAPI(NekosLifeClient, CachedImageAPI):
+    NSFW_NEKO_TAGS = [NSFWImageTags.NSFW_NEKO_GIF, NSFWImageTags.ERONEKO]
+    SFW_NEKO_TAGS = [SFWImageTags.NEKOGIF, SFWImageTags.NEKO]
+
+    def __init__(self, session: ClientSession, db: Pool):
+        super().__init__(session=session)  # NekosLifeClient
+
+        self.db = db  # CachedImageAPI
+
+    async def image(self, tag: Tag, get_bytes: bool = False):
+        while True:
+            ret = await super(NekoAPI, self).image(tag, get_bytes)
+            if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
+                continue
+
+            await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
+            return ret
+
+    async def get_random_neko(self, nsfw=False):
+        if nsfw is True:
+            tags = self.NSFW_NEKO_TAGS
+        else:
+            tags = self.SFW_NEKO_TAGS
+
+        return await self.image(tag=random.choice(tags))
+
+
+class RedditAPI(CachedImageAPI):
+    SUBREDDITS = {
+        "boobs"  : [
+            "boobs",
+            "Boobies",
+            "TittyDrop",
+            "hugeboobs"
+        ],
+        "butts"  : [
+            "ass",
+            "bigasses",
+            "pawg",
+            "asstastic",
+            "CuteLittleButts"
+        ],
+        "pussy"  : [
+            "pussy",
+            "LipsThatGrip",
+            "GodPussy"
+        ],
+        "asian"  : [
+            "AsianHotties",
+            "juicyasians",
+            "AsiansGoneWild"
+        ],
+        "general": [
+            "gonewild",
+            "nsfw",
+            "RealGirls",
+            "NSFW_GIF",
+            "LegalTeens",
+            "cumsluts",
+            "BustyPetite",
+            "holdthemoan",
+            "PetiteGoneWild",
+            "collegesluts",
+            "porn",
+            "GirlsFinishingTheJob",
+            "adorableporn",
+            "nsfw_gifs",
+            "BiggerThanYouThought",
+            "Amateur",
+            "porninfifteenseconds",
+            "milf",
+            "OnOff",
+            "JizzedToThis",
+            "nsfwhardcore",
+            "BreedingMaterial",
+            "GWCouples",
+            "lesbians",
+            "porn_gifs",
+            "anal",
+            "Blowjobs"
+        ],
+        "hentai" : [
+            "hentai",
+            "rule34",
+            "HENTAI_GIF",
+            "ecchi",
+            "yuri",
+            "AnimeBooty"
+        ]
+    }
+
+    def __init__(self, credentials: dict, session: ClientSession, db: Pool):
+        super().__init__(session, db)
+
+        self.reddit = asyncpraw.Reddit(
+            **credentials,
+            user_agent=MidoBotAPI.USER_AGENT
+        )
+
+    @staticmethod
+    def parse_gfycat_to_red_gif(urls: List[str]):
+        def already_replaced(new_word, _replaced_words):
+            for _word in _replaced_words:
+                if new_word in _word:
+                    return True
+
+        ret = []
+        for url in urls:
+            if '/comments/' in url:  # reddit links that forward to comments are deleted
+                continue
+
+            if 'gfycat.com' in url or 'redgifs.com' in url:
+                replaced_words = []
+
+                _id = url.split('/')[-1].split('-')[0].split('?')[0]
+
+                if not any(x.isupper() for x in _id):  # if capital letters are missing
+                    for word_type, word_list in Resources.strings.gfycat_words.items():
+                        word_list = sorted(word_list, key=lambda x: len(x), reverse=True)
+                        for word in word_list:
+                            if word in _id:
+                                # check if its replacing an already replaced word
+                                if already_replaced(word, replaced_words):
+                                    continue
+                                # make the first letter capital
+                                _id = _id.replace(word, word[0].upper() + word[1:])
+                                replaced_words.append(word)
+
+                if 'gfycat.com' in url:
+                    ret.append(f'https://thumbs.redgifs.com/{_id}-size_restricted.gif')
+                elif "redgifs.com" in url:
+                    ret.append(f'https://thcf7.redgifs.com/{_id}-size_restricted.gif')
+            else:
+                ret.append(url)
+
+        return ret
+
+    async def get_images_from_subreddit(self, subreddit_name: str, submission_category: str = 'top', *args, **kwargs):
+        subreddit = await self.reddit.subreddit(subreddit_name)
+
+        if submission_category == 'top':
+            category = subreddit.top
+        elif submission_category == 'hot':
+            category = subreddit.hot
+        else:
+            raise Exception(f"Unknown category name: {submission_category}")
+
+        urls = []
+        async for submission in category(*args, **kwargs):
+            urls.append(submission.url)
+
+        urls = self.parse_gfycat_to_red_gif(urls)
+
+        await self.add_to_db(api_name=f'reddit_{subreddit_name}',
+                             urls=urls,
+                             tags=[subreddit_name])
+
+    async def get_from_the_db(self, category: str, redgif=False) -> CachedImage:
+        if category not in self.SUBREDDITS:
+            raise Exception(f"Invalid category: {category}")
+
+        subreddit_names = [f'reddit_{sub}' for sub in self.SUBREDDITS[category]]
+
+        return await CachedImage.get_random(self.db, subreddit_names, redgif)
+
+    async def fill_the_database(self):
+        async def _fill(sub_name: str):
+            # top
+            # hot
+
+            # all
+            # year
+            # month
+            # week
+            # day
+            # hour
+            # await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
+            # await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
+            # await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
+            # await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
+            await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
+            await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
+
+        for sub_names in self.SUBREDDITS.values():
+            for sub in sub_names:
+                await _fill(sub)
+                await asyncio.sleep(5.0)
+
+
+class NSFW_DAPIs(CachedImageAPI):
     blacklisted_tags = [
         'loli',
         'shota',
@@ -57,17 +254,14 @@ class NSFWAPIs(CachedImageAPI):
     dapi_links = {
         'danbooru': 'https://danbooru.donmai.us/posts.json',
         'gelbooru': 'https://gelbooru.com/index.php',
-        'rule34': 'https://rule34.xxx/index.php'
+        'rule34'  : 'https://rule34.xxx/index.php'
     }
 
     def __init__(self, session: ClientSession, db: Pool):
-        super(NSFWAPIs, self).__init__(session, db)
+        super(NSFW_DAPIs, self).__init__(session, db)
 
     async def get(self, nsfw_type: str, tags=None):
-        if nsfw_type in ('butts', 'boobs'):
-            func = self._get_boobs_or_butts
-            args = [nsfw_type]
-        elif nsfw_type in ('rule34', 'gelbooru'):
+        if nsfw_type in ('rule34', 'gelbooru'):
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags]
 
@@ -80,7 +274,7 @@ class NSFWAPIs(CachedImageAPI):
 
         fetched_imgs = await func(*args)
 
-        await self.add_to_db(nsfw_type, fetched_imgs)
+        await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
         return random.choice(fetched_imgs)
 
     def _clean_tags(self, tags):
@@ -97,14 +291,6 @@ class NSFWAPIs(CachedImageAPI):
             if tag in self.blacklisted_tags:
                 return True
         return False
-
-    async def _get_boobs_or_butts(self, _type='boobs') -> List[str]:
-        async with self.session.get(f'http://api.o{_type}.ru/noise/100/') as r:
-            if r.status == 200:
-                data = await r.json()
-                return [f"http://media.o{_type}.ru/" + image['preview'] for image in data]
-            else:
-                raise Exception("Couldn't fetch image. Please try again later.")
 
     async def _get_nsfw_dapi(self, dapi='rule34', tags=None) -> List[str]:
         images = []

@@ -1,8 +1,8 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from midobot import MidoBot
-from services.apis import NSFWAPIs
+from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError, NotFoundError
@@ -12,9 +12,13 @@ class NSFW(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        self.api = NSFWAPIs(self.bot.http_session, self.bot.db)
+        self.api = NSFW_DAPIs(self.bot.http_session, self.bot.db)
+        self.reddit = RedditAPI(self.bot.config['reddit_credentials'], self.bot.http_session, self.bot.db)
+        self.neko = NekoAPI(session=self.bot.http_session, db=self.bot.db)
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
+
+        self.fill_the_database.start()
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, NotFoundError):
@@ -31,48 +35,92 @@ class NSFW(commands.Cog):
 
         return True
 
-    @commands.command(aliases=['boob'])
-    async def boobs(self, ctx):
-        """Get a random boob picture."""
+    def cog_unload(self):
+        self.fill_the_database.cancel()
+
+    async def send_nsfw_embed(self, ctx, image_url: str):
         e = MidoEmbed(bot=self.bot,
-                      image_url=await self.api.get('boobs'))
+                      image_url=image_url,
+                      # description=f"Image not working? [Report]({Resources.links.support_server})"
+                      description=f"Image not working? [Click here.]({image_url})"
+                      )
+        e.set_footer(text=f"MidoBot NSFW API")
         await ctx.send(embed=e)
+
+    @tasks.loop(hours=1.0)
+    async def fill_the_database(self):
+        self.bot.logger.info('Checking hot posts from Reddit...')
+        await self.reddit.fill_the_database()
+        self.bot.logger.info('Checking hot posts from Reddit is done.')
+
+    @commands.command(aliases=['boob'])
+    async def boobs(self, ctx: MidoContext):
+        """Get a random boob picture."""
+
+        image = await self.reddit.get_from_the_db('boobs')
+        await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command(aliases=['butt'])
-    async def butts(self, ctx):
+    async def butts(self, ctx: MidoContext):
         """Get a random butt picture."""
-        e = MidoEmbed(bot=self.bot,
-                      image_url=await self.api.get('butts'))
-        await ctx.send(embed=e)
+
+        image = await self.reddit.get_from_the_db('butts')
+        await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
-    async def gelbooru(self, ctx, *tags):
+    async def gelbooru(self, ctx: MidoContext, *tags):
         """Get a random image from Gelbooru."""
-        e = MidoEmbed(bot=self.bot,
-                      image_url=await self.api.get('gelbooru', tags))
-        e.set_footer(text="Gelbooru")
-        await ctx.send(embed=e)
+
+        image = await self.api.get('gelbooru', tags)
+        await self.send_nsfw_embed(ctx, image)
 
     @commands.command()
-    async def rule34(self, ctx, *tags):
-        """Get a random image from Gelbooru."""
-        random_img = await self.api.get('rule34', tags)
+    async def rule34(self, ctx: MidoContext, *tags):
+        """Get a random image from Rule34."""
 
-        e = MidoEmbed(bot=self.bot,
-                      description=f"If it doesn't load, click [here]({random_img}).",
-                      image_url=random_img)
-        e.set_footer(text="Rule 34")
-        await ctx.send(embed=e)
+        image = await self.api.get('rule34', tags)
+        await self.send_nsfw_embed(ctx, image)
 
     @commands.command()
-    async def danbooru(self, ctx, *tags):
+    async def danbooru(self, ctx: MidoContext, *tags):
         """Get a random image from Danbooru."""
-        e = MidoEmbed(bot=self.bot,
-                      image_url=await self.api.get('danbooru', tags))
-        e.set_footer(text="Danbooru")
-        await ctx.send(embed=e)
 
-    # TODO: more hentai commands
+        image = await self.api.get('danbooru', tags)
+        await self.send_nsfw_embed(ctx, image)
+
+    @commands.command()
+    async def lewdneko(self, ctx: MidoContext):
+        """Get a random lewd neko image."""
+
+        image = await self.neko.get_random_neko(nsfw=True)
+        await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def hentai(self, ctx: MidoContext):
+        """Get a random hentai image."""
+        image = await self.reddit.get_from_the_db('hentai')
+        await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def porn(self, ctx: MidoContext):
+        """Get a random porn content."""
+
+        image = await self.reddit.get_from_the_db('general')
+        await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def pussy(self, ctx: MidoContext):
+        """Get a random pussy."""
+
+        image = await self.reddit.get_from_the_db('pussy')
+        await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def asian(self, ctx: MidoContext):
+        """Get a random asian porn content."""
+
+        image = await self.reddit.get_from_the_db('asian')
+        await self.send_nsfw_embed(ctx, image.url)
 
 
 def setup(bot):

@@ -3,8 +3,10 @@ from discord.ext import commands
 
 from midobot import MidoBot
 from services import context, embed
-from services.apis import Google
+from services.apis import Google, SomeRandomAPI
 
+
+# TODO: https://some-random-api.ml/
 
 class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -12,6 +14,7 @@ class Searches(commands.Cog):
 
         self.google: Google = Google(self.bot.http_session)
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
+        self.some_random_api = SomeRandomAPI(self.bot.http_session)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     @commands.command(aliases=['g'])
