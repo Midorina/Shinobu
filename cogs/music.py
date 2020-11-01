@@ -3,7 +3,7 @@ import math
 
 import discord
 from discord.ext import commands
-from wavelink import Node, TrackPlaylist, WavelinkMixin, events
+from wavelink import Client, Node, TrackPlaylist, WavelinkMixin, events
 
 from midobot import MidoBot
 from models.db_models import MidoTime
@@ -22,6 +22,9 @@ class Music(commands.Cog, WavelinkMixin):
         self.forcekip_by_default = True
 
         self.spotify_api = SpotifyAPI(self.bot.http_session, self.bot.config['spotify_credentials'])
+
+        if not self.bot.wavelink:
+            self.bot.wavelink = Client(bot=self.bot)
 
         self.wavelink = self.bot.wavelink
 

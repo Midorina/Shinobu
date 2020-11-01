@@ -60,7 +60,8 @@ class MidoBot(commands.AutoShardedBot):
     async def close(self):
         await self.http_session.close()
         await self.db.close()
-        for node in self.wavelink.nodes:
+
+        for node in self.wavelink.nodes.values():
             await node.destroy()
 
         await super().close()
@@ -88,7 +89,6 @@ class MidoBot(commands.AutoShardedBot):
 
             # prefix cache
             self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
-            self.wavelink = wavelink.Client(bot=self)
 
             self.load_cogs()
             self.uptime = MidoTime(start_date=datetime.now(timezone.utc))

@@ -176,7 +176,7 @@ class Misc(commands.Cog):
         embed.add_field(name="Performance",
                         value="Music Players: {}\n"
                               "CPU: {}%\n"
-                              "Memory: {:.2f} MB\n".format(len(self.bot.get_cog('Music').voice_states),
+                              "Memory: {:.2f} MB\n".format(len(self.bot.wavelink.players),
                                                            self.process.cpu_percent(interval=1),
                                                            memory),
                         inline=True)
