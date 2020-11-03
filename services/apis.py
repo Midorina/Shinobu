@@ -1,9 +1,11 @@
 import asyncio
 import base64
 import json
+import math
 import random
 from typing import List, Tuple
 
+import aiohttp
 import asyncpraw
 from aiohttp import ClientSession
 from anekos import NSFWImageTags, NekosLifeClient, SFWImageTags
@@ -241,7 +243,7 @@ class RedditAPI(CachedImageAPI):
 
 
 class NSFW_DAPIs(CachedImageAPI):
-    blacklisted_tags = [
+    BLACKLISTED_TAGS = [
         'loli',
         'shota',
         'child',
@@ -251,7 +253,7 @@ class NSFW_DAPIs(CachedImageAPI):
         'flat_chest'
     ]
 
-    dapi_links = {
+    DAPI_LINKS = {
         'danbooru': 'https://danbooru.donmai.us/posts.json',
         'gelbooru': 'https://gelbooru.com/index.php',
         'rule34'  : 'https://rule34.xxx/index.php'
@@ -260,130 +262,109 @@ class NSFW_DAPIs(CachedImageAPI):
     def __init__(self, session: ClientSession, db: Pool):
         super(NSFW_DAPIs, self).__init__(session, db)
 
-    async def get(self, nsfw_type: str, tags=None):
+    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[str]:
+        tags = self._parse_tags(tags)
+
         if nsfw_type in ('rule34', 'gelbooru'):
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags]
+            args = [nsfw_type, tags, allow_video]
 
         elif nsfw_type == 'danbooru':
             func = self._get_danbooru
-            args = [tags]
+            args = [tags, allow_video]
 
         else:
-            raise Exception
+            raise Exception(f"Unknown nsfw type: {nsfw_type}")
 
         fetched_imgs = await func(*args)
 
         await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
-        return random.choice(fetched_imgs)
 
-    def _clean_tags(self, tags):
-        cleaned_tags = []
-        for tag in tags:
-            tag = tag.replace(' ', '_').lower()
-            if tag.lower() not in self.blacklisted_tags:
-                cleaned_tags.append(tag)
+        try:
+            return random.sample(fetched_imgs, limit)
+        except ValueError:
+            return fetched_imgs
 
-        return cleaned_tags
+    async def get_bomb(self, tags, limit=3) -> List[str]:
+        urls = []
+        limit = math.floor(limit / len(self.DAPI_LINKS.keys()))
+
+        for dapi in self.DAPI_LINKS.keys():
+            try:
+                urls.extend(await self.get(dapi, tags, limit=limit, allow_video=True))
+            except NotFoundError:
+                pass
+
+        return urls
+
+    def _parse_tags(self, tags: str):
+        tags = tags.replace(' ', '_').lower().split('+')
+
+        return list(filter(lambda x: x not in self.BLACKLISTED_TAGS, tags))
 
     def is_blacklisted(self, tags):
         for tag in tags:
-            if tag in self.blacklisted_tags:
+            if tag in self.BLACKLISTED_TAGS:
                 return True
         return False
 
-    async def _get_nsfw_dapi(self, dapi='rule34', tags=None) -> List[str]:
+    @staticmethod
+    def is_video(url: str):
+        return url.endswith('.webm') or url.endswith('.mp4')
+
+    async def _get_nsfw_dapi(self, dapi='rule34', tags=None, allow_video=False, score: int = 10) -> List[str]:
         images = []
 
-        tags = self._clean_tags(tags)
-        max_range = 200 if dapi == 'gelbooru' else 2000
+        tags.extend(('rating:explicit', 'sort:random', f'score:>={10}'))
 
         while True:
-            rand_page = random.randrange(max_range) if max_range else 0
-
-            async with self.session.get(self.dapi_links[dapi], params={
+            async with self.session.get(self.DAPI_LINKS[dapi], params={
                 'page' : 'dapi',
                 's'    : 'post',
                 'q'    : 'index',
                 'tags' : " ".join(tags),
                 'limit': 100,
-                'json' : 1,
-                'pid'  : rand_page,
-                # **self.bot.config['gelbooru_credentials']
+                'json' : 1
             }) as response:
-                # lower the range
-                max_range = rand_page
-
-                if dapi == 'gelbooru':
+                try:
                     response_jsond = await response.json() or []
-                    filtered = list(filter(
-                        lambda x: x['rating'] != 's' and not x['file_url'].endswith('.webm'),
-                        response_jsond))
+                except aiohttp.ContentTypeError:
+                    response_jsond = json.loads(await response.read())
 
-                    if not filtered:
-                        # if we're at the last page
-                        if rand_page == 0:
-                            raise NotFoundError
-                        else:
-                            continue
-
-                    for data in filtered:
-                        image_url = data.get('file_url')
-                        image_tags = data.get('tags').split(' ')
-                        if self.is_blacklisted(image_tags):
-                            continue
-                        else:
-                            images.append(image_url)
-
-                elif dapi == 'rule34':
-                    r = await response.text()
-
-                    if not r:
+                if not response_jsond:
+                    if score > 1:
+                        return await self._get_nsfw_dapi(dapi, tags, allow_video, score=score - 1)
+                    else:
                         raise NotFoundError
 
-                    response_jsond = json.loads(r)
-                    filtered = list(filter(
-                        lambda x: not x['image'].endswith('.webm'),
-                        response_jsond))
-
-                    if not filtered:
-                        # if we're at the last page
-                        if rand_page == 0:
-                            raise NotFoundError
-                        else:
-                            continue
-
-                    for data in filtered:
+                for data in response_jsond:
+                    if dapi == 'gelbooru':
+                        image_url = data.get('file_url')
+                    elif dapi == 'rule34':
                         image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
-                        image_tags = data.get('tags').split(' ')
-                        if self.is_blacklisted(image_tags):
-                            continue
-                        else:
-                            images.append(image_url)
+
+                    image_tags = data.get('tags').split(' ')
+                    if self.is_blacklisted(image_tags) or (not allow_video and self.is_video(image_url)):
+                        continue
+                    else:
+                        images.append(image_url)
 
                 return images
 
-    async def _get_danbooru(self, tags=None):
+    async def _get_danbooru(self, tags=None, allow_video=False):
         images = []
 
-        if tags:
-            params = {
-                'limit': 200,
-                'tags': " ".join(tags)
-            }
-        else:
-            params = {
-                'limit' : 200,
-                'random': 'true'
-            }
+        tags.extend(('rating:explicit', f'score:>={10}'))
 
-        async with self.session.get(self.dapi_links['danbooru'], params=params) as r:
+        async with self.session.get(self.DAPI_LINKS['danbooru'], params={
+            'limit' : 100,
+            'tags'  : " ".join(tags),
+            'random': 'true'
+        }) as r:
             response = await r.json()
 
             for data in response:
-                if 'file_url' not in data.keys() \
-                        or data['rating'] == 's' \
-                        or data['file_url'].endswith('.webm') \
+                if (not allow_video and self.is_video(data['file_url'])) \
                         or self.is_blacklisted(data['tag_string'].split()):
                     continue
 

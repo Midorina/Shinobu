@@ -1,3 +1,5 @@
+from typing import List
+
 import discord
 from discord.ext import commands, tasks
 
@@ -20,9 +22,9 @@ class NSFW(commands.Cog):
 
         self.fill_the_database.start()
 
-    async def cog_command_error(self, ctx, error):
+    async def cog_command_error(self, ctx: MidoContext, error):
         if isinstance(error, NotFoundError):
-            return await ctx.send("No results.")
+            return await ctx.send_error("No results.")
 
     async def cog_check(self, ctx: MidoContext):
         bucket = self._cd.get_bucket(ctx.message)
@@ -47,6 +49,12 @@ class NSFW(commands.Cog):
         e.set_footer(text=f"MidoBot NSFW API")
         await ctx.send(embed=e)
 
+    async def _hentai(self, tags: str, limit=1) -> List[str]:
+        if not tags:
+            return [(await self.reddit.get_from_the_db('hentai')).url for _ in range(limit)]
+        else:
+            return await self.api.get_bomb(tags, limit)
+
     @tasks.loop(hours=1.0)
     async def fill_the_database(self):
         self.bot.logger.info('Checking hot posts from Reddit...')
@@ -65,40 +73,6 @@ class NSFW(commands.Cog):
         """Get a random butt picture."""
 
         image = await self.reddit.get_from_the_db('butts')
-        await self.send_nsfw_embed(ctx, image.url)
-
-    @commands.command()
-    async def gelbooru(self, ctx: MidoContext, *tags):
-        """Get a random image from Gelbooru."""
-
-        image = await self.api.get('gelbooru', tags)
-        await self.send_nsfw_embed(ctx, image)
-
-    @commands.command()
-    async def rule34(self, ctx: MidoContext, *tags):
-        """Get a random image from Rule34."""
-
-        image = await self.api.get('rule34', tags)
-        await self.send_nsfw_embed(ctx, image)
-
-    @commands.command()
-    async def danbooru(self, ctx: MidoContext, *tags):
-        """Get a random image from Danbooru."""
-
-        image = await self.api.get('danbooru', tags)
-        await self.send_nsfw_embed(ctx, image)
-
-    @commands.command()
-    async def lewdneko(self, ctx: MidoContext):
-        """Get a random lewd neko image."""
-
-        image = await self.neko.get_random_neko(nsfw=True)
-        await self.send_nsfw_embed(ctx, image.url)
-
-    @commands.command()
-    async def hentai(self, ctx: MidoContext):
-        """Get a random hentai image."""
-        image = await self.reddit.get_from_the_db('hentai')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
@@ -121,6 +95,47 @@ class NSFW(commands.Cog):
 
         image = await self.reddit.get_from_the_db('asian')
         await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def gelbooru(self, ctx: MidoContext, *, tags: str = None):
+        """Get a random image from Gelbooru."""
+
+        image = await self.api.get('gelbooru', tags)
+        await self.send_nsfw_embed(ctx, image[0])
+
+    @commands.command()
+    async def rule34(self, ctx: MidoContext, *, tags: str = None):
+        """Get a random image from Rule34."""
+
+        image = await self.api.get('rule34', tags)
+        await self.send_nsfw_embed(ctx, image[0])
+
+    @commands.command()
+    async def danbooru(self, ctx: MidoContext, *, tags: str = None):
+        """Get a random image from Danbooru."""
+
+        image = await self.api.get('danbooru', tags)
+        await self.send_nsfw_embed(ctx, image[0])
+
+    @commands.command()
+    async def lewdneko(self, ctx: MidoContext):
+        """Get a random lewd neko image."""
+
+        image = await self.neko.get_random_neko(nsfw=True)
+        await self.send_nsfw_embed(ctx, image.url)
+
+    @commands.command()
+    async def hentai(self, ctx: MidoContext, *, tags: str = None):
+        """Get a random hentai image."""
+        image = await self._hentai(tags, limit=1)
+        await self.send_nsfw_embed(ctx, image[0])
+
+    @commands.command()
+    async def hentaibomb(self, ctx: MidoContext, *, tags: str = None):
+        """Get multiple hentai images."""
+        image = await self._hentai(tags, limit=3)
+
+        await ctx.send(content="\n".join(im for im in image))
 
 
 def setup(bot):
