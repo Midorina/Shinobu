@@ -49,11 +49,11 @@ class NSFW(commands.Cog):
         e.set_footer(text=f"MidoBot NSFW API")
         await ctx.send(embed=e)
 
-    async def _hentai(self, tags: str, limit=1) -> List[str]:
+    async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:
         if not tags:
             return [(await self.reddit.get_from_the_db('hentai')).url for _ in range(limit)]
         else:
-            return await self.api.get_bomb(tags, limit)
+            return await self.api.get_bomb(tags, limit, allow_video)
 
     @tasks.loop(hours=1.0)
     async def fill_the_database(self):
@@ -84,7 +84,7 @@ class NSFW(commands.Cog):
 
     @commands.command()
     async def pussy(self, ctx: MidoContext):
-        """Get a random pussy."""
+        """Get a random pussy image."""
 
         image = await self.reddit.get_from_the_db('pussy')
         await self.send_nsfw_embed(ctx, image.url)
@@ -98,21 +98,30 @@ class NSFW(commands.Cog):
 
     @commands.command()
     async def gelbooru(self, ctx: MidoContext, *, tags: str = None):
-        """Get a random image from Gelbooru."""
+        """Get a random image from Gelbooru.
+
+        You must put '+' between different tags.
+        `{0.prefix}hentaibomb yuri+group`"""
 
         image = await self.api.get('gelbooru', tags)
         await self.send_nsfw_embed(ctx, image[0])
 
     @commands.command()
     async def rule34(self, ctx: MidoContext, *, tags: str = None):
-        """Get a random image from Rule34."""
+        """Get a random image from Rule34.
+
+        You must put '+' between different tags.
+        `{0.prefix}hentaibomb yuri+group`"""
 
         image = await self.api.get('rule34', tags)
         await self.send_nsfw_embed(ctx, image[0])
 
     @commands.command()
     async def danbooru(self, ctx: MidoContext, *, tags: str = None):
-        """Get a random image from Danbooru."""
+        """Get a random image from Danbooru.
+
+        You must put '+' between different tags.
+        `{0.prefix}hentaibomb yuri+group`"""
 
         image = await self.api.get('danbooru', tags)
         await self.send_nsfw_embed(ctx, image[0])
@@ -126,14 +135,20 @@ class NSFW(commands.Cog):
 
     @commands.command()
     async def hentai(self, ctx: MidoContext, *, tags: str = None):
-        """Get a random hentai image."""
+        """Get a random hentai image.
+
+        You must put '+' between different tags.
+        `{0.prefix}hentaibomb yuri+group`"""
         image = await self._hentai(tags, limit=1)
         await self.send_nsfw_embed(ctx, image[0])
 
     @commands.command()
     async def hentaibomb(self, ctx: MidoContext, *, tags: str = None):
-        """Get multiple hentai images."""
-        image = await self._hentai(tags, limit=3)
+        """Get multiple hentai images.
+
+        You must put '+' between different tags.
+        `{0.prefix}hentaibomb yuri+group`"""
+        image = await self._hentai(tags, limit=3, allow_video=True)
 
         await ctx.send(content="\n".join(im for im in image))
 

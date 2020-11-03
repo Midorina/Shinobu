@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import json
-import math
 import random
 from typing import List, Tuple
 
@@ -266,10 +265,14 @@ class NSFW_DAPIs(CachedImageAPI):
         tags = self._parse_tags(tags)
 
         if nsfw_type in ('rule34', 'gelbooru'):
+            tags.extend(('rating:explicit', 'sort:random', f'score:>={10}'))
+
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video]
 
         elif nsfw_type == 'danbooru':
+            tags.append('rating:explicit')
+
             func = self._get_danbooru
             args = [tags, allow_video]
 
@@ -285,17 +288,22 @@ class NSFW_DAPIs(CachedImageAPI):
         except ValueError:
             return fetched_imgs
 
-    async def get_bomb(self, tags, limit=3) -> List[str]:
+    async def get_bomb(self, tags, limit=3, allow_video=False) -> List[str]:
         urls = []
-        limit = math.floor(limit / len(self.DAPI_LINKS.keys()))
 
         for dapi in self.DAPI_LINKS.keys():
             try:
-                urls.extend(await self.get(dapi, tags, limit=limit, allow_video=True))
+                urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
             except NotFoundError:
                 pass
 
-        return urls
+        try:
+            return random.sample(urls, limit)
+        except ValueError:
+            if not urls:
+                raise NotFoundError
+            else:
+                return urls
 
     def _parse_tags(self, tags: str):
         tags = tags.replace(' ', '_').lower().split('+')
@@ -312,13 +320,20 @@ class NSFW_DAPIs(CachedImageAPI):
     def is_video(url: str):
         return url.endswith('.webm') or url.endswith('.mp4')
 
-    async def _get_nsfw_dapi(self, dapi='rule34', tags=None, allow_video=False, score: int = 10) -> List[str]:
+    async def _get_nsfw_dapi(self, dapi_name, tags: List[str], allow_video=False, score: int = 10) -> List[str]:
         images = []
 
-        tags.extend(('rating:explicit', 'sort:random', f'score:>={10}'))
+        if f'score:>={score}' in tags:
+            pass
+        else:
+            for tag in tags:
+                if tag.startswith('score'):
+                    tags.remove(tag)
+
+            tags.append(f'score:>={score}')
 
         while True:
-            async with self.session.get(self.DAPI_LINKS[dapi], params={
+            async with self.session.get(self.DAPI_LINKS[dapi_name], params={
                 'page' : 'dapi',
                 's'    : 'post',
                 'q'    : 'index',
@@ -327,20 +342,23 @@ class NSFW_DAPIs(CachedImageAPI):
                 'json' : 1
             }) as response:
                 try:
-                    response_jsond = await response.json() or []
+                    response_jsond = await response.json()
                 except aiohttp.ContentTypeError:
-                    response_jsond = json.loads(await response.read())
+                    try:
+                        response_jsond = json.loads(await response.read())
+                    except json.JSONDecodeError:
+                        response_jsond = None
 
                 if not response_jsond:
                     if score > 1:
-                        return await self._get_nsfw_dapi(dapi, tags, allow_video, score=score - 1)
+                        return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 1)
                     else:
                         raise NotFoundError
 
                 for data in response_jsond:
-                    if dapi == 'gelbooru':
+                    if dapi_name == 'gelbooru':
                         image_url = data.get('file_url')
-                    elif dapi == 'rule34':
+                    elif dapi_name == 'rule34':
                         image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
 
                     image_tags = data.get('tags').split(' ')
@@ -354,14 +372,15 @@ class NSFW_DAPIs(CachedImageAPI):
     async def _get_danbooru(self, tags=None, allow_video=False):
         images = []
 
-        tags.extend(('rating:explicit', f'score:>={10}'))
-
         async with self.session.get(self.DAPI_LINKS['danbooru'], params={
             'limit' : 100,
             'tags'  : " ".join(tags),
             'random': 'true'
         }) as r:
             response = await r.json()
+
+            if 'success' in response[0] and response[0]['success'] is False:
+                raise NotFoundError
 
             for data in response:
                 if (not allow_video and self.is_video(data['file_url'])) \
