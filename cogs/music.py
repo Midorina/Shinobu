@@ -49,7 +49,7 @@ class Music(commands.Cog, WavelinkMixin):
 
     @WavelinkMixin.listener(event="on_track_end")
     async def track_end_event(self, node: Node, payload: events.TrackEnd):
-        await payload.player.play_next()
+        payload.player.next.set()
 
     @commands.command(name='connect')
     async def _join(self, ctx: MidoContext):
@@ -75,6 +75,7 @@ class Music(commands.Cog, WavelinkMixin):
         except discord.ClientException as e:
             raise MusicError(str(e))
         else:
+            await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
 
     @commands.command(name='disconnect', aliases=['destroy', 'd'])
@@ -203,7 +204,7 @@ class Music(commands.Cog, WavelinkMixin):
         if not ctx.voice_player.is_playing:
             raise EmbedError('Not playing any music right now...')
 
-        await ctx.voice_player.play_next()
+        await ctx.voice_player.skip()
         await ctx.message.add_reaction('⏭')
 
     @commands.command(name='queue', aliases=['q'])
@@ -310,7 +311,7 @@ class Music(commands.Cog, WavelinkMixin):
                     song_to_add = song[0]
                     added_songs.append(song_to_add)
 
-                await ctx.voice_player.add_songs(song_to_add, ctx, try_playing_after=True)
+                await ctx.voice_player.add_songs(song_to_add, ctx)
 
             if len(added_songs) > 1:  # if its a playlist
                 await ctx.send_success(

@@ -23,11 +23,14 @@ class VoicePlayer(Player):
         super().__init__(bot, guild_id, node, **kwargs)
 
         self.song_queue: SongQueue = SongQueue()
+        self.next = asyncio.Event()
 
         self.loop = False
         self.skip_votes = []
 
         self.last_song = self.current
+
+        self.bot.loop.create_task(self.player_loop())
 
     @property
     def position(self):
@@ -50,16 +53,12 @@ class VoicePlayer(Player):
     def position_str(self):
         return MidoTime.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
 
-    async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: MidoContext,
-                        try_playing_after=True):
+    async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: MidoContext):
         async def _convert_and_add(_song):
             if not isinstance(_song, Song):
                 _song = Song.convert(_song, ctx)
 
             await self.song_queue.put(_song)
-
-            if not self.is_playing and try_playing_after is True:
-                await self.play_next()
 
         if isinstance(song_or_songs, list):
             for song in song_or_songs:
@@ -68,28 +67,29 @@ class VoicePlayer(Player):
             await _convert_and_add(song_or_songs)
 
     async def skip(self):
-        # this is just an alias for stop
-        # because when it stops, it sends an trackend event
-        # which then calls play_next()
         await self.stop()
 
-    async def play_next(self):
-        self.skip_votes.clear()
+    async def player_loop(self):
+        while True:
+            self.next.clear()
+            self.skip_votes.clear()
 
-        if self.loop is False:
-            try:
-                async with timeout(180):
-                    song: Song = await self.song_queue.get()
-                    self.last_song = song
-            except asyncio.TimeoutError:
-                return await self.destroy()
-        else:
-            song: Song = self.last_song
+            if self.loop is False:
+                try:
+                    async with timeout(180):
+                        song: Song = await self.song_queue.get()
+                        self.last_song = song
+                except asyncio.TimeoutError:
+                    return await self.destroy()
+            else:
+                song: Song = self.last_song
 
-        await self.play(song)
+            await self.play(song)
 
-        if not self.loop:
-            await self.current.send_embed()
+            if not self.loop:
+                await self.current.send_embed()
+
+            await self.next.wait()
 
 
 class Song(Track):

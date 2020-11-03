@@ -109,22 +109,6 @@ class MidoHelp(commands.HelpCommand):
         await self.context.send(content=content, embed=embed)
 
 
-def insert_returns(body):
-    # insert return stmt if the last expression is a expression statement
-    if isinstance(body[-1], ast.Expr):
-        body[-1] = ast.Return(body[-1].value)
-        ast.fix_missing_locations(body[-1])
-
-    # for if statements, we insert returns into the body and the orelse
-    if isinstance(body[-1], ast.If):
-        insert_returns(body[-1].body)
-        insert_returns(body[-1].orelse)
-
-    # for with blocks, again we insert returns into the body
-    if isinstance(body[-1], ast.With):
-        insert_returns(body[-1].body)
-
-
 class Misc(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
@@ -160,6 +144,22 @@ class Misc(commands.Cog):
           - `ctx`: the invokation context
           - `__import__`: the builtin `__import__` function
         """
+
+        def insert_returns(_body):
+            # insert return stmt if the last expression is a expression statement
+            if isinstance(_body[-1], ast.Expr):
+                _body[-1] = ast.Return(_body[-1].value)
+                ast.fix_missing_locations(_body[-1])
+
+            # for if statements, we insert returns into the body and the orelse
+            if isinstance(_body[-1], ast.If):
+                insert_returns(_body[-1].body)
+                insert_returns(_body[-1].orelse)
+
+            # for with blocks, again we insert returns into the body
+            if isinstance(_body[-1], ast.With):
+                insert_returns(_body[-1].body)
+
         fn_name = "_eval_expr"
 
         cmd = cmd.strip("`py ")
