@@ -2,7 +2,6 @@ from datetime import datetime
 
 from discord.ext import commands
 
-from midobot import MidoBot
 from services.context import MidoContext
 from services.embed import MidoEmbed
 
@@ -84,19 +83,3 @@ class MidoHelp(commands.HelpCommand):
         embed = MidoEmbed(self.context.bot, default_footer=True)
         self.common_command_formatting(embed, command)
         await self.context.send(content=content, embed=embed)
-
-
-class HelpCog(commands.Cog):
-    def __init__(self, bot: MidoBot):
-        self.bot = bot
-
-        self.old_help_command = bot.help_command
-        bot.help_command = MidoHelp()
-        bot.help_command.cog = self
-
-    def cog_unload(self):
-        self.bot.help_command = self.old_help_command
-
-
-def setup(bot):
-    bot.add_cog(HelpCog(bot))

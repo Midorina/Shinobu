@@ -13,6 +13,7 @@ from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
+from services.help import MidoHelp
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
@@ -38,7 +39,14 @@ class Misc(commands.Cog):
         self.bot = bot
 
         self.process = psutil.Process(os.getpid())
-        self.update_name_cache.start()
+
+        # help command
+        self.old_help_command = bot.help_command
+        bot.help_command = MidoHelp()
+        bot.help_command.cog = self
+
+    def cog_unload(self):
+        self.bot.help_command = self.old_help_command
 
     @tasks.loop(minutes=10)
     async def update_name_cache(self):
