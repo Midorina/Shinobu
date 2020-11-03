@@ -2,10 +2,11 @@ import ast
 import multiprocessing
 import os
 import time
+from datetime import datetime
 
 import discord
 import psutil
-from discord.ext import commands, tasks
+from discord.ext import commands, commands, tasks
 
 from midobot import MidoBot
 from models.db_models import UserDB
@@ -13,9 +14,99 @@ from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
-from services.help import MidoHelp
 from services.resources import Resources
 from services.time_stuff import MidoTime
+
+
+class MidoHelp(commands.HelpCommand):
+    def __init__(self):
+        super().__init__(command_attrs={
+            'cooldown': commands.Cooldown(rate=1, per=1.0, type=commands.BucketType.member),
+            'help'    : 'Shows help about the bot or a command.',
+            'aliases' : ['h']
+        })
+        self.verify_checks = False
+
+    def command_not_found(self, string):
+        return f'Couldn\'t find any command called `{string}`'
+
+    # async def on_help_command_error(self, ctx: MidoContext, error):
+    #     if isinstance(error, commands.CommandInvokeError):
+    #         await ctx.send(str(error.original))
+
+    def get_command_signature(self, command):
+        parent = command.full_parent_name
+
+        if len(command.aliases) > 0:
+            aliases = '|'.join(command.aliases)
+            fmt = f'[{command.name}|{aliases}]'
+            if parent:
+                fmt = f'{parent} {fmt}'
+            alias = fmt
+        else:
+            alias = command.name if not parent else f'{parent} {command.name}'
+
+        return f'{alias} {command.signature}'
+
+    async def send_bot_help(self, cogs_and_commands):
+        e = MidoEmbed(self.context.bot,
+                      title='MidoBot Command Modules',
+                      description=f'You can type `{self.context.prefix}help <module>` '
+                                  f'to see the commands that are in that module.',
+                      default_footer=True)
+
+        cogs = sorted(cogs_and_commands.keys(), key=lambda x: str(x))
+
+        cmd_counter = 0
+        for cog in cogs:
+            if cog:
+                cmd_counter_cog = len(cog.get_commands())
+                cmd_counter += cmd_counter_cog
+
+                e.add_field(name=f'**__{cog.qualified_name}__**', value=f'{cmd_counter_cog} Commands')
+
+        e.set_footer(text=f"{cmd_counter} Commands",
+                     icon_url=self.context.bot.user.avatar_url)
+        e.timestamp = datetime.utcnow()
+
+        await self.context.send(embed=e)
+
+    async def send_cog_help(self, cog):
+        _commands = await self.filter_commands(cog.get_commands(), sort=True)
+
+        e = MidoEmbed(self.context.bot,
+                      title=f'MidoBot {cog.qualified_name} Commands',
+                      description=f'You can type `{self.context.prefix}help <command>` '
+                                  f'to see additional info about a command.',
+                      default_footer=True)
+
+        e.add_field(name=f"**__{cog.qualified_name}__**",
+                    value="\n".join([f'{self.context.prefix}**{c.name}**' for c in _commands]),
+                    inline=True)
+
+        e.set_footer(text=f"{len(_commands)} Commands",
+                     icon_url=self.context.bot.user.avatar_url)
+        e.timestamp = datetime.utcnow()
+
+        await self.context.send(embed=e)
+
+    def common_command_formatting(self, embed, command):
+        embed.title = self.context.prefix + self.get_command_signature(command)
+        if command.description:
+            embed.description = f'{command.description}\n\n{command.help}'
+        else:
+            if not command.help:
+                embed.description = 'There\'s no help information about this command...'
+            else:
+                embed.description = command.help.format(self.context)
+
+    async def send_command_help(self, command, content=''):
+        if command.hidden:
+            raise commands.CommandInvokeError("That is a hidden command. Sorry.")
+
+        embed = MidoEmbed(self.context.bot, default_footer=True)
+        self.common_command_formatting(embed, command)
+        await self.context.send(content=content, embed=embed)
 
 
 def insert_returns(body):
