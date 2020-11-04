@@ -30,10 +30,6 @@ class MidoHelp(commands.HelpCommand):
     def command_not_found(self, string):
         return f'Couldn\'t find any command called `{string}`'
 
-    # async def on_help_command_error(self, ctx: MidoContext, error):
-    #     if isinstance(error, commands.CommandInvokeError):
-    #         await ctx.send(str(error.original))
-
     def get_command_signature(self, command):
         parent = command.full_parent_name
 
@@ -59,11 +55,11 @@ class MidoHelp(commands.HelpCommand):
 
         cmd_counter = 0
         for cog in cogs:
-            if cog:
+            if cog and len(cog.get_commands()) > 0:
                 cmd_counter_cog = len(cog.get_commands())
                 cmd_counter += cmd_counter_cog
 
-                e.add_field(name=f'**__{cog.qualified_name}__**', value=f'{cmd_counter_cog} Commands')
+                e.add_field(name=f'__{cog.qualified_name}__', value=f'{cmd_counter_cog} Commands')
 
         e.set_footer(text=f"{cmd_counter} Commands",
                      icon_url=self.context.bot.user.avatar_url)
@@ -72,6 +68,10 @@ class MidoHelp(commands.HelpCommand):
         await self.context.send(embed=e)
 
     async def send_cog_help(self, cog):
+        def chunks(lst, n):
+            for j in range(0, len(lst), n):
+                yield lst[j:j + n]
+
         _commands = await self.filter_commands(cog.get_commands(), sort=True)
 
         e = MidoEmbed(self.context.bot,
@@ -80,9 +80,10 @@ class MidoHelp(commands.HelpCommand):
                                   f'to see additional info about a command.',
                       default_footer=True)
 
-        e.add_field(name=f"**__{cog.qualified_name}__**",
-                    value="\n".join([f'{self.context.prefix}**{c.name}**' for c in _commands]),
-                    inline=True)
+        for i, chunk in enumerate(chunks(_commands, 5), 1):
+            e.add_field(name=f"Command List {i}",
+                        value="\n".join([f'● {self.context.prefix}`{c.name}`' for c in chunk]),
+                        inline=True)
 
         e.set_footer(text=f"{len(_commands)} Commands",
                      icon_url=self.context.bot.user.avatar_url)
