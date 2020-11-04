@@ -148,7 +148,8 @@ class RedditAPI(CachedImageAPI):
 
         self.reddit = asyncpraw.Reddit(
             **credentials,
-            user_agent=MidoBotAPI.USER_AGENT
+            user_agent=MidoBotAPI.USER_AGENT,
+            requestor_kwargs={"session": self.session}
         )
 
     @staticmethod
