@@ -61,9 +61,6 @@ class MidoBot(commands.AutoShardedBot):
         await self.http_session.close()
         await self.db.close()
 
-        for node in self.wavelink.nodes.values():
-            await node.destroy()
-
         await super().close()
 
     async def prepare_db(self):

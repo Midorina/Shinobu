@@ -1,4 +1,22 @@
 {
-  "now_playing": "https://cdn.discordapp.com/attachments/244405453948321792/707797956295655434/PngItem_2087614.png",
-  "volume"     : "https://i.imgur.com/T0532pn.png"
+  "now_playing"  : "https://cdn.discordapp.com/attachments/244405453948321792/707797956295655434/PngItem_2087614.png",
+  "volume"       : "https://i.imgur.com/T0532pn.png",
+  "turkish_coins": {
+    "heads": [
+      "https://i.imgur.com/gA7NWyL.png",
+      "https://i.imgur.com/PjnLpfk.png",
+      "https://i.imgur.com/MzP2cqs.png",
+      "https://i.imgur.com/3JfgyEP.png",
+      "https://i.imgur.com/x7krykG.png",
+      "https://i.imgur.com/CDO1lBA.png"
+    ],
+    "tails": [
+      "https://i.imgur.com/rOxePah.png",
+      "https://i.imgur.com/C1LkEY4.png",
+      "https://i.imgur.com/pPDQ1xj.png",
+      "https://i.imgur.com/0vLHUSr.png",
+      "https://i.imgur.com/7BotKnp.png",
+      "https://i.imgur.com/bsU71r6.png"
+    ]
+  }
 }

@@ -28,23 +28,13 @@ class Gambling(commands.Cog):
             "heads": {
                 "aliases": ['heads', 'head', 'h'],
                 "images": [
-                    "https://i.imgur.com/gA7NWyL.png",  # 1
-                    "https://i.imgur.com/PjnLpfk.png",  # 0.50
-                    "https://i.imgur.com/MzP2cqs.png",  # 0.25
-                    "https://i.imgur.com/3JfgyEP.png",  # 0.10
-                    "https://i.imgur.com/x7krykG.png",  # 0.05
-                    "https://i.imgur.com/CDO1lBA.png"  # 0.01
+                    "https://i.imgur.com/BcSMPgD.png"
                 ]
             },
             "tails": {
                 "aliases": ['tails', 'tail', 't'],
                 "images" : [
-                    "https://i.imgur.com/rOxePah.png",  # 1
-                    "https://i.imgur.com/C1LkEY4.png",  # 0.50
-                    "https://i.imgur.com/pPDQ1xj.png",  # 0.25
-                    "https://i.imgur.com/0vLHUSr.png",  # 0.10
-                    "https://i.imgur.com/7BotKnp.png",  # 0.05
-                    "https://i.imgur.com/bsU71r6.png"  # 0.01
+                    "https://i.imgur.com/bt3xeCq.png"
                 ]
             }
         }
@@ -103,7 +93,7 @@ class Gambling(commands.Cog):
             await ctx.send_success(f"You've successfully claimed "
                                    f"your daily **{daily_amount}{Resources.emotes.currency}**!")
 
-    @commands.command(name="flip", aliases=['cf', 'coinflip'])
+    @commands.command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
     async def coin_flip(self, ctx: MidoContext, amount: Union[int, str], guessed_side: str):
         """A coin flip game. You'll earn the double amount of what you bet if you predict correctly.
 
@@ -127,12 +117,12 @@ class Gambling(commands.Cog):
             await ctx.user_db.add_cash(amount * 2)
 
             e.title = "Congratulations!"
-            e.description = f"You flipped {random_side_name} and won **{amount * 2}**!"
+            e.description = f"You flipped {random_side_name} and won **{amount * 2}{Resources.emotes.currency}**!"
             e.colour = self.success_color
 
         else:
             e.title = "I'm sorry..."
-            e.description = f"You flipped {random_side_name} and lost **{amount}**."
+            e.description = f"You flipped {random_side_name} and lost **{amount}{Resources.emotes.currency}**."
             e.colour = self.fail_color
 
         e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash}")

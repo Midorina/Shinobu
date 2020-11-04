@@ -379,7 +379,9 @@ class NSFW_DAPIs(CachedImageAPI):
         }) as r:
             response = await r.json()
 
-            if 'success' in response[0] and response[0]['success'] is False:
+            if not response \
+                    or 'success' in response[0] \
+                    and response[0]['success'] is False:
                 raise NotFoundError
 
             for data in response:
