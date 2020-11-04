@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Union
@@ -7,7 +8,7 @@ from asyncpg import Record
 from asyncpg.pool import Pool
 
 from models.waifu_models import Waifu
-from services.exceptions import InsufficientCash
+from services.exceptions import InsufficientCash, NotFoundError
 from services.time_stuff import MidoTime
 
 with open('config.json') as f:
@@ -499,6 +500,100 @@ class ReminderDB(BaseDBModel):
     async def complete(self):
         self.done = True
         await self.db.execute("""UPDATE reminders SET done=TRUE WHERE id=$1;""", self.id)
+
+
+class CustomReaction(BaseDBModel):
+    def __init__(self, data: Record, db: Pool):
+        super().__init__(data, db)
+
+        self.guild_id: int = data.get('guild_id')
+        self.trigger: str = data.get('trigger')
+        self.response: str = data.get('response')
+
+        self.delete_trigger: bool = data.get('delete_trigger')
+        self.send_in_DM: bool = data.get('send_in_DM')
+        self.contains_anywhere: bool = data.get('contains_anywhere')
+
+        self.date_added: MidoTime = MidoTime(data.get('date_added'))
+        self.use_count: int = data.get('use_count')
+
+    @classmethod
+    async def delete_all(cls, db: Pool, guild_id: int) -> bool:
+        await db.execute("DELETE FROM custom_reactions WHERE guild_id=$1;", guild_id)
+        return True
+
+    @classmethod
+    async def convert(cls, ctx, cr_id: int):  # ctx arg is passed no matter what
+        """Converts a Custom Reaction ID argument into local object."""
+        cr = await CustomReaction.get(db=ctx.db, _id=int(cr_id))
+        if not cr:
+            raise NotFoundError(f"No custom reaction found with ID: `{cr_id}`")
+
+        return cr
+
+    @classmethod
+    async def add(cls, db: Pool, trigger: str, response: str, guild_id=None):
+        ret = await db.fetchrow("INSERT INTO custom_reactions(guild_id, trigger, response) "
+                                "VALUES ($1, $2, $3) RETURNING *;",
+                                guild_id, trigger.lower(), response)
+
+        return cls(ret, db)
+
+    @classmethod
+    async def get(cls, db: Pool, _id: int):
+        ret = await db.fetchrow("SELECT * FROM custom_reactions WHERE id=$1;", _id)
+
+        return cls(ret, db)
+
+    @classmethod
+    async def get_all(cls, db: Pool, guild_id: int = None):
+        ret = await db.fetch("SELECT * FROM custom_reactions WHERE guild_id=$1;", guild_id)
+
+        return [cls(cr, db) for cr in ret]
+
+    @classmethod
+    async def try_get(cls, db: Pool, msg: str, guild_id):
+        msg = msg.strip().lower()
+
+        # guild crs
+        ret = await db.fetch("""SELECT * FROM custom_reactions 
+        WHERE ((contains_anywhere=TRUE AND ($1 LIKE concat('%', trigger, '%')) 
+        OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
+        OR trigger = $1)) AND guild_id=$2;""", msg, guild_id)
+
+        if not ret:
+            # global crs
+            ret = await db.fetch("""SELECT * FROM custom_reactions 
+            WHERE (contains_anywhere=TRUE AND ($1 LIKE concat('%', trigger, '%')) 
+            OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
+            OR trigger = $1);""", msg)
+
+            if not ret:
+                return None
+
+        return cls(random.choice(ret), db)
+
+    async def increase_use_count(self):
+        self.use_count += 1
+        await self.db.execute("UPDATE custom_reactions SET use_count=use_count+1 WHERE id=$1;", self.id)
+
+    async def delete_from_db(self):
+        await self.db.execute("DELETE FROM custom_reactions WHERE id=$1;", self.id)
+
+    async def toggle_contains_anywhere(self):
+        self.contains_anywhere = not self.contains_anywhere
+        await self.db.execute("UPDATE custom_reactions SET contains_anywhere=$1 WHERE id=$2;",
+                              self.contains_anywhere, self.id)
+
+    async def toggle_dm(self):
+        self.send_in_DM = not self.send_in_DM
+        await self.db.execute("""UPDATE custom_reactions SET "send_in_DM"=$1 WHERE id=$2;""",
+                              self.send_in_DM, self.id)
+
+    async def toggle_delete_trigger(self):
+        self.delete_trigger = not self.delete_trigger
+        await self.db.execute("""UPDATE custom_reactions SET delete_trigger=$1 WHERE id=$2;""",
+                              self.delete_trigger, self.id)
 
 
 class CachedImage(BaseDBModel):
