@@ -488,13 +488,12 @@ class Moderation(commands.Cog):
         msg = await ctx.send_success(f"Are you sure you'd like to reset the logs of **{target}**?")
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
 
-        if not yes:
-            return await msg.edit(content="Request has been declined.")
-
-        else:
+        if yes:
             await ModLog.hide_logs(ctx.db, ctx.guild.id, target.id)
 
-            return await msg.edit(content=f"Logs of **{target}** has been successfully deleted.")
+            await ctx.edit_custom(msg, f"Logs of **{target}** has been successfully deleted.")
+        else:
+            await ctx.edit_custom(msg, "Request declined.")
 
     @commands.command(aliases=['changereason'])
     async def reason(self,

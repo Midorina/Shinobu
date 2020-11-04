@@ -108,6 +108,10 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         if yes:
             await CustomReaction.delete_all(db=ctx.db, guild_id=ctx.guild.id)
 
+            await ctx.edit_custom(msg, "All custom reactions have been successfully deleted.")
+        else:
+            await ctx.edit_custom(msg, "Request declined.")
+
     @commands.command(aliases=['dcr'])
     async def deletecustomreaction(self, ctx: MidoContext, custom_reaction: CustomReaction):
         """Delete a custom reaction using it's ID.

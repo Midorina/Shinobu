@@ -78,6 +78,9 @@ class Waifu(commands.Cog):
 
             await ctx.edit_custom(msg, "You've successfully reset your waifu stats.")
 
+        else:
+            await ctx.edit_custom(msg, "Request declined.")
+
     @commands.command(aliases=['waifugift'])
     async def gift(self, ctx: MidoContext, item_name: str = None, target: MidoMemberConverter() = None):
         """
