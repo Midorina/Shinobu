@@ -9,7 +9,7 @@ from midobot import MidoBot
 from models.db_models import UserDB
 from services import checks
 from services.context import MidoContext
-from services.converters import MidoMemberConverter
+from services.converters import MidoMemberConverter, readable_bigint
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
 from services.resources import Resources
@@ -167,6 +167,27 @@ class Gambling(commands.Cog):
                 e.description += '\n\n'
 
         await ctx.send(embed=e)
+
+    @commands.command(aliases=['lb'])
+    async def leaderboard(self, ctx: MidoContext):
+        """See the cash leaderboard!"""
+        rich_people = await UserDB.get_rich_people(ctx.db, limit=100)
+
+        e = MidoEmbed(bot=self.bot,
+                      title=f"{Resources.emotes.currency} Leaderboard")
+
+        blocks = []
+        for i, user in enumerate(rich_people, 1):
+            # if its the #1 user
+            if i == 1:
+                user_obj = self.bot.get_user(user.id)
+                if user_obj:
+                    e.set_thumbnail(url=user_obj.avatar_url)
+
+            blocks.append(f"`#{i}` **{user.discord_name}**\n"
+                          f"{readable_bigint(user.cash)} {Resources.emotes.currency}")
+
+        await e.paginate(ctx, blocks, item_per_page=10, extra_sep='\n')
 
     @commands.command(name="give")
     @commands.guild_only()

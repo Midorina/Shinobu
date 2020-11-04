@@ -181,6 +181,11 @@ class UserDB(BaseDBModel):
         _all = await db.fetch("SELECT * FROM users;")
         return [cls(user_db, db) for user_db in _all]
 
+    @classmethod
+    async def get_rich_people(cls, db: Pool, limit=100):
+        ret = await db.fetch("SELECT * FROM users ORDER BY cash DESC LIMIT $1;", limit)
+        return [cls(user_db, db) for user_db in ret]
+
     async def update_name(self, new_name: str):
         self.discord_name = new_name
         await self.db.execute("UPDATE users SET name_and_discriminator=$1 WHERE id=$2;", new_name, self.id)
