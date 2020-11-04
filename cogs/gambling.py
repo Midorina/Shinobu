@@ -60,7 +60,7 @@ class Gambling(commands.Cog):
 
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: MidoContext, *, user: MidoMemberConverter() = None):
-        """Check the cash status of you or someone else."""
+        """Check how many donuts you have or someone else has."""
         if user:
             user_db = await UserDB.get_or_create(ctx.db, user.id)
         else:
@@ -170,7 +170,7 @@ class Gambling(commands.Cog):
 
     @commands.command(aliases=['lb'])
     async def leaderboard(self, ctx: MidoContext):
-        """See the cash leaderboard!"""
+        """See the donut leaderboard!"""
         rich_people = await UserDB.get_rich_people(ctx.db, limit=100)
 
         e = MidoEmbed(bot=self.bot,
@@ -192,7 +192,7 @@ class Gambling(commands.Cog):
     @commands.command(name="give")
     @commands.guild_only()
     async def give_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
-        """Give a specific amount of cash to someone else."""
+        """Give a specific amount of donut to someone else."""
         if member.id == ctx.author.id:
             raise EmbedError("Why'd you send money to yourself?")
 
