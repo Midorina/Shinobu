@@ -35,6 +35,7 @@ class MidoBot(commands.AutoShardedBot):
             case_insensitive=True,
             intents=intents
         )
+        self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
         with open('config.json') as f:
             self.config = json.load(f)
