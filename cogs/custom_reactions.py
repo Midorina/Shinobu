@@ -29,7 +29,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         cr = await CustomReaction.try_get(self.bot.db, msg=message.content, guild_id=message.guild.id)
 
-        if cr:
+        if cr and cr.response != '-':
             self.bot.loop.create_task(cr.increase_use_count())
 
             message_to_send = parse_text_with_context(cr.response, message, bot=self.bot)
