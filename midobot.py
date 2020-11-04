@@ -45,7 +45,7 @@ class MidoBot(commands.AutoShardedBot):
         self.db: asyncpg.pool.Pool = None
 
         self.log_channel = None
-        self.logger = logging.getLogger('MidoBot')
+        self.logger = logging.getLogger('Shinobu')
 
         self.message_counter = 0
         self.command_counter = 0

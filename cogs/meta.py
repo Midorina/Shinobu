@@ -46,7 +46,7 @@ class MidoHelp(commands.HelpCommand):
 
     async def send_bot_help(self, cogs_and_commands):
         e = MidoEmbed(self.context.bot,
-                      title='MidoBot Command Modules',
+                      title='Shinobu Command Modules',
                       description=f'You can type `{self.context.prefix}help <module>` '
                                   f'to see the commands that are in that module.',
                       default_footer=True)
@@ -75,7 +75,7 @@ class MidoHelp(commands.HelpCommand):
         _commands = await self.filter_commands(cog.get_commands(), sort=True)
 
         e = MidoEmbed(self.context.bot,
-                      title=f'MidoBot {cog.qualified_name} Commands',
+                      title=f'Shinobu {cog.qualified_name} Commands',
                       description=f'You can type `{self.context.prefix}help <command>` '
                                   f'to see additional info about a command.',
                       default_footer=True)

@@ -80,11 +80,8 @@ class Errors(commands.Cog):
         else:
             used_in = f"{ctx.channel.name}({ctx.channel.id}), guild {ctx.guild.name}({ctx.guild.id})"
 
-        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg}```",
-                                        timestamp=ctx.message.created_at, color=discord.Colour.red())
-
-        await self.bot.log_channel.send(f"""
-***ERROR ALERT*** <@90076279646212096>
+        content = f"""
+***ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>
 
 An error occurred during the execution of a command:
 `{str(error)}`
@@ -102,7 +99,12 @@ An error occurred during the execution of a command:
 **Message timestamp (UTC):** `{ctx.message.created_at}`
 
 **Message contents:** `{ctx.message.content}`
-""", embed=traceback_embed)
+"""
+
+        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2040]}```",
+                                        timestamp=ctx.message.created_at, color=discord.Colour.red())
+
+        await self.bot.log_channel.send(content=content, embed=traceback_embed)
 
 
 def setup(bot):

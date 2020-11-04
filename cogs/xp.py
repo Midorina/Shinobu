@@ -132,7 +132,7 @@ class XP(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command(name='leaderboard', aliases=['lb', 'xplb'])
+    @commands.command(name='xpleaderboard', aliases=['xplb'])
     @commands.guild_only()
     async def show_leaderboard(self, ctx: context.MidoContext):
         """See the XP leaderboard of the server."""
@@ -142,7 +142,7 @@ class XP(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command(name='gleaderboard', aliases=['globalleaderboard', 'glb', 'xpglb'])
+    @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
     @commands.guild_only()
     async def show_global_leaderboard(self, ctx: context.MidoContext):
         """See the global XP leaderboard."""

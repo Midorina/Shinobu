@@ -46,7 +46,7 @@ class NSFW(commands.Cog):
                       # description=f"Image not working? [Report]({Resources.links.support_server})"
                       description=f"Image not working? [Click here.]({image_url})"
                       )
-        e.set_footer(text=f"MidoBot NSFW API")
+        e.set_footer(text=f"Shinobu NSFW API")
         await ctx.send(embed=e)
 
     async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:

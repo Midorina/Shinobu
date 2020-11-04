@@ -153,9 +153,8 @@ class Waifu(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command(name='affinity')
     @commands.cooldown(rate=1, per=1800, type=BucketType.user)  # 30 minutes
-    async def _change_affinity(self, ctx: MidoContext, target: MidoMemberConverter() = None):
+    async def affinity(self, ctx: MidoContext, target: MidoMemberConverter() = None):
         """
         Sets your affinity towards someone you want to be claimed by.
         Setting affinity will reduce their `{0.prefix}claim` on you by 20%.
