@@ -356,6 +356,23 @@ class Misc(commands.Cog):
         # commands.clean_content is not used, because the message will be shown in an embed.
         await ctx.send_success(message)
 
+    @commands.command(aliases=['erasedata'])
+    async def deletedata(self, ctx: MidoContext):
+        """Delete all of your data from Shinobu."""
+        e = MidoEmbed(bot=self.bot,
+                      description="Are you sure you'd like to erase all of your data?\n\n"
+                                  "**This action is irreversible.**")
+
+        msg = await ctx.send(embed=e)
+
+        yes = await MidoEmbed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
+        if yes:
+            await ctx.user_db.delete()
+
+            await ctx.edit_custom(msg, "Your data has been successfully erased.")
+        else:
+            await ctx.edit_custom(msg, "Request declined.")
+
 
 def setup(bot):
     bot.add_cog(Misc(bot))

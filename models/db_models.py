@@ -271,6 +271,10 @@ class UserDB(BaseDBModel):
         ret = await db.fetch("SELECT * FROM users ORDER BY waifu_price DESC LIMIT $1;", limit)
         return [cls(user, db) for user in ret]
 
+    def delete(self):
+        await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
+        await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
+
 
 class MemberDB(BaseDBModel):
     # noinspection PyTypeChecker
