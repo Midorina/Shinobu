@@ -32,8 +32,14 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         if cr and cr.response != '-':
             self.bot.loop.create_task(cr.increase_use_count())
 
-            message_to_send = parse_text_with_context(cr.response, message, bot=self.bot)
             channel_to_send = message.author if cr.send_in_DM else message.channel
+
+            message_to_send = parse_text_with_context(text=cr.response,
+                                                      bot=self.bot,
+                                                      guild=message.guild,
+                                                      author=message.author,
+                                                      channel=channel_to_send,
+                                                      message_obj=message)
 
             if isinstance(message_to_send, discord.Embed):
                 await channel_to_send.send(embed=message_to_send)
@@ -56,6 +62,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     async def addcustomreaction(self, ctx: MidoContext, trigger: str, *, response):
         """Add a custom reaction with a trigger and a response.
         Running this command in server requires the Administration permission.
+
         http://nadekobot.readthedocs.io/en/latest/custom-reactions/"""
 
         cr = await CustomReaction.add(db=ctx.db,

@@ -9,6 +9,7 @@ from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
+from services.parsers import parse_text_with_context
 from services.security_stuff import ensure_role_hierarchy
 from services.time_stuff import MidoTime
 
@@ -60,22 +61,6 @@ class Moderation(commands.Cog):
     async def before_modlog_checks(self):
         await self.bot.wait_until_ready()
 
-    @staticmethod
-    def parse_welcome_bye_msg(member: discord.Member, msg: str):
-        placeholders = {
-            "{member_name}"        : member.display_name,
-            "{member_name_discrim}": str(member),
-            "{member_mention}"     : member.mention,
-
-            "{server_name}"        : str(member.guild),
-            "{server_member_count}": member.guild.member_count
-        }
-
-        for k, v in placeholders.items():
-            msg = msg.replace(k, str(v))
-
-        return msg
-
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
@@ -85,14 +70,31 @@ class Moderation(commands.Cog):
             else:
                 channel = self.bot.get_channel(guild_db.welcome_channel_id)
 
-            await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.welcome_message))
+            message_to_send = parse_text_with_context(text=guild_db.welcome_message,
+                                                      bot=self.bot,
+                                                      guild=member.guild,
+                                                      author=member,
+                                                      channel=channel)
+
+            await channel.send(content=message_to_send,
+                               delete_after=guild_db.welcome_delete_after)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)
-            await channel.send(self.parse_welcome_bye_msg(member=member, msg=guild_db.bye_message))
+
+            message_to_send = parse_text_with_context(text=guild_db.bye_message,
+                                                      bot=self.bot,
+                                                      guild=member.guild,
+                                                      author=member,
+                                                      channel=channel)
+
+            await channel.send(content=message_to_send,
+                               delete_after=guild_db.welcome_delete_after)
+
+    # TODO: welcome and bye del set commands
 
     @commands.command(aliases=['greet'])
     async def welcome(self,
@@ -104,19 +106,14 @@ class Moderation(commands.Cog):
         **To use the default message**, leave the welcome message empty.
         **To disable this feature**, use the command without inputting any arguments.
 
-        Available placeholders:
-        `{{member_name}}` -> Inserts the name of the new member.
-        `{{member_name_discrim}}` -> Inserts the name and discriminator of the new member.
-        `{{member_mention}}` -> Mentions the new member.
-        `{{server_name}}` -> Inserts the name of the server.
-        `{{server_member_count}}` -> Inserts the member count of the server.
+        Available placeholders: https://nadekobot.readthedocs.io/en/latest/placeholders/
 
         Examples:
         `{0.prefix}welcome dm`
         (welcomes new members in DMs using the default message)
         `{0.prefix}welcome #welcome`
         (welcomes new members in #welcome using the default message)
-        `{0.prefix}welcome #welcome Welcome {{member_name}}!`
+        `{0.prefix}welcome #welcome Welcome %user.mention%!`
         (welcomes new members in #welcome using a customized message)
         `{0.prefix}welcome`
         (disables this feature)
@@ -139,7 +136,7 @@ class Moderation(commands.Cog):
                 channel_id = channel.id
 
             if not message:
-                message = 'Hey {member_mention}! Welcome to **{server_name}**.'
+                message = 'Welcome to the %server.name%, %user.mention%!'
 
             await ctx.guild_db.set_welcome(channel_id=channel_id, msg=message)
             await ctx.send_success(f"Success! New members will be welcomed in {channel_str} with this mesage:\n"
@@ -155,17 +152,12 @@ class Moderation(commands.Cog):
         **To use the default message**, leave the goodbye message empty.
         **To disable this feature**, use the command without inputting any arguments.
 
-        Available placeholders:
-        `{{member_name}}` -> Inserts the name of the member that left.
-        `{{member_name_discrim}}` -> Inserts the name and discriminator of the member that left.
-        `{{member_mention}}` -> Mentions the member that left.
-        `{{server_name}}` -> Inserts the name of the server.
-        `{{server_member_count}}` -> Inserts the member count of the server.
+        Available placeholders: https://nadekobot.readthedocs.io/en/latest/placeholders/
 
         **Examples:**
         `{0.prefix}bye #bye`
         (says goodbye in #bye to members that left using the default message)
-        `{0.prefix}bye #bye It's sad to see you go {{member_name}}...`
+        `{0.prefix}bye #bye It's sad to see you go %user.name%...`
         (says goodbye in #bye to members that left using a customized message)
         `{0.prefix}bye`
         (disables this feature)
@@ -176,9 +168,10 @@ class Moderation(commands.Cog):
             else:
                 await ctx.guild_db.set_bye(channel_id=None)
                 return await ctx.send_success("Goodbye feature has been successfully disabled.")
+
         else:
             if not message:
-                message = '{member_name_discrim} just left the server...'
+                message = '%user.mention% just left the server...'
 
             await ctx.guild_db.set_bye(channel_id=channel.id, msg=message)
             await ctx.send_success(f"Success! "
