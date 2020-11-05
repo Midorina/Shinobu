@@ -4,9 +4,10 @@ from discord.ext import commands
 from midobot import MidoBot
 from services import context, embed
 from services.apis import Google, SomeRandomAPI
+from services.embed import MidoEmbed
 
 
-# TODO: https://some-random-api.ml/
+# TODO: pokemon, hearthstone
 
 class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -16,8 +17,18 @@ class Searches(commands.Cog):
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
         self.some_random_api = SomeRandomAPI(self.bot.http_session)
 
+    @commands.command()
+    async def color(self, ctx: context.MidoContext, *, color: str):
+        """Get a color image from specified hex."""
+        color_str = color.replace('#', '')
+        color = int(color_str, 16)
+
+        e = MidoEmbed(ctx.bot, image_url=self.some_random_api.view_color(color_str), colour=color)
+
+        await ctx.send(embed=e)
+
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    @commands.command(aliases=['g'])
+    @commands.command(aliases=['g'], enabled=False)  # todo
     async def google(self, ctx: context.MidoContext, *, search: str):
         """Makes a Google search."""
 
@@ -57,6 +68,36 @@ class Searches(commands.Cog):
             blocks.append(base)
 
         await e.paginate(ctx, blocks=blocks, item_per_page=1)
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command(aliases=['dog', 'woof'])
+    async def doggo(self, ctx: context.MidoContext):
+        """Get a random doggo picture."""
+        await ctx.send_simple_image(await self.some_random_api.get_animal("dog"))
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command(aliases=['cat', 'meow'])
+    async def catto(self, ctx: context.MidoContext):
+        """Get a random catto picture."""
+        await ctx.send_simple_image(await self.some_random_api.get_animal("cat"))
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command()
+    async def panda(self, ctx: context.MidoContext):
+        """Get a random panda picture."""
+        await ctx.send_simple_image(await self.some_random_api.get_animal("panda"))
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command()
+    async def fox(self, ctx: context.MidoContext):
+        """Get a random fox picture."""
+        await ctx.send_simple_image(await self.some_random_api.get_animal("fox"))
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command(aliases=['birb'])
+    async def bird(self, ctx: context.MidoContext):
+        """Get a random bird picture."""
+        await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
 
 def setup(bot):

@@ -297,7 +297,7 @@ class Moderation(commands.Cog):
             reason = length + (f" {reason}" if reason else '')
             length = None
 
-        await target.ban(reason=reason, delete_message_days=1)
+        await ctx.guild.ban(user=target, reason=reason, delete_message_days=1)
 
         modlog = await ModLog.add_modlog(ctx.db,
                                          guild_id=ctx.guild.id,
@@ -311,7 +311,7 @@ class Moderation(commands.Cog):
                                f"User **{getattr(target, 'mention', target.id)}** "
                                f"has been **banned** "
                                f"by {ctx.author.mention} "
-                               f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
+                               f"for **{getattr(length, 'initial_remaining_string', 'life')}**"
                                f"{self.get_reason_string(reason)}")
 
     @commands.command()

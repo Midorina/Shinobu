@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Union
 
+import asyncpg
 from asyncpg import Record
 from asyncpg.pool import Pool
 
@@ -169,10 +170,15 @@ class UserDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, db: Pool, user_id: int):
-        user_db = await db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
-        if not user_db:
-            user_db = await db.fetchrow(
-                """INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
+        user_db = None
+        while not user_db:
+            user_db = await db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
+            if not user_db:
+                try:
+                    user_db = await db.fetchrow(
+                        """INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
+                except asyncpg.UniqueViolationError:
+                    pass
 
         return cls(user_db, db)
 
@@ -262,7 +268,7 @@ class UserDB(BaseDBModel):
         return [UserDB(user, db) for user in top_10]
 
     @classmethod
-    async def get_claimed_waifus_by(cls, user_id: int, db):
+    async def get_claimed_waifus_by(cls, user_id: int, db) -> List:
         ret = await db.fetch("SELECT * FROM users WHERE waifu_claimer_id=$1;", user_id)
         return [cls(user, db) for user in ret]
 
@@ -297,12 +303,17 @@ class MemberDB(BaseDBModel):
         user_db = await UserDB.get_or_create(db, member_id)
         guild_db = await GuildDB.get_or_create(db, guild_id)
 
-        member_db = await db.fetchrow(
-            """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
-
-        if not member_db:
+        member_db = None
+        while not member_db:
             member_db = await db.fetchrow(
-                """INSERT INTO members (guild_id, user_id) VALUES($1, $2) RETURNING *;""", guild_id, member_id)
+                """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
+
+            if not member_db:
+                try:
+                    member_db = await db.fetchrow(
+                        """INSERT INTO members (guild_id, user_id) VALUES($1, $2) RETURNING *;""", guild_id, member_id)
+                except asyncpg.UniqueViolationError:
+                    pass
 
         member_obj = cls(member_db, db)
         member_obj.guild = guild_db
@@ -381,13 +392,18 @@ class GuildDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, db: Pool, guild_id: int):
-        guild_db = await db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
+        guild_db = None
+        while not guild_db:
+            guild_db = await db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
 
-        if not guild_db:
-            guild_db = await db.fetchrow(
-                """INSERT INTO guilds(id) VALUES ($1) RETURNING *;""", guild_id)
+            if not guild_db:
+                try:
+                    guild_db = await db.fetchrow(
+                        """INSERT INTO guilds(id) VALUES ($1) RETURNING *;""", guild_id)
+                except asyncpg.UniqueViolationError:
+                    pass
 
-        return cls(guild_db, db)
+            return cls(guild_db, db)
 
     async def change_prefix(self, new_prefix: str) -> str:
         await self.db.execute(

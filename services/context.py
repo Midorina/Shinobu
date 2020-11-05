@@ -54,6 +54,10 @@ class MidoContext(commands.Context):
         embed.description = new_message
         await message_object.edit(embed=embed)
 
+    async def send_simple_image(self, url: str):
+        e = MidoEmbed(bot=self.bot, image_url=url)
+        await self.send(embed=e)
+
     async def send_help(self, entity=None, content=''):
         """This method overwrites the library's method to provide extra content to the help message."""
         from discord.ext.commands import Group, Command, CommandError

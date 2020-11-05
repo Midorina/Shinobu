@@ -105,7 +105,6 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
         }
     )
 
-    # noinspection PyTypeChecker
     voice_player: VoicePlayer = bot.wavelink.get_player(guild.id, cls=VoicePlayer)
     if voice_player.is_playing:
         base_dict.update(
@@ -126,8 +125,23 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
     for ph, to_place in base_dict.items():
         text = text.replace(ph, str(to_place))
 
+        # todo: fix this
+        #
+    # 1|midobot  | Ignoring exception in on_message
+    # 1|midobot  | Traceback (most recent call last):
+    # 1|midobot  |   File "/usr/local/lib/python3.8/dist-packages/discord/client.py", line 333, in _run_event
+    # 1|midobot  |     await coro(*args, **kwargs)
+    # 1|midobot  |   File "/root/MidoBot/cogs/custom_reactions.py", line 37, in on_message
+    # 1|midobot  |     message_to_send = parse_text_with_context(text=cr.response,
+    # 1|midobot  |   File "/root/MidoBot/services/parsers.py", line 131, in parse_text_with_context
+    # 1|midobot  |     return discord.Embed.from_dict(embed)
+    # 1|midobot  |   File "/usr/local/lib/python3.8/dist-packages/discord/embeds.py", line 147, in from_dict
+    # 1|midobot  |     self.title = data.get('title', EmptyEmbed)
+    # 1|midobot  | AttributeError: 'int' object has no attribute 'get'
+
     try:
         embed = json.loads(text)
+        print(embed)
         return discord.Embed.from_dict(embed)
     except json.JSONDecodeError:
 

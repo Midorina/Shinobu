@@ -1,4 +1,5 @@
 import math
+from typing import List
 
 from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
@@ -127,16 +128,22 @@ class Waifu(commands.Cog):
             target = ctx.author
             target_db = ctx.user_db
 
-        e = MidoEmbed(ctx.bot)
-        e.set_author(icon_url=ctx.author.avatar_url, name=f"Waifu {target.display_name}")
+        claimer_name = (await UserDB.get_or_create(ctx.db, target_db.waifu.claimer_id)).discord_name \
+            if target_db.waifu.claimer_id else 'Nobody'
+        affinity_name = (await UserDB.get_or_create(ctx.db, target_db.waifu.affinity_id)).discord_name \
+            if target_db.waifu.affinity_id else 'Nobody'
 
-        e.add_field(name="Price", value=readable_bigint(target_db.waifu.price), inline=True)
+        e = MidoEmbed(ctx.bot)
+        e.set_author(icon_url=target.avatar_url, name=f"Waifu {target}")
+
+        e.add_field(name="Price", value=f'{readable_bigint(target_db.waifu.price)} '
+                                        f'{Resources.emotes.currency}', inline=True)
         e.add_field(name="Claimed by",
-                    value=f'<@{target_db.waifu.claimer_id}>' if target_db.waifu.claimer_id else 'Nobody',
+                    value=claimer_name,
                     inline=True)
 
         e.add_field(name="Likes",
-                    value=f'<@{target_db.waifu.affinity_id}>' if target_db.waifu.affinity_id else 'Nobody',
+                    value=affinity_name,
                     inline=True)
 
         e.add_field(name="Changes of Heart", value=str(target_db.waifu.affinity_changes), inline=True)
@@ -146,13 +153,19 @@ class Waifu(commands.Cog):
             gift_field_val = '-'
         else:
             items = Item.get_emotes_and_amounts(target_db.waifu.items)
-            gift_field_val = " ".join(f'{emote} x{count}' for emote, count in items)
+            gift_field_val = ""
+            for i, emote_and_count in enumerate(items, 1):
+                emote, count = emote_and_count
+                gift_field_val += f'{emote} x{count} '
+
+                if i % 2 == 0:
+                    gift_field_val += '\n'
 
         e.add_field(name="Gifts", value=gift_field_val, inline=False)
 
-        waifus = await UserDB.get_claimed_waifus_by(ctx.author.id, ctx.db)
+        waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.db)
         e.add_field(name=f"Waifus ({len(waifus)})",
-                    value="\n".join(f'<@{waifu.id}>' for waifu in waifus) if waifus else '-')
+                    value="\n".join(waifu.discord_name for waifu in waifus) if waifus else '-')
 
         await ctx.send(embed=e)
 

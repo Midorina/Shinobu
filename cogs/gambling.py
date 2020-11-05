@@ -83,12 +83,16 @@ class Gambling(commands.Cog):
             raise EmbedError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
         elif not has_voted:
-            raise EmbedError(f"It seems like you haven't voted yet. "
+            raise EmbedError(f"It seems like you haven't voted yet.\n\n"
                              f"Vote [here]({Resources.links.upvote}), then use this command again "
                              f"to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
-            self.votes.remove(ctx.author.id)
+            try:
+                self.votes.remove(ctx.author.id)
+            except KeyError:
+                pass
+
             await ctx.user_db.add_cash(daily_amount, daily=True)
             await ctx.send_success(f"You've successfully claimed "
                                    f"your daily **{daily_amount}{Resources.emotes.currency}**!")

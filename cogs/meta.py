@@ -48,7 +48,8 @@ class MidoHelp(commands.HelpCommand):
         e = MidoEmbed(self.context.bot,
                       title='Shinobu Command Modules',
                       description=f'You can type `{self.context.prefix}help <module>` '
-                                  f'to see the commands that are in that module.',
+                                  f'to see the commands that are in that module.\n\n'
+                                  f'Feel free to join the [support server]({Resources.links.support_server}) if you need additional help.',
                       default_footer=True)
 
         cogs = sorted(cogs_and_commands.keys(), key=lambda x: str(x))
@@ -242,8 +243,8 @@ class Misc(commands.Cog):
         else:
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
-    @commands.command(aliases=['info', 'stats'])
-    async def about(self, ctx: MidoContext):
+    @commands.command(aliases=['info', 'about'])
+    async def stats(self, ctx: MidoContext):
         """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owner_ids'][0])
 
@@ -251,8 +252,13 @@ class Misc(commands.Cog):
 
         embed = discord.Embed(color=self.bot.main_color)
 
-        embed.description = f"I'm a general purpose bot that features various stuff! " \
-                            f"Type `{ctx.prefix}help` to learn more.\n\n"
+        embed.description = f"I'm a general purpose bot that features various features! " \
+                            f"Type `{ctx.prefix}help` to learn more.\n\n" \
+                            f"**I've recently got a rewrite, so some features are missing.**\n" \
+                            f"Additionally, I am not verified yet. " \
+                            f"So, you can't invite me to new servers until I get verified.\n\n" \
+                            f"Join the [support server]({Resources.links.support_server}) " \
+                            f"if you want to provide feedback, get the latest news and join donut events."
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
@@ -281,8 +287,9 @@ class Misc(commands.Cog):
                                                            memory),
                         inline=True)
 
-        embed.set_footer(icon_url=mido.avatar_url,
-                         text=f"Made by {mido} with love ♥")
+        if mido:  # intents disabled
+            embed.set_footer(icon_url=mido.avatar_url,
+                             text=f"Made by {mido} with love ♥")
 
         await ctx.send(embed=embed)
 

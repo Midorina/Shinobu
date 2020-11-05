@@ -38,8 +38,10 @@ class Errors(commands.Cog):
             return await ctx.send_error("This command can not be used through DMs!")
 
         elif isinstance(error, discord.Forbidden):
-            if error.code == 50013:
+            try:
                 return await ctx.send_error("I don't have enough permissions!")
+            except discord.Forbidden:
+                pass
 
         elif isinstance(error, commands.BotMissingPermissions):
             return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
@@ -48,7 +50,7 @@ class Errors(commands.Cog):
             return await ctx.send_error("This command is currently disabled and can't be used.")
 
         elif isinstance(error, commands.CheckFailure):
-            return await ctx.send_error(":lock: You don't have required permissions to do that!")
+            return await ctx.send_error("You don't have required permissions to do that!")
 
         elif isinstance(error, commands.CommandOnCooldown):
             return await ctx.send_error("You're on cooldown!")
@@ -61,7 +63,8 @@ class Errors(commands.Cog):
                                        content=f"**You are missing this required argument: "
                                                f"`{error.param.name}`**")
 
-        elif isinstance(error, (commands.BadArgument, commands.ExpectedClosingQuoteError)):
+        elif isinstance(error,
+                        (commands.BadArgument, commands.ExpectedClosingQuoteError, commands.UnexpectedQuoteError)):
             return await ctx.send_help(entity=ctx.command,
                                        content=f"**{error}**")
 
@@ -73,8 +76,11 @@ class Errors(commands.Cog):
                 return await ctx.send_error(
                     "I don't have permission to use external emojis! Please give me permission to use them.")
 
-        await ctx.send_error("**A critical error has occurred!** "
-                             "My developer will work on fixing this as soon as possible.")
+        try:
+            await ctx.send_error("**A critical error has occurred!** "
+                                 "My developer will work on fixing this as soon as possible.")
+        except discord.Forbidden:
+            pass
 
         error_msg = "\n".join(traceback.format_exception(type(error), error, error.__traceback__))
         self.bot.logger.error(error_msg)

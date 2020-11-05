@@ -1,5 +1,6 @@
 import asyncio
 import math
+from typing import List
 
 import discord
 from discord.ext import commands
@@ -11,7 +12,7 @@ from services.apis import SpotifyAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError, MusicError, NotFoundError
-from services.music import VoicePlayer
+from services.music import Song, VoicePlayer
 from services.resources import Resources
 
 
@@ -287,7 +288,9 @@ class Music(commands.Cog, WavelinkMixin):
             if ctx.voice_player.channel_id != ctx.author.voice.channel.id:
                 raise EmbedError('Bot is already in a voice channel.')
         else:
-            self.bot.loop.create_task(ctx.invoke(self._join))
+            task = self.bot.loop.create_task(ctx.invoke(self._join))
+
+            task.result()
 
         async with ctx.typing():
             if query.startswith('https://open.spotify.com/'):  # spotify link
@@ -298,10 +301,10 @@ class Music(commands.Cog, WavelinkMixin):
             else:  # yt link
                 song_names = [query]
 
-            added_songs = []
+            added_songs: List[Song] = []
             for song_name in song_names:
                 song = await self.wavelink.get_tracks(song_name)
-                if not song and len(song_names) == 0:
+                if not song and len(song_names) == 1:
                     raise EmbedError(f"Couldn't find anything that matches `{query}`.")
 
                 if isinstance(song, TrackPlaylist):
@@ -319,7 +322,7 @@ class Music(commands.Cog, WavelinkMixin):
                     f'You can type `{ctx.prefix}queue` to see it.')
 
             else:
-                if len(ctx.voice_player.song_queue) != 0:  # if its not the first song
+                if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
                     await ctx.send_success(
                         f'**{added_songs[0].title}** has been successfully added to the queue.\n\n'
                         f'You can type `{ctx.prefix}queue` to see it.')

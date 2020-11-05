@@ -23,8 +23,10 @@ async def _get_prefix(_bot, msg: discord.Message):
 
 
 intents = discord.Intents.default()
-intents.members = True
-intents.presences = True
+
+
+# intents.members = True
+# intents.presences = True
 
 
 class MidoBot(commands.AutoShardedBot):

@@ -41,13 +41,20 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                                                       channel=channel_to_send,
                                                       message_obj=message)
 
-            if isinstance(message_to_send, discord.Embed):
-                await channel_to_send.send(embed=message_to_send)
+            try:
+                if isinstance(message_to_send, discord.Embed):
+                    await channel_to_send.send(embed=message_to_send)
+                else:
+                    await channel_to_send.send(content=message_to_send)
+            except discord.Forbidden:
+                pass
             else:
-                await channel_to_send.send(content=message_to_send)
+                if cr.delete_trigger:
+                    await message.delete()
 
-            if cr.delete_trigger:
-                await message.delete()
+                self.bot.logger.info(f"User [{message.author}] "
+                                     f"executed custom reaction [{cr.trigger}]"
+                                     f" in [{message.guild}].")
 
     def get_cr_embed(self, cr: CustomReaction):
         e = MidoEmbed(bot=self.bot)

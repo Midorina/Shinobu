@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import base64
 import json
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import aiohttp
 import asyncpraw
@@ -282,6 +284,9 @@ class NSFW_DAPIs(CachedImageAPI):
 
         fetched_imgs = await func(*args)
 
+        if not fetched_imgs:
+            raise NotFoundError
+
         await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
 
         try:
@@ -307,6 +312,9 @@ class NSFW_DAPIs(CachedImageAPI):
                 return urls
 
     def _parse_tags(self, tags: str):
+        if tags is None:
+            return []
+
         tags = tags.replace(' ', '_').lower().split('+')
 
         return list(filter(lambda x: x not in self.BLACKLISTED_TAGS, tags))
@@ -380,14 +388,16 @@ class NSFW_DAPIs(CachedImageAPI):
         }) as r:
             response = await r.json()
 
-            if not response \
-                    or 'success' in response[0] \
-                    and response[0]['success'] is False:
+            if not response:
+                raise NotFoundError
+
+            elif isinstance(response, list) and 'success' in response[0] and response[0]['success'] is False:
                 raise NotFoundError
 
             for data in response:
-                if (not allow_video and self.is_video(data['file_url'])) \
-                        or self.is_blacklisted(data['tag_string'].split()):
+                if ('file_url' not in data.keys()
+                        or (not allow_video and self.is_video(data['file_url']))
+                        or self.is_blacklisted(data['tag_string'].split())):
                     continue
 
                 images.append(data.get('large_file_url', data['file_url']))
@@ -468,47 +478,146 @@ class SpotifyAPI(MidoBotAPI):
 
 class SomeRandomAPI(MidoBotAPI):
     URLs = {
-        'lyrics': 'https://some-random-api.ml/lyrics'
+        # animals
+        "dog"      : "https://some-random-api.ml/img/dog",
+        "cat"      : "https://some-random-api.ml/img/cat",
+        "panda"    : "https://some-random-api.ml/img/panda",
+        "fox"      : "https://some-random-api.ml/img/fox",
+        "bird"     : "https://some-random-api.ml/img/birb",
+
+        # shitposting
+        "gay"      : "https://some-random-api.ml/canvas/gay",
+        "wasted"   : "https://some-random-api.ml/canvas/wasted",
+
+        "triggered": "https://some-random-api.ml/canvas/triggered",
+        "youtube"  : "https://some-random-api.ml/canvas/youtube-comment",
+
+        "meme"     : "https://some-random-api.ml/meme",
+        "joke"     : "https://some-random-api.ml/joke",
+
+        # searches
+        'lyrics'   : 'https://some-random-api.ml/lyrics',
+        "pokemon"  : "https://some-random-api.ml/pokedex",
+        "color"    : "https://some-random-api.ml/canvas/colorviewer"
     }
+
+    class Pokemon:
+        class Stats:
+            def __init__(self, data: dict):
+                self.hp: int = int(data.pop('hp'))
+                self.attack: int = int(data.pop('attack'))
+                self.defense: int = int(data.pop('defense'))
+                self.sp_atk: int = int(data.pop('sp_atk'))
+                self.sp_def: int = int(data.pop('sp_def'))
+                self.speed: int = int(data.pop('speed'))
+                self.total: int = int(data.pop('total'))
+
+        def __init__(self, data: dict):
+            self.name: str = data.pop('name')
+            self.id: int = int(data.pop('id'))
+
+            self.type: List[str] = data.pop('type')
+            self.species: List[str] = data.pop('species')
+            self.abilities: List[str] = data.pop('abilities')
+
+            self.height: str = data.pop('height')
+            self.weight: str = data.pop('weight')
+
+            self.base_experience: int = int(data.pop('base_experience'))
+            self.gender: List[str] = data.pop('gender')
+
+            self.egg_groups: List[str] = data.pop('egg_groups')
+            self.stats = self.Stats(data.pop('stats'))
+            self.family: dict = data.pop('family')
+
+            sprites = data.pop('sprites')
+            self.static_image: str = sprites.pop('normal')
+            self.animated_image: str = sprites.pop('animated')
+
+            self.description: str = data.pop('description')
+            self.generation: int = int(data.pop('generation'))
 
     def __init__(self, session: ClientSession):
         super(SomeRandomAPI, self).__init__(session)
 
+    async def _get_request(self,
+                           url: str,
+                           params: dict = None,
+                           convert_to_json=True,
+                           return_url=False) -> Union[dict, str]:
+        async with self.session.get(url, params=params) as r:
+            if return_url is True:
+                return str(r.url)
+
+            if convert_to_json:
+                return await r.json()
+
     async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
-        async with self.session.get(self.URLs['lyrics'], params={'title': title}) as r:
-            response = await r.json()
+        response = await self._get_request(self.URLs['lyrics'], params={'title': title})
 
-            if 'error' in response:
-                raise NotFoundError
+        if 'error' in response:
+            raise NotFoundError
 
-            title = f"{response['author']} - {response['title']}"
-            lyrics = self.parse_lyrics_for_discord(response['lyrics'])
-            thumbnail = list(response['thumbnail'].values())[0]
+        title = f"{response['author']} - {response['title']}"
+        lyrics = self.parse_lyrics_for_discord(response['lyrics'])
+        thumbnail = list(response['thumbnail'].values())[0]
 
-            return title, lyrics, thumbnail
+        return title, lyrics, thumbnail
+
+    async def get_animal(self, animal_name: str) -> str:
+        response = await self._get_request(self.URLs[animal_name])
+        return response['link']
+
+    async def view_color(self, color: str):
+        return await self._get_request(self.URLs['color'], params={'hex': color}, return_url=True)
+
+    async def get_pokemon(self, pokemon_name: str) -> Pokemon:
+        pokemon = await self._get_request(self.URLs["pokemon"], params={"pokemon": pokemon_name})
+        if not pokemon:
+            raise NotFoundError
+
+        return self.Pokemon(pokemon)
+
+    async def get_meme(self) -> str:
+        response = await self._get_request(self.URLs["meme"])
+        return response['image']
+
+    async def get_joke(self) -> str:
+        response = await self._get_request(self.URLs["joke"])
+        return response['joke']
+
+    async def wasted_gay_or_triggered(self, avatar_url: str, _type: str = "wasted") -> str:
+        return await self._get_request(self.URLs[_type], params={'avatar': avatar_url}, return_url=True)
+
+    async def youtube_comment(self, avatar_url: str, username: str, comment: str):
+        return await self._get_request(self.URLs["youtube"], params={'avatar'  : avatar_url,
+                                                                     "username": username,
+                                                                     "comment" : comment,
+                                                                     "dark"    : True},
+                                       return_url=True)
 
     @staticmethod
-    def split_lyrics(lyrics: str):
-        pages = []
+    def parse_lyrics_for_discord(lyrics: str) -> List[str]:
+        def split_lyrics(_lyrics: str):
+            pages = []
 
-        lyric_list = lyrics.split('\n\n')
+            lyric_list = _lyrics.split('\n\n')
 
-        temp_page = ""
-        for paragraph in lyric_list:
-            if len(temp_page) + len(paragraph) > 2000:
-                pages.append(temp_page)
-                temp_page = paragraph
-            else:
-                temp_page += '\n\n' + paragraph
+            temp_page = ""
+            for paragraph in lyric_list:
+                if len(temp_page) + len(paragraph) > 2000:
+                    pages.append(temp_page)
+                    temp_page = paragraph
+                else:
+                    temp_page += '\n\n' + paragraph
 
-        pages.append(temp_page)
+            pages.append(temp_page)
 
-        return pages
+            return pages
 
-    def parse_lyrics_for_discord(self, lyrics: str) -> List[str]:
         lyrics = lyrics.replace('[', '**[').replace(']', ']**')
         if len(lyrics) > 2000:
-            lyrics_pages = self.split_lyrics(lyrics)
+            lyrics_pages = split_lyrics(lyrics)
         else:
             lyrics_pages = [lyrics]
 
@@ -546,9 +655,10 @@ class Google(MidoBotAPI):
         super(Google, self).__init__(session)
 
     async def search(self, query: str):
-        async with self.session.get(f"https://www.google.com/search?q={query}&hl=en") as r:
+        async with self.session.get(f"https://google.com/search?q={query}&hl=en") as r:
             if r.status == 200:
-                soup = BeautifulSoup(await r.read(), "lxml")
+                soup = BeautifulSoup(await r.text(), "html.parser")
+
                 return self.parse_results(soup.find_all("div", {'class': ['r', 's']}))
 
             else:
@@ -565,9 +675,12 @@ class Google(MidoBotAPI):
 
                 # find the span
                 for children in results[i + 1].children:
-                    if children.span:
-                        s = children
-                        break
+                    try:
+                        if children.span:
+                            s = children
+                            break
+                    except AttributeError:
+                        pass
 
                 if not s:  # its probably a book or something at this point
                     continue
