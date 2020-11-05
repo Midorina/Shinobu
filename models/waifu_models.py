@@ -32,6 +32,13 @@ class Item:
             return None
 
     @classmethod
+    def get_with_emote(cls, emote: str):
+        try:
+            return next(item for item in _ITEMS if item.emote == emote)
+        except StopIteration:
+            return None
+
+    @classmethod
     def get_all(cls):
         return _ITEMS
 

@@ -16,7 +16,7 @@ class Errors(commands.Cog):
             return
 
         ignored = (
-            commands.CommandNotFound,
+            # commands.CommandNotFound,
             discord.NotFound,
             NotFoundError,
             SilenceError
@@ -26,6 +26,10 @@ class Errors(commands.Cog):
 
         if isinstance(error, ignored):
             return
+
+        # this is to observe missing commands
+        elif isinstance(error, commands.CommandNotFound):
+            return self.bot.logger.info(f"Unknown command: {ctx.message.content}")
 
         elif isinstance(error, InsufficientCash):
             return await ctx.send_error("You don't have enough money to do that!")

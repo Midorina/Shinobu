@@ -271,7 +271,7 @@ class UserDB(BaseDBModel):
         ret = await db.fetch("SELECT * FROM users ORDER BY waifu_price DESC LIMIT $1;", limit)
         return [cls(user, db) for user in ret]
 
-    def delete(self):
+    async def delete(self):
         await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
         await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
 
@@ -366,9 +366,11 @@ class GuildDB(BaseDBModel):
         # welcome
         self.welcome_channel_id: int = guild_db.get('welcome_channel_id')
         self.welcome_message: str = guild_db.get('welcome_message')
+        self.welcome_delete_after: int = guild_db.get('welcome_delete_after') or None
         # bye
         self.bye_channel_id: int = guild_db.get('bye_channel_id')
         self.bye_message: str = guild_db.get('bye_message')
+        self.bye_delete_after: int = guild_db.get('bye_delete_after') or None
 
         # assignable roles
         self.assignable_role_ids: List[int] = guild_db.get('assignable_role_ids')
@@ -575,7 +577,7 @@ class CustomReaction(BaseDBModel):
             ret = await db.fetch("""SELECT * FROM custom_reactions 
             WHERE (contains_anywhere=TRUE AND ($1 LIKE concat('%', trigger, '%')) 
             OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
-            OR trigger = $1);""", msg)
+            OR trigger = $1) AND guild_id IS NULL;""", msg)
 
             if not ret:
                 return None
