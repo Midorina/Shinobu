@@ -49,7 +49,8 @@ class MidoHelp(commands.HelpCommand):
                       title='Shinobu Command Modules',
                       description=f'You can type `{self.context.prefix}help <module>` '
                                   f'to see the commands that are in that module.\n\n'
-                                  f'Feel free to join the [support server]({Resources.links.support_server}) if you need additional help.',
+                                  f'Feel free to join the [support server]({Resources.links.support_server})'
+                                  f' if you need additional help.',
                       default_footer=True)
 
         cogs = sorted(cogs_and_commands.keys(), key=lambda x: str(x))
@@ -127,7 +128,7 @@ class Misc(commands.Cog):
 
     @tasks.loop(minutes=10)
     async def update_name_cache(self):
-        for user_db in await UserDB.get_all(self.bot.db):
+        for user_db in await UserDB.get_all(bot=self.bot):
             user = self.bot.get_user(user_db.id)
             if user and str(user) != user_db.discord_name:
                 await user_db.update_name(str(user))

@@ -27,7 +27,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         if not self.bot.is_ready() or message.author.bot or not message.guild:
             return False
 
-        cr = await CustomReaction.try_get(self.bot.db, msg=message.content, guild_id=message.guild.id)
+        cr = await CustomReaction.try_get(self.bot, msg=message.content, guild_id=message.guild.id)
 
         if cr and cr.response != '-':
             self.bot.loop.create_task(cr.increase_use_count())
@@ -72,7 +72,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         http://nadekobot.readthedocs.io/en/latest/custom-reactions/"""
 
-        cr = await CustomReaction.add(db=ctx.db,
+        cr = await CustomReaction.add(bot=ctx.bot,
                                       trigger=trigger,
                                       response=response,
                                       guild_id=ctx.guild.id)
@@ -87,7 +87,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         """List all custom reactions of the server.
         If you use this command in DMs, it'll show you the global custom reactions."""
 
-        crs = await CustomReaction.get_all(db=ctx.db,
+        crs = await CustomReaction.get_all(bot=ctx.bot,
                                            guild_id=ctx.guild.id if ctx.guild else None)
 
         e = MidoEmbed(bot=self.bot,
@@ -120,7 +120,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         yes = await MidoEmbed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
         if yes:
-            await CustomReaction.delete_all(db=ctx.db, guild_id=ctx.guild.id)
+            await CustomReaction.delete_all(bot=ctx.bot, guild_id=ctx.guild.id)
 
             await ctx.edit_custom(msg, "All custom reactions have been successfully deleted.")
         else:
@@ -179,7 +179,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         cr: CustomReaction = ctx.args[2]  # arg after the context
 
         if not cr.guild_id:  # if its global
-            if not is_owner(ctx.author.id):  # and not owner
+            if not is_owner(ctx.author.id, ctx.bot):  # and not owner
                 raise EmbedError(f"You can not delete a global custom reaction!\n"
                                  f"Use `{ctx.prefix}acr \"{cr.trigger}\" -` to disable "
                                  f"this global custom reaction for your server.")

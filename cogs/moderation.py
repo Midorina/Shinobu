@@ -5,12 +5,12 @@ from discord.ext import commands, tasks
 
 from midobot import MidoBot
 from models.db_models import GuildDB, ModLog
+from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
 from services.parsers import parse_text_with_context
-from services.security_stuff import ensure_role_hierarchy
 from services.time_stuff import MidoTime
 
 action_emotes = {
@@ -34,7 +34,7 @@ class Moderation(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def check_modlogs(self):
-        open_modlogs = await ModLog.get_open_logs(self.bot.db)
+        open_modlogs = await ModLog.get_open_logs(bot=self.bot)
 
         for modlog in open_modlogs:
             # if its the time
@@ -63,7 +63,7 @@ class Moderation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
+        guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=member.guild.id)
         if guild_db.welcome_channel_id:
             if guild_db.welcome_channel_id == 1:
                 channel = member
@@ -81,7 +81,7 @@ class Moderation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
-        guild_db = await GuildDB.get_or_create(self.bot.db, guild_id=member.guild.id)
+        guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=member.guild.id)
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)
 
@@ -253,7 +253,7 @@ class Moderation(commands.Cog):
         """
 
         await target.kick(reason=reason)
-        modlog = await ModLog.add_modlog(ctx.db,
+        modlog = await ModLog.add_modlog(bot=ctx.bot,
                                          guild_id=ctx.guild.id,
                                          user_id=target.id,
                                          reason=reason,
@@ -299,7 +299,7 @@ class Moderation(commands.Cog):
 
         await ctx.guild.ban(user=target, reason=reason, delete_message_days=1)
 
-        modlog = await ModLog.add_modlog(ctx.db,
+        modlog = await ModLog.add_modlog(bot=ctx.bot,
                                          guild_id=ctx.guild.id,
                                          user_id=target.id,
                                          reason=reason,
@@ -334,7 +334,7 @@ class Moderation(commands.Cog):
             await ctx.guild.unban(target, reason=f"User unbanned by {ctx.author}"
                                                  f"{self.get_reason_string(reason)}")
 
-            await ModLog.add_modlog(db_conn=ctx.db,
+            await ModLog.add_modlog(bot=ctx.bot,
                                     guild_id=ctx.guild.id,
                                     user_id=target.id,
                                     _type=ModLog.Type.UNBAN,
@@ -386,7 +386,7 @@ class Moderation(commands.Cog):
         await target.add_roles(mute_role, reason=f"User muted by {ctx.author}"
                                                  f"{self.get_reason_string(reason)}")
 
-        modlog = await ModLog.add_modlog(ctx.db,
+        modlog = await ModLog.add_modlog(bot=ctx.bot,
                                          guild_id=ctx.guild.id,
                                          user_id=target.id,
                                          reason=reason,
@@ -421,7 +421,7 @@ class Moderation(commands.Cog):
         await target.remove_roles(mute_role, reason=f"User unmuted by {ctx.author}"
                                                     f"{self.get_reason_string(reason)}")
 
-        await ModLog.add_modlog(ctx.db,
+        await ModLog.add_modlog(bot=ctx.bot,
                                 guild_id=ctx.guild.id,
                                 user_id=target.id,
                                 reason=reason,
@@ -443,7 +443,7 @@ class Moderation(commands.Cog):
         You need Kick Members and Ban Members permissions to use this command.
         """
 
-        logs = await ModLog.get_guild_logs(ctx.db, ctx.guild.id, target.id)
+        logs = await ModLog.get_guild_logs(bot=ctx.bot, guild_id=ctx.guild.id, user_id=target.id)
         if not logs:
             raise EmbedError("No logs have been found for that user.")
 
@@ -482,7 +482,7 @@ class Moderation(commands.Cog):
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
 
         if yes:
-            await ModLog.hide_logs(ctx.db, ctx.guild.id, target.id)
+            await ModLog.hide_logs(bot=ctx.bot, guild_id=ctx.guild.id, user_id=target.id)
 
             await ctx.edit_custom(msg, f"Logs of **{target}** has been successfully deleted.")
         else:
@@ -497,7 +497,7 @@ class Moderation(commands.Cog):
 
         You either need to be the executor of the case or have Administrator permission to use this command.
         """
-        log = await ModLog.get_by_id(ctx.db, log_id=case_id, guild_id=ctx.guild.id)
+        log = await ModLog.get_by_id(bot=ctx.bot, log_id=case_id, guild_id=ctx.guild.id)
         if not log:
             raise EmbedError("No logs have been found with that case ID.")
 

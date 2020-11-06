@@ -1,4 +1,5 @@
 import discord
+from asyncpg.pool import Pool
 from discord.ext import commands
 
 from models.db_models import GuildDB, MemberDB, UserDB
@@ -10,21 +11,25 @@ class MidoContext(commands.Context):
     # noinspection PyTypeChecker
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.db = self.bot.db
 
         self.resources = Resources()
+
+        from midobot import MidoBot
+        from services.music import VoicePlayer
+
+        # FOR TYPE HINTING
+        self.bot: MidoBot = self.bot
+        self.db: Pool = self.bot.db
 
         self.guild_db: GuildDB = None
         self.member_db: MemberDB = None
         self.user_db: UserDB = None
 
-        # music cog
-        from services.music import VoicePlayer
         self.voice_player: VoicePlayer = None
 
     async def attach_db_objects(self):
         try:
-            self.member_db = await MemberDB.get_or_create(self.db, self.guild.id, self.author.id)
+            self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
 
             # guild stuff
             self.guild_db = self.member_db.guild
@@ -32,7 +37,7 @@ class MidoContext(commands.Context):
 
             self.user_db = self.member_db.user
         except AttributeError:  # not in guild
-            self.user_db = await UserDB.get_or_create(self.db, self.author.id)
+            self.user_db = await UserDB.get_or_create(self.bot, self.author.id)
 
     async def send_error(self, message: str = 'Error!') -> discord.Message:
         embed = MidoEmbed(bot=self.bot,

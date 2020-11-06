@@ -21,7 +21,7 @@ class Reminder(commands.Cog):
         self.bot.loop.create_task(self.check_db_reminders())
 
     async def check_db_reminders(self):
-        reminders = await ReminderDB.get_uncompleted_reminders(self.bot.db)
+        reminders = await ReminderDB.get_uncompleted_reminders(bot=self.bot)
 
         for reminder in reminders:
             self.add_reminder(reminder)
@@ -125,7 +125,7 @@ class Reminder(commands.Cog):
     async def remindlist(self,
                          ctx: MidoContext):
         """See the list of your reminders."""
-        reminders = await ReminderDB.get_uncompleted_reminders(ctx.db, user_id=ctx.author.id)
+        reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)
 
         if not reminders:
             raise EmbedError("You don't have any reminders!")
@@ -159,7 +159,7 @@ class Reminder(commands.Cog):
         You can see a complete list of your reminders and their indexes using `{0.prefix}remindlist`
         """
 
-        reminders = await ReminderDB.get_uncompleted_reminders(ctx.db, user_id=ctx.author.id)
+        reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)
 
         if not reminders:
             raise EmbedError("You don't have any reminders!")

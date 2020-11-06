@@ -3,7 +3,7 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import EmbedError, InsufficientCash, MusicError, NotFoundError, SilenceError
+from services.exceptions import EmbedError, InsufficientCash, MusicError, NotFoundError, RateLimited, SilenceError
 
 
 class Errors(commands.Cog):
@@ -18,7 +18,7 @@ class Errors(commands.Cog):
         ignored = (
             # commands.CommandNotFound,
             discord.NotFound,
-            NotFoundError,
+            # NotFoundError,
             SilenceError
         )
 
@@ -27,9 +27,14 @@ class Errors(commands.Cog):
         if isinstance(error, ignored):
             return
 
-        # this is to observe missing commands
-        elif isinstance(error, commands.CommandNotFound):
-            return self.bot.logger.info(f"Unknown command: {ctx.message.content}")
+        elif isinstance(error, NotFoundError):
+            return await ctx.send_error("I couldn't find anything with that query.")
+
+        elif isinstance(error, RateLimited):
+            return await ctx.send_error("You are rate limited. Please try again in a few minutes.")
+
+        elif isinstance(error, (EmbedError, MusicError)):
+            return await ctx.send_error(str(error))
 
         elif isinstance(error, InsufficientCash):
             return await ctx.send_error("You don't have enough money to do that!")
@@ -37,11 +42,15 @@ class Errors(commands.Cog):
         elif isinstance(error, commands.NoPrivateMessage):
             return await ctx.send_error("This command can not be used through DMs!")
 
+        # this is to observe missing commands
+        elif isinstance(error, commands.CommandNotFound):
+            return self.bot.logger.info(f"Unknown command: {ctx.message.content}")
+
         elif isinstance(error, discord.Forbidden):
             try:
                 return await ctx.send_error("I don't have enough permissions!")
             except discord.Forbidden:
-                pass
+                return
 
         elif isinstance(error, commands.BotMissingPermissions):
             return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
@@ -54,9 +63,6 @@ class Errors(commands.Cog):
 
         elif isinstance(error, commands.CommandOnCooldown):
             return await ctx.send_error("You're on cooldown!")
-
-        elif isinstance(error, (EmbedError, MusicError)):
-            return await ctx.send_error(str(error))
 
         elif isinstance(error, commands.MissingRequiredArgument):
             return await ctx.send_help(entity=ctx.command,

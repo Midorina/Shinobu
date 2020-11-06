@@ -51,7 +51,7 @@ class NSFW(commands.Cog):
 
     async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:
         if not tags:
-            return [(await self.reddit.get_from_the_db('hentai')).url for _ in range(limit)]
+            return [(await self.reddit.get_from_the_db(self.bot, 'hentai')).url for _ in range(limit)]
         else:
             return await self.api.get_bomb(tags, limit, allow_video)
 
@@ -65,35 +65,35 @@ class NSFW(commands.Cog):
     async def boobs(self, ctx: MidoContext):
         """Get a random boob picture."""
 
-        image = await self.reddit.get_from_the_db('boobs')
+        image = await self.reddit.get_from_the_db(ctx.bot, 'boobs')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command(aliases=['butt'])
     async def butts(self, ctx: MidoContext):
         """Get a random butt picture."""
 
-        image = await self.reddit.get_from_the_db('butts')
+        image = await self.reddit.get_from_the_db(ctx.bot, 'butts')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
     async def porn(self, ctx: MidoContext):
         """Get a random porn content."""
 
-        image = await self.reddit.get_from_the_db('general')
+        image = await self.reddit.get_from_the_db(ctx.bot, 'general')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
     async def pussy(self, ctx: MidoContext):
         """Get a random pussy image."""
 
-        image = await self.reddit.get_from_the_db('pussy')
+        image = await self.reddit.get_from_the_db(ctx.bot, 'pussy')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
     async def asian(self, ctx: MidoContext):
         """Get a random asian porn content."""
 
-        image = await self.reddit.get_from_the_db('asian')
+        image = await self.reddit.get_from_the_db(ctx.bot, 'asian')
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()

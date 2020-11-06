@@ -15,7 +15,7 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 
 from models.db_models import CachedImage
-from services.exceptions import InvalidURL, NotFoundError
+from services.exceptions import InvalidURL, NotFoundError, RateLimited
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
@@ -212,13 +212,13 @@ class RedditAPI(CachedImageAPI):
                              urls=urls,
                              tags=[subreddit_name])
 
-    async def get_from_the_db(self, category: str, redgif=False) -> CachedImage:
+    async def get_from_the_db(self, bot, category: str, allow_gif=False) -> CachedImage:
         if category not in self.SUBREDDITS:
             raise Exception(f"Invalid category: {category}")
 
         subreddit_names = [f'reddit_{sub}' for sub in self.SUBREDDITS[category]]
 
-        return await CachedImage.get_random(self.db, subreddit_names, redgif)
+        return await CachedImage.get_random(bot=bot, api_names=subreddit_names, allow_gif=allow_gif)
 
     async def fill_the_database(self):
         async def _fill(sub_name: str):
@@ -395,7 +395,7 @@ class NSFW_DAPIs(CachedImageAPI):
                 raise NotFoundError
 
             for data in response:
-                if ('file_url' not in data.keys()
+                if ('file_url' not in data
                         or (not allow_video and self.is_video(data['file_url']))
                         or self.is_blacklisted(data['tag_string'].split())):
                     continue
@@ -550,6 +550,10 @@ class SomeRandomAPI(MidoBotAPI):
                 return str(r.url)
 
             if convert_to_json:
+                js = await r.json()
+                if 'error' in js:
+                    raise RateLimited
+
                 return await r.json()
 
     async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:

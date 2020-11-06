@@ -7,13 +7,13 @@ from discord.ext import commands
 from wavelink import Client, Node, TrackPlaylist, WavelinkMixin, events
 
 from midobot import MidoBot
-from models.db_models import MidoTime
 from services.apis import SpotifyAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError, MusicError, NotFoundError
 from services.music import Song, VoicePlayer
 from services.resources import Resources
+from services.time_stuff import MidoTime
 
 
 class Music(commands.Cog, WavelinkMixin):
@@ -284,13 +284,12 @@ class Music(commands.Cog, WavelinkMixin):
         if not ctx.author.voice or not ctx.author.voice.channel:
             raise EmbedError('You are not connected to any voice channel.')
 
+        task = None
         if ctx.voice_player.channel_id:
             if ctx.voice_player.channel_id != ctx.author.voice.channel.id:
                 raise EmbedError('Bot is already in a voice channel.')
         else:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
-
-            task.result()
 
         async with ctx.typing():
             if query.startswith('https://open.spotify.com/'):  # spotify link
@@ -315,6 +314,9 @@ class Music(commands.Cog, WavelinkMixin):
                     added_songs.append(song_to_add)
 
                 await ctx.voice_player.add_songs(song_to_add, ctx)
+
+            if task:  # if errored
+                task.result()
 
             if len(added_songs) > 1:  # if its a playlist
                 await ctx.send_success(

@@ -1,11 +1,11 @@
 from discord.ext import commands
 
 from midobot import MidoBot
+from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
 from services.converters import MidoRoleConverter
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError
-from services.security_stuff import ensure_role_hierarchy
 
 
 class AssignableRoles(commands.Cog, name='Assignable Roles'):

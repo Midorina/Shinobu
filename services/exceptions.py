@@ -23,3 +23,7 @@ class InvalidURL(CommandError):
 
 class InsufficientCash(CommandError):
     pass
+
+
+class RateLimited(CommandError):
+    pass

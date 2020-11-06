@@ -11,7 +11,7 @@ from services import checks
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, readable_bigint
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
+from services.exceptions import EmbedError, InsufficientCash
 from services.resources import Resources
 
 
@@ -62,7 +62,7 @@ class Gambling(commands.Cog):
     async def cash(self, ctx: MidoContext, *, user: MidoMemberConverter() = None):
         """Check how many donuts you have or someone else has."""
         if user:
-            user_db = await UserDB.get_or_create(ctx.db, user.id)
+            user_db = await UserDB.get_or_create(bot=ctx.bot, user_id=user.id)
         else:
             user = ctx.author
             user_db = ctx.user_db
@@ -175,7 +175,7 @@ class Gambling(commands.Cog):
     @commands.command(aliases=['lb'])
     async def leaderboard(self, ctx: MidoContext):
         """See the donut leaderboard!"""
-        rich_people = await UserDB.get_rich_people(ctx.db, limit=100)
+        rich_people = await UserDB.get_rich_people(bot=ctx.bot, limit=100)
 
         e = MidoEmbed(bot=self.bot,
                       title=f"{Resources.emotes.currency} Leaderboard")
@@ -200,7 +200,7 @@ class Gambling(commands.Cog):
         if member.id == ctx.author.id:
             raise EmbedError("Why'd you send money to yourself?")
 
-        other_usr = await UserDB.get_or_create(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.add_cash(amount)
         await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}{Resources.emotes.currency}** "
@@ -209,7 +209,7 @@ class Gambling(commands.Cog):
     @checks.owner_only()
     @commands.command(name="award", hidden=True)
     async def add_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
-        other_usr = await UserDB.get_or_create(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.add_cash(amount)
         await member.send(f"You've been awarded **{amount}{Resources.emotes.currency}** by the bot owner!")
@@ -218,7 +218,7 @@ class Gambling(commands.Cog):
     @checks.owner_only()
     @commands.command(name="punish", aliases=['withdraw'], hidden=True)
     async def remove_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
-        other_usr = await UserDB.get_or_create(ctx.db, member.id)
+        other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.remove_cash(amount)
         await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
@@ -227,14 +227,11 @@ class Gambling(commands.Cog):
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke(self, ctx: MidoContext):
-        if ctx.user_db.cash <= 0:
-            raise EmbedError("You don't have any money.")
-
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
         if isinstance(bet_amount, int):
             if bet_amount > ctx.user_db.cash:
-                raise commands.BadArgument("The amount can not be more than you have!")
+                raise InsufficientCash
 
             elif bet_amount <= 0:
                 raise commands.BadArgument("The amount can not be less than or equal to 0!")
@@ -244,7 +241,7 @@ class Gambling(commands.Cog):
             elif bet_amount == 'half':
                 ctx.args[2] = int(ctx.user_db.cash / 2)
             else:
-                raise commands.BadArgument("Please input a proper amount!")
+                raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
         await ctx.user_db.remove_cash(ctx.args[2])
 

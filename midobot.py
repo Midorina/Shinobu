@@ -8,7 +8,7 @@ import discord
 import wavelink
 from discord.ext import commands
 
-from models.db_models import GuildDB, MidoTime, UserDB
+from models.db_models import MidoTime, UserDB
 from services.apis import MidoBotAPI
 from services.context import MidoContext
 
@@ -23,23 +23,22 @@ async def _get_prefix(_bot, msg: discord.Message):
 
 
 intents = discord.Intents.default()
-
-
 # intents.members = True
 # intents.presences = True
 
 
 class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
-    def __init__(self):
+    def __init__(self, bot_name: str = "midobot"):
         super().__init__(
             command_prefix=_get_prefix,
             case_insensitive=True,
             intents=intents
         )
+
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
-        with open('config.json') as f:
+        with open(f'config_{bot_name}.json') as f:
             self.config = json.load(f)
 
         self.first_time = True
@@ -116,7 +115,6 @@ class MidoBot(commands.AutoShardedBot):
         await self.process_commands(message)
 
     async def on_guild_join(self, guild):
-        await GuildDB.get_or_create(self.db, guild.id)
         await self.log_channel.send(
             f"I just joined the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
 

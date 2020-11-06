@@ -3,6 +3,8 @@
 .idea/
 __pycache__/
 cogs/__pycache__/
-config.json
-midobot.log
 services/__pycache__/
+
+config_shinobu.json
+config_midobot.json
+midobot.log

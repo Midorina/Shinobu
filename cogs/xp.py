@@ -97,7 +97,9 @@ class XP(commands.Cog):
             return False
 
         if message.guild is not None:
-            member_db = await MemberDB.get_or_create(self.bot.db, message.guild.id, message.author.id)
+            member_db = await MemberDB.get_or_create(bot=self.bot,
+                                                     guild_id=message.guild.id,
+                                                     member_id=message.author.id)
 
             can_gain_xp = member_db.xp_date_status.end_date_has_passed
             can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
@@ -120,7 +122,9 @@ class XP(commands.Cog):
         """See your or someone else's XP rank."""
         if member:
             user = member
-            user_db = await MemberDB.get_or_create(ctx.db, ctx.guild.id, member.id)
+            user_db = await MemberDB.get_or_create(bot=ctx.bot,
+                                                   guild_id=ctx.guild.id,
+                                                   member_id=member.id)
         else:
             user = ctx.author
             if ctx.guild:
@@ -146,7 +150,7 @@ class XP(commands.Cog):
     @commands.guild_only()
     async def show_global_leaderboard(self, ctx: context.MidoContext):
         """See the global XP leaderboard."""
-        top_10 = await ctx.user_db.get_top_10(ctx.db)
+        top_10 = await ctx.user_db.get_top_10(ctx.bot)
 
         e = self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
 
@@ -191,28 +195,28 @@ class XP(commands.Cog):
     @commands.command(name="addxp", hidden=True)
     @checks.owner_only()
     async def add_xp(self, ctx, member: MidoMemberConverter(), amount: int):
-        member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
+        member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @checks.owner_only()
     async def add_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
-        member_db = await UserDB.get_or_create(ctx.db, member.id)
+        member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @checks.owner_only()
     async def remove_xp(self, ctx, member: MidoMemberConverter(), amount: int):
-        member_db = await MemberDB.get_or_create(ctx.db, guild_id=ctx.guild.id, member_id=member.id)
+        member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @checks.owner_only()
     async def remove_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
-        member_db = await UserDB.get_or_create(ctx.db, member.id)
+        member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 

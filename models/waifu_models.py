@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import json
 import math
 from typing import List, Tuple
-
-with open("config.json") as f:
-    BASE_WAIFU_PRICE = json.load(f)['base_waifu_price']
 
 
 class Item:
@@ -104,11 +100,13 @@ _ITEMS = (
 
 class Waifu:
     def __init__(self, user):
-        self.user = user
+        from models.db_models import UserDB
+
+        self.user: UserDB = user
 
         self.affinity_id: int = self.user.data.get('waifu_affinity_id')
         self.claimer_id: int = self.user.data.get('waifu_claimer_id')
-        self.price: int = self.user.data.get('waifu_price') or BASE_WAIFU_PRICE
+        self.price: int = self.user.data.get('waifu_price') or self.user.bot.config['base_waifu_price']
 
         self.affinity_changes: int = self.user.data.get('waifu_affinity_changes')
         self.divorce_count: int = self.user.data.get('waifu_divorce_count')
@@ -125,7 +123,7 @@ class Waifu:
     async def reset_waifu_stats(self):
         self.affinity_changes = 0
         self.divorce_count = 0
-        self.price = BASE_WAIFU_PRICE
+        self.price = self.user.bot.config['base_waifu_price']
         self.items = []
         self.claimer_id = None
         self.affinity_id = None
@@ -149,7 +147,7 @@ class Waifu:
 
     def get_price_to_claim(self, requester_id: int) -> int:
         if not self.price:
-            self.price = BASE_WAIFU_PRICE
+            self.price = self.user.bot.config['base_waifu_price']
 
         if requester_id == self.affinity_id:
             return self.price

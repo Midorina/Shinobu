@@ -1,8 +1,10 @@
+import argparse
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
 from midobot import MidoBot
 
+# logging stuff
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -22,5 +24,10 @@ handler_c.setFormatter(_format)
 logger.addHandler(handler_f)
 logger.addHandler(handler_c)
 
-bot = MidoBot()
+# arg stuff
+parser = argparse.ArgumentParser()
+parser.add_argument("bot", help="The name of the bot you want to launch (either 'midobot' or 'shinobu')")
+args = parser.parse_args()
+
+bot = MidoBot(args.bot)
 bot.run()

@@ -15,11 +15,6 @@ class Resource:
         dict_to_variables(self, file_path)
 
 
-class Config(Resource):
-    def __init__(self):
-        super(Config, self).__init__('config.json')
-
-
 class Strings(Resource):
     def __init__(self):
         super(Strings, self).__init__('resources/strings.json')
@@ -41,7 +36,6 @@ class Images(Resource):
 
 
 class Resources:
-    config = Config()
     images = Images()
     links = Links()
     strings = Strings()

@@ -21,7 +21,7 @@ class Waifu(commands.Cog):
     @commands.command(aliases=['waifulb'])
     async def waifuleaderboard(self, ctx: MidoContext):
         """See the global top 5 waifu list."""
-        top_5 = await UserDB.get_top_expensive_waifus(5, ctx.db)
+        top_5 = await UserDB.get_top_expensive_waifus(limit=5, bot=ctx.bot)
 
         e = MidoEmbed(self.bot)
         e.title = "Waifu Leaderboard"
@@ -111,7 +111,7 @@ class Waifu(commands.Cog):
 
             await ctx.user_db.remove_cash(item_obj.price)
 
-            target_db = await UserDB.get_or_create(ctx.db, target.id)
+            target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
             await target_db.waifu.add_item(item_obj)
 
             await ctx.send_success(f"{ctx.author.mention} has just gifted "
@@ -123,14 +123,14 @@ class Waifu(commands.Cog):
         See the waifu stats of yourself or any other waifu.
         """
         if target:
-            target_db = await UserDB.get_or_create(ctx.db, target.id)
+            target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
         else:
             target = ctx.author
             target_db = ctx.user_db
 
-        claimer_name = (await UserDB.get_or_create(ctx.db, target_db.waifu.claimer_id)).discord_name \
+        claimer_name = (await UserDB.get_or_create(bot=ctx.bot, user_id=target_db.waifu.claimer_id)).discord_name \
             if target_db.waifu.claimer_id else 'Nobody'
-        affinity_name = (await UserDB.get_or_create(ctx.db, target_db.waifu.affinity_id)).discord_name \
+        affinity_name = (await UserDB.get_or_create(bot=ctx.bot, user_id=target_db.waifu.affinity_id)).discord_name \
             if target_db.waifu.affinity_id else 'Nobody'
 
         e = MidoEmbed(ctx.bot)
@@ -163,7 +163,7 @@ class Waifu(commands.Cog):
 
         e.add_field(name="Gifts", value=gift_field_val, inline=False)
 
-        waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.db)
+        waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.bot)
         e.add_field(name=f"Waifus ({len(waifus)})",
                     value="\n".join(waifu.discord_name for waifu in waifus) if waifus else '-')
 
@@ -203,7 +203,7 @@ class Waifu(commands.Cog):
         Claim a waifu for yourself by spending money.
         You must spend at least 10% more than their current value, unless they set `{0.prefix}affinity` towards you.
         """
-        target_db = await UserDB.get_or_create(ctx.db, target.id)
+        target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
 
         if target.id == ctx.author.id:
             raise EmbedError("Why'd you try to do that? You technically already own yourself.")
@@ -242,7 +242,7 @@ class Waifu(commands.Cog):
 
         6 hours cooldown.
         """
-        target_db = await UserDB.get_or_create(ctx.db, target.id)
+        target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
 
         if target.id == ctx.author.id:
             raise EmbedError("Why'd you try to do that? "
@@ -276,8 +276,8 @@ class Waifu(commands.Cog):
         Transfer the ownership of a waifu you own to another user.
         You must pay 10% of your waifu's value for this action.
         """
-        ex_waifu_db = await UserDB.get_or_create(ctx.db, ex_waifu.id)
-        # new_owner_db = await UserDB.get_or_create(ctx.db, new_owner.id)
+        ex_waifu_db = await UserDB.get_or_create(bot=ctx.bot, user_id=ex_waifu.id)
+        # new_owner_db = await UserDB.get_or_create(bot=ctx.bot, user_id=new_owner.id)
 
         if ex_waifu_db.waifu.claimer_id != ctx.author.id:
             raise EmbedError(f'{ex_waifu.mention} is not your waifu!')
