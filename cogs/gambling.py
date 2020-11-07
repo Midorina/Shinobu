@@ -1,3 +1,4 @@
+import math
 import random
 from typing import Union
 
@@ -9,7 +10,7 @@ from midobot import MidoBot
 from models.db_models import UserDB
 from services import checks
 from services.context import MidoContext
-from services.converters import MidoMemberConverter, readable_bigint
+from services.converters import MidoMemberConverter
 from services.embed import MidoEmbed
 from services.exceptions import EmbedError, InsufficientCash
 from services.resources import Resources
@@ -65,7 +66,7 @@ class Gambling(commands.Cog):
             user = ctx.author
             user_db = ctx.user_db
 
-        await ctx.send_success(f"**{user.mention}** has **{user_db.cash}{Resources.emotes.currency}**!")
+        await ctx.send_success(f"**{user.mention}** has **{user_db.cash_readable}{Resources.emotes.currency}**!")
 
     @commands.command()
     async def daily(self, ctx: MidoContext):
@@ -85,7 +86,7 @@ class Gambling(commands.Cog):
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
         elif not has_voted:
             raise EmbedError(f"It seems like you haven't voted yet.\n\n"
-                             f"Vote [here]({Resources.links.upvote}),"
+                             f"Vote [here]({Resources.links.upvote}), "
                              f"then use this command again to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
@@ -130,7 +131,7 @@ class Gambling(commands.Cog):
             e.description = f"You flipped {random_side_name} and lost **{amount}{Resources.emotes.currency}**."
             e.colour = self.fail_color
 
-        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash}")
+        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash_readable}")
 
         return await ctx.send(embed=e)
 
@@ -173,6 +174,77 @@ class Gambling(commands.Cog):
 
         await ctx.send(embed=e)
 
+    @commands.command(aliases=['slot'])
+    async def slots(self, ctx: MidoContext, amount: Union[int, str]):
+        """Play slots!
+
+        You get;
+        - **x30** -> If you get 3 {0.resources.emotes.currency}
+        - **x10** -> If you get 3 same emojis
+        - **x4** -> If you get 2 {0.resources.emotes.currency}
+        - **x1** -> If you get 1 {0.resources.emotes.currency}
+        """
+        emojis = [Resources.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
+
+        slot = []
+        for i in range(3):
+            slot.append([])
+            for j in range(3):
+                slot[i].append(random.choice(emojis))
+
+        middle = slot[1]
+        if middle.count(emojis[0]) == 3:  # 3 donuts
+            win_multiplier = 30
+        elif middle.count(middle[0]) == 3:  # 3 of the same emoji
+            win_multiplier = 10
+        elif middle.count(emojis[0]) == 2:  # 2 donuts
+            win_multiplier = 4
+        elif middle.count(emojis[0]) == 1:  # 1 donut
+            win_multiplier = 1
+        else:
+            win_multiplier = 0
+
+        won = win_multiplier * amount
+
+        await ctx.user_db.add_cash(amount=won)
+
+        if win_multiplier >= 1:
+            content = '**[ 🟢  WIN  🟢 ]**\n'
+        else:
+            content = '**[ 🔴 LOST 🔴 ]**\n'
+
+        content += '**' + '-' * 19 + '**' + '\n'
+
+        # idk why im making this compatible with all sizes ¯\_(ツ)_/¯
+        for i in range(len(slot)):
+            for j in range(len(slot[i])):
+                if j == 0:  # if beginning
+                    content += '| '
+
+                content += slot[i][j]
+
+                content += ' | '
+
+            if i == math.floor(len(slot) / 2):  # if middle
+                content += ' **<**'
+
+            content += '\n'  # usual new line
+            if i != len(slot) - 1:  # extra new line in between
+                content += '\n'
+
+        content += '**' + '-' * 19 + '**' + '\n\n'
+
+        content += f'**{ctx.author}** bet **{amount} {emojis[0]}** '
+        # footer
+        if win_multiplier > 1:
+            content += f'and earned **{won} {emojis[0]}**!! (x{win_multiplier})'
+        elif win_multiplier == 1:
+            content += f'got the same amount back. '
+        else:
+            content += f'and lost it all :('
+
+        await ctx.send(content=content)
+
     @commands.command(aliases=['lb'])
     async def leaderboard(self, ctx: MidoContext):
         """See the donut leaderboard!"""
@@ -190,7 +262,7 @@ class Gambling(commands.Cog):
                     e.set_thumbnail(url=user_obj.avatar_url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
-                          f"{readable_bigint(user.cash)} {Resources.emotes.currency}")
+                          f"{user.cash_readable} {Resources.emotes.currency}")
 
         await e.paginate(ctx, blocks, item_per_page=10, extra_sep='\n')
 
@@ -225,6 +297,7 @@ class Gambling(commands.Cog):
         await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
 
     @wheel.before_invoke
+    @slots.before_invoke
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke(self, ctx: MidoContext):
