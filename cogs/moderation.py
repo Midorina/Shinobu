@@ -70,13 +70,14 @@ class Moderation(commands.Cog):
             else:
                 channel = self.bot.get_channel(guild_db.welcome_channel_id)
 
-            message_to_send = parse_text_with_context(text=guild_db.welcome_message,
-                                                      bot=self.bot,
-                                                      guild=member.guild,
-                                                      author=member,
-                                                      channel=channel)
+            content, embed = parse_text_with_context(text=guild_db.welcome_message,
+                                                     bot=self.bot,
+                                                     guild=member.guild,
+                                                     author=member,
+                                                     channel=channel)
 
-            await channel.send(content=message_to_send,
+            await channel.send(content=content,
+                               embed=embed,
                                delete_after=guild_db.welcome_delete_after)
 
     @commands.Cog.listener()
@@ -85,13 +86,14 @@ class Moderation(commands.Cog):
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)
 
-            message_to_send = parse_text_with_context(text=guild_db.bye_message,
-                                                      bot=self.bot,
-                                                      guild=member.guild,
-                                                      author=member,
-                                                      channel=channel)
+            content, embed = parse_text_with_context(text=guild_db.bye_message,
+                                                     bot=self.bot,
+                                                     guild=member.guild,
+                                                     author=member,
+                                                     channel=channel)
 
-            await channel.send(content=message_to_send,
+            await channel.send(content=content,
+                               embed=embed,
                                delete_after=guild_db.welcome_delete_after)
 
     # TODO: welcome and bye del set commands
@@ -120,7 +122,7 @@ class Moderation(commands.Cog):
         """
         if not channel:
             if not ctx.guild_db.welcome_channel_id:
-                raise EmbedError("Welcome feature has already been disabled.")
+                raise commands.BadArgument("Welcome feature has already been disabled.")
             else:
                 await ctx.guild_db.set_welcome(channel_id=None)
                 return await ctx.send_success("Welcome feature has been successfully disabled.")

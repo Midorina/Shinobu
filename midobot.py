@@ -36,9 +36,11 @@ class MidoBot(commands.AutoShardedBot):
             intents=intents
         )
 
+        self.name = bot_name
+
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
-        with open(f'config_{bot_name}.json') as f:
+        with open(f'config_{self.name}.json') as f:
             self.config = json.load(f)
 
         self.first_time = True
@@ -46,7 +48,7 @@ class MidoBot(commands.AutoShardedBot):
         self.db: asyncpg.pool.Pool = None
 
         self.log_channel = None
-        self.logger = logging.getLogger('Shinobu')
+        self.logger = logging.getLogger(self.name.title())
 
         self.message_counter = 0
         self.command_counter = 0
@@ -100,9 +102,6 @@ class MidoBot(commands.AutoShardedBot):
 
     async def process_commands(self, message):
         ctx = await self.get_context(message, cls=MidoContext)
-
-        if ctx.command is None:
-            return
 
         await ctx.attach_db_objects()
         await self.invoke(ctx)

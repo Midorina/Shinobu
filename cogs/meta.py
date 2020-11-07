@@ -46,7 +46,7 @@ class MidoHelp(commands.HelpCommand):
 
     async def send_bot_help(self, cogs_and_commands):
         e = MidoEmbed(self.context.bot,
-                      title='Shinobu Command Modules',
+                      title=f'{self.context.bot.name.title()} Command Modules',
                       description=f'You can type `{self.context.prefix}help <module>` '
                                   f'to see the commands that are in that module.\n\n'
                                   f'Feel free to join the [support server]({Resources.links.support_server})'
@@ -187,7 +187,7 @@ class Misc(commands.Cog):
         }
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 
-        result = await eval(f"{fn_name}()", env)
+        result = await eval(f"{fn_name}()", env) or 'None'
         await ctx.send(result)
 
     @commands.command()
@@ -284,7 +284,7 @@ class Misc(commands.Cog):
                         value="Music Players: {}\n"
                               "CPU: {}%\n"
                               "Memory: {:.2f} MB\n".format(len(self.bot.wavelink.players),
-                                                           self.process.cpu_percent(interval=1),
+                                                           self.process.cpu_percent(interval=0),
                                                            memory),
                         inline=True)
 
@@ -321,7 +321,7 @@ class Misc(commands.Cog):
         await ctx.send("Shutting down...")
 
         if force == '-f':
-            multiprocessing.Process(target=os.system, args=('pm2 stop midobot',)).start()
+            multiprocessing.Process(target=os.system, args=(f'pm2 stop {self.bot.name}',)).start()
 
         await self.bot.close()
 
@@ -350,10 +350,10 @@ class Misc(commands.Cog):
     async def invite(self, ctx: MidoContext):
         e = MidoEmbed(self.bot)
         e.title = f"Invite {self.bot.user} to your server:"
-        e.description = f"[With Administrator Permission]({Resources.links.invite_admin}) (Suggested)\n" \
-                        f"[With Minimal Permissions]({Resources.links.invite_minimal})\n" \
-                        f"[With Selectable Permissions]({Resources.links.invite_selectable})\n" \
-                        f"[With No Permission]({Resources.links.invite_none})"
+        e.description = f"[With Administrator Permission]({Resources.links.invite_admin.format(self.bot.user.id)}) (Suggested)\n" \
+                        f"[With Minimal Permissions]({Resources.links.invite_minimal.format(self.bot.user.id)})\n" \
+                        f"[With Selectable Permissions]({Resources.links.invite_selectable.format(self.bot.user.id)})\n" \
+                        f"[With No Permission]({Resources.links.invite_none.format(self.bot.user.id)})"
         e.set_thumbnail(url=self.bot.user.avatar_url)
 
         await ctx.send(embed=e)
@@ -366,7 +366,7 @@ class Misc(commands.Cog):
 
     @commands.command(aliases=['erasedata'])
     async def deletedata(self, ctx: MidoContext):
-        """Delete all of your data from Shinobu."""
+        """Delete all of your data from me."""
         e = MidoEmbed(bot=self.bot,
                       description="Are you sure you'd like to erase all of your data?\n\n"
                                   "**This action is irreversible.**")

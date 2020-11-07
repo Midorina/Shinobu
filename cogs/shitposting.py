@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from services.apis import SomeRandomAPI
+from services.apis import RedditAPI, SomeRandomAPI
 from services.context import MidoContext
 from services.converters import MidoMemberConverter
 from services.embed import MidoEmbed
@@ -18,6 +18,9 @@ class Shitposting(commands.Cog):
 
     def get_random_api(self) -> SomeRandomAPI:
         return self.bot.get_cog('Searches').some_random_api
+
+    def get_reddit_api(self) -> RedditAPI:
+        return self.bot.get_cog('NSFW').reddit
 
     @commands.command(name='8ball')
     async def _8ball(self, ctx: MidoContext, *, question: str):
@@ -100,14 +103,15 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def joke(self, ctx: MidoContext):
-        """Get a random joke."""
+    async def dadjoke(self, ctx: MidoContext):
+        """Get a random dad joke."""
         await ctx.send_success(await self.get_random_api().get_joke())
 
     @commands.command()
     async def meme(self, ctx: MidoContext):
         """Get a random meme."""
-        await ctx.send_simple_image(await self.get_random_api().get_meme())
+        image = await self.get_reddit_api().get_from_the_db(ctx.bot, 'memes')
+        await ctx.send_simple_image(image.url)
 
     @commands.command()
     async def youtube(self, ctx: MidoContext, target: Union[MidoMemberConverter, str] = None, *, comment: str = ''):

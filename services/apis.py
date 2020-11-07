@@ -15,7 +15,7 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 
 from models.db_models import CachedImage
-from services.exceptions import InvalidURL, NotFoundError, RateLimited
+from services.exceptions import InvalidURL, NotFoundError, RateLimited, TooManyArgs
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
@@ -142,6 +142,13 @@ class RedditAPI(CachedImageAPI):
             "ecchi",
             "yuri",
             "AnimeBooty"
+        ],
+
+        "memes"  : [
+            "dankmemes",
+            "2meirl4meirl",
+            "MemeEconomy",
+            "DeepFriedMemes"
         ]
     }
 
@@ -221,7 +228,7 @@ class RedditAPI(CachedImageAPI):
         return await CachedImage.get_random(bot=bot, api_names=subreddit_names, allow_gif=allow_gif)
 
     async def fill_the_database(self):
-        async def _fill(sub_name: str):
+        async def _fill(sub_name: str, go_ham=False):
             # top
             # hot
 
@@ -231,16 +238,22 @@ class RedditAPI(CachedImageAPI):
             # week
             # day
             # hour
-            # await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
-            # await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
-            # await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
-            # await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
+
+            if go_ham is True:
+                await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
+                await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
+                await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
+                await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
+
             await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
             await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
 
-        for sub_names in self.SUBREDDITS.values():
+        for category, sub_names in self.SUBREDDITS.items():
             for sub in sub_names:
-                await _fill(sub)
+                if category == 'memes':
+                    await _fill(sub, go_ham=True)
+                else:
+                    await _fill(sub)
                 await asyncio.sleep(5.0)
 
 
@@ -276,6 +289,9 @@ class NSFW_DAPIs(CachedImageAPI):
         elif nsfw_type == 'danbooru':
             tags.append('rating:explicit')
 
+            if len(tags) > 3:
+                raise TooManyArgs
+
             func = self._get_danbooru
             args = [tags, allow_video]
 
@@ -300,7 +316,7 @@ class NSFW_DAPIs(CachedImageAPI):
         for dapi in self.DAPI_LINKS.keys():
             try:
                 urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
-            except NotFoundError:
+            except (NotFoundError, TooManyArgs):
                 pass
 
         try:
@@ -391,7 +407,7 @@ class NSFW_DAPIs(CachedImageAPI):
             if not response:
                 raise NotFoundError
 
-            elif isinstance(response, list) and 'success' in response[0] and response[0]['success'] is False:
+            elif 'success' in response and response['success'] is False:
                 raise NotFoundError
 
             for data in response:
@@ -492,8 +508,8 @@ class SomeRandomAPI(MidoBotAPI):
         "triggered": "https://some-random-api.ml/canvas/triggered",
         "youtube"  : "https://some-random-api.ml/canvas/youtube-comment",
 
-        "meme"     : "https://some-random-api.ml/meme",
-        "joke"     : "https://some-random-api.ml/joke",
+        "meme"     : "https://some-random-api.ml/meme",  # shit memes
+        "joke"     : "https://some-random-api.ml/joke",  # shit jokes
 
         # searches
         'lyrics'   : 'https://some-random-api.ml/lyrics',

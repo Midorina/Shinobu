@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 import discord
 from discord.ext import commands
@@ -39,21 +40,18 @@ class XP(commands.Cog):
 
         return e
 
-    def get_leaderboard_embed(self, top_10, title: str):
+    def get_leaderboard_embed(self, top_10: List[UserDB], title: str):
         e = discord.Embed(color=self.bot.main_color,
                           title=title)
 
         e.timestamp = datetime.utcnow()
+
         e.description = ""
-
         for i, user in enumerate(top_10, 1):
-            user_obj = self.bot.get_user(user.id)
+            if i == 1 and self.bot.get_user(user.id):
+                e.set_thumbnail(url=self.bot.get_user(user.id).avatar_url)
 
-            # if its the #1 user
-            if i == 1 and user_obj:
-                e.set_thumbnail(url=user_obj.avatar_url)
-
-            e.description += f"`#{i}` **{str(user_obj) if user_obj else user.id}**\n" \
+            e.description += f"`#{i}` **{user.discord_name}**\n" \
                              f"Level: **{user.level}** | Total XP: **{user.total_xp}**\n\n"
 
         return e

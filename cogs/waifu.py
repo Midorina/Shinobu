@@ -165,7 +165,7 @@ class Waifu(commands.Cog):
 
         waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.bot)
         e.add_field(name=f"Waifus ({len(waifus)})",
-                    value="\n".join(waifu.discord_name for waifu in waifus) if waifus else '-')
+                    value="\n".join(str(waifu.discord_name) for waifu in waifus) if waifus else '-')
 
         await ctx.send(embed=e)
 

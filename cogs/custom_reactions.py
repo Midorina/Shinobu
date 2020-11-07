@@ -34,18 +34,15 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
             channel_to_send = message.author if cr.send_in_DM else message.channel
 
-            message_to_send = parse_text_with_context(text=cr.response,
-                                                      bot=self.bot,
-                                                      guild=message.guild,
-                                                      author=message.author,
-                                                      channel=channel_to_send,
-                                                      message_obj=message)
+            content, embed = parse_text_with_context(text=cr.response,
+                                                     bot=self.bot,
+                                                     guild=message.guild,
+                                                     author=message.author,
+                                                     channel=channel_to_send,
+                                                     message_obj=message)
 
             try:
-                if isinstance(message_to_send, discord.Embed):
-                    await channel_to_send.send(embed=message_to_send)
-                else:
-                    await channel_to_send.send(content=message_to_send)
+                await channel_to_send.send(content=content, embed=embed)
             except discord.Forbidden:
                 pass
             else:

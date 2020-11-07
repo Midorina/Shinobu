@@ -27,3 +27,7 @@ class InsufficientCash(CommandError):
 
 class RateLimited(CommandError):
     pass
+
+
+class TooManyArgs(CommandError):
+    pass

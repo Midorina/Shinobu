@@ -16,71 +16,68 @@ class Errors(commands.Cog):
             return
 
         ignored = (
-            # commands.CommandNotFound,
             discord.NotFound,
-            # NotFoundError,
             SilenceError
         )
 
         error = getattr(error, 'original', error)
 
-        if isinstance(error, ignored):
-            return
-
-        elif isinstance(error, NotFoundError):
-            return await ctx.send_error("I couldn't find anything with that query.")
-
-        elif isinstance(error, RateLimited):
-            return await ctx.send_error("You are rate limited. Please try again in a few minutes.")
-
-        elif isinstance(error, (EmbedError, MusicError)):
-            return await ctx.send_error(str(error))
-
-        elif isinstance(error, InsufficientCash):
-            return await ctx.send_error("You don't have enough money to do that!")
-
-        elif isinstance(error, commands.NoPrivateMessage):
-            return await ctx.send_error("This command can not be used through DMs!")
-
-        # this is to observe missing commands
-        elif isinstance(error, commands.CommandNotFound):
-            return self.bot.logger.info(f"Unknown command: {ctx.message.content}")
-
-        elif isinstance(error, discord.Forbidden):
-            try:
-                return await ctx.send_error("I don't have enough permissions!")
-            except discord.Forbidden:
+        try:
+            if isinstance(error, ignored):
                 return
 
-        elif isinstance(error, commands.BotMissingPermissions):
-            return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
+            elif isinstance(error, NotFoundError):
+                return await ctx.send_error("I couldn't find anything with that query.")
 
-        elif isinstance(error, commands.DisabledCommand):
-            return await ctx.send_error("This command is currently disabled and can't be used.")
+            elif isinstance(error, RateLimited):
+                return await ctx.send_error("You are rate limited. Please try again in a few minutes.")
 
-        elif isinstance(error, commands.CheckFailure):
-            return await ctx.send_error("You don't have required permissions to do that!")
+            elif isinstance(error, (EmbedError, MusicError)):
+                return await ctx.send_error(str(error))
 
-        elif isinstance(error, commands.CommandOnCooldown):
-            return await ctx.send_error("You're on cooldown!")
+            elif isinstance(error, InsufficientCash):
+                return await ctx.send_error("You don't have enough money to do that!")
 
-        elif isinstance(error, commands.MissingRequiredArgument):
-            return await ctx.send_help(entity=ctx.command,
-                                       content=f"**You are missing this required argument: "
-                                               f"`{error.param.name}`**")
+            elif isinstance(error, commands.NoPrivateMessage):
+                return await ctx.send_error("This command can not be used through DMs!")
 
-        elif isinstance(error,
-                        (commands.BadArgument, commands.ExpectedClosingQuoteError, commands.UnexpectedQuoteError)):
-            return await ctx.send_help(entity=ctx.command,
-                                       content=f"**{error}**")
+            # this is to observe missing commands
+            elif isinstance(error, commands.CommandNotFound):
+                return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
-        elif isinstance(error, discord.HTTPException):
-            if error.code == 0:
-                return await ctx.send_error("Discord API is currently having issues. Please use the command again.")
+            elif isinstance(error, discord.Forbidden):
+                return await ctx.send_error("I don't have enough permissions!")
 
-            elif error.code == 10014:
-                return await ctx.send_error(
-                    "I don't have permission to use external emojis! Please give me permission to use them.")
+            elif isinstance(error, commands.BotMissingPermissions):
+                return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
+
+            elif isinstance(error, commands.DisabledCommand):
+                return await ctx.send_error("This command is currently disabled and can't be used.")
+
+            elif isinstance(error, commands.CheckFailure):
+                return await ctx.send_error("You don't have required permissions to do that!")
+
+            elif isinstance(error, commands.CommandOnCooldown):
+                return await ctx.send_error("You're on cooldown!")
+
+            elif isinstance(error, commands.MissingRequiredArgument):
+                return await ctx.send_help(entity=ctx.command, content=f"**You are missing this required argument: "
+                                                                       f"`{error.param.name}`**")
+
+            elif isinstance(error,
+                            (commands.BadArgument, commands.ExpectedClosingQuoteError, commands.UnexpectedQuoteError)):
+                return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
+
+            elif isinstance(error, discord.HTTPException):
+                if error.code == 0:
+                    return await ctx.send_error("Discord API is currently having issues. Please use the command again.")
+
+                elif error.code == 10014:
+                    return await ctx.send_error(
+                        "I don't have permission to use external emojis! Please give me permission to use them.")
+
+        except discord.Forbidden:
+            return
 
         try:
             await ctx.send_error("**A critical error has occurred!** "

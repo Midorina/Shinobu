@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Union
+from typing import Optional
 
 import discord
 from discord import ShardInfo
@@ -11,7 +11,7 @@ from services.music import VoicePlayer
 
 def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, author: discord.Member,
                             channel: discord.TextChannel,
-                            message_obj: discord.Message = None) -> Union[str, discord.Embed]:
+                            message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff
@@ -140,9 +140,12 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
     # 1|midobot  | AttributeError: 'int' object has no attribute 'get'
 
     try:
-        embed = json.loads(text)
-        print(embed)
-        return discord.Embed.from_dict(embed)
+        embed: dict = json.loads(text)
     except json.JSONDecodeError:
+        return text, None
+    else:
+        # plainText is for legacy messages
+        content = embed.get('plainText', None) or embed.get('content', None)
+        embed = embed.get('embed', None) or embed
 
-        return text
+        return content, discord.Embed.from_dict(embed)

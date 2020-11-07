@@ -7,7 +7,7 @@ from midobot import MidoBot
 from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError, NotFoundError
+from services.exceptions import EmbedError, TooManyArgs
 
 
 class NSFW(commands.Cog):
@@ -21,10 +21,6 @@ class NSFW(commands.Cog):
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 
         self.fill_the_database.start()
-
-    async def cog_command_error(self, ctx: MidoContext, error):
-        if isinstance(error, NotFoundError):
-            return await ctx.send_error("No results.")
 
     async def cog_check(self, ctx: MidoContext):
         bucket = self._cd.get_bucket(ctx.message)
@@ -46,7 +42,7 @@ class NSFW(commands.Cog):
                       # description=f"Image not working? [Report]({Resources.links.support_server})"
                       description=f"Image not working? [Click here.]({image_url})"
                       )
-        e.set_footer(text=f"Shinobu NSFW API")
+        e.set_footer(text=f"{ctx.bot.name.title()} NSFW API")
         await ctx.send(embed=e)
 
     async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:
@@ -121,9 +117,14 @@ class NSFW(commands.Cog):
         """Get a random image from Danbooru.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{0.prefix}hentaibomb yuri+group`
 
-        image = await self.api.get('danbooru', tags)
+        **Danbooru doesn't allow more than 2 tags.**"""
+        try:
+            image = await self.api.get('danbooru', tags)
+        except TooManyArgs:
+            return await ctx.send_error("Danbooru doesn't allow more than 2 tags.")
+
         await self.send_nsfw_embed(ctx, image[0])
 
     @commands.command()

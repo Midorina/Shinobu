@@ -49,14 +49,12 @@ class Gambling(commands.Cog):
     @commands.Cog.listener()
     async def on_dbl_vote(self, data):
         self.votes.add(int(data['user']))
-        self.bot.logger.info('Received an upvote and its been added to the set!\n'
-                             '{}'.format(data))
+        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
     @commands.Cog.listener()
     async def on_dbl_test(self, data):
         self.votes.add(int(data['user']))
-        self.bot.logger.info('Received a test and its been added to the set!\n'
-                             '{}'.format(data))
+        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: MidoContext, *, user: MidoMemberConverter() = None):
@@ -72,20 +70,23 @@ class Gambling(commands.Cog):
     @commands.command()
     async def daily(self, ctx: MidoContext):
         """
-        Claim {0.bot.config[daily_amount]}{0.resources.emotes.currency} for free every 12 hours by upvoting [here]({0.resources.links.upvote}).
+        Claim {0.bot.config[daily_amount]} {0.resources.emotes.currency} for free every 12 hours by upvoting [here]({0.resources.links.upvote}).
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
 
-        has_voted = ctx.author.id in self.votes or await self.dblpy.get_user_vote(ctx.author.id)
+        try:
+            has_voted = ctx.author.id in self.votes or await self.dblpy.get_user_vote(ctx.author.id)
+        except dbl.HTTPException:
+            raise EmbedError("There is an error from website's side. Please try again in a few minutes.")
 
         if not daily_status.end_date_has_passed:
             raise EmbedError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
         elif not has_voted:
             raise EmbedError(f"It seems like you haven't voted yet.\n\n"
-                             f"Vote [here]({Resources.links.upvote}), then use this command again "
-                             f"to get your **{daily_amount}{Resources.emotes.currency}**!")
+                             f"Vote [here]({Resources.links.upvote}),"
+                             f"then use this command again to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
             try:

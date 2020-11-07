@@ -400,7 +400,7 @@ class GuildDB(BaseDBModel):
                 except asyncpg.UniqueViolationError:
                     pass
 
-            return cls(guild_db, bot)
+        return cls(guild_db, bot)
 
     async def change_prefix(self, new_prefix: str) -> str:
         await self.db.execute(
