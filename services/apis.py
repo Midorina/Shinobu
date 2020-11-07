@@ -8,14 +8,15 @@ from typing import List, Tuple, Union
 
 import aiohttp
 import asyncpraw
-from aiohttp import ClientSession
+from aiohttp import ClientResponse, ClientSession
 from anekos import NSFWImageTags, NekosLifeClient, SFWImageTags
 from anekos.client import Tag
 from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
+from discord.ext.commands import TooManyArguments
 
 from models.db_models import CachedImage
-from services.exceptions import InvalidURL, NotFoundError, RateLimited, TooManyArgs
+from services.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
@@ -36,6 +37,35 @@ class MidoBotAPI:
     @classmethod
     def get_aiohttp_session(cls):
         return ClientSession(headers=cls.DEFAULT_HEADERS)
+
+    async def _request_get(self,
+                           url: str,
+                           params: dict = None,
+                           headers: dict = None,
+                           return_url=False,
+                           return_json=False) -> Union[str, dict, ClientResponse]:
+        try:
+            async with self.session.get(url=url, params=params, headers=headers) as response:
+                if return_url is True:
+                    return str(response.url)
+                elif return_json is True:
+                    try:
+                        js = await response.json()
+                    except aiohttp.ContentTypeError:
+                        try:
+                            js = json.loads(await response.read())
+                        except json.JSONDecodeError:
+                            js = None
+
+                    if not js:
+                        raise NotFoundError
+                    elif 'error' in js:
+                        raise RateLimited
+                    return js
+                else:
+                    return response
+        except aiohttp.ServerDisconnectedError:
+            raise APIError
 
 
 class CachedImageAPI(MidoBotAPI):
@@ -290,7 +320,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.append('rating:explicit')
 
             if len(tags) > 3:
-                raise TooManyArgs
+                raise TooManyArguments
 
             func = self._get_danbooru
             args = [tags, allow_video]
@@ -316,7 +346,7 @@ class NSFW_DAPIs(CachedImageAPI):
         for dapi in self.DAPI_LINKS.keys():
             try:
                 urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
-            except (NotFoundError, TooManyArgs):
+            except (NotFoundError, TooManyArguments):
                 pass
 
         try:
@@ -358,70 +388,61 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.append(f'score:>={score}')
 
         while True:
-            async with self.session.get(self.DAPI_LINKS[dapi_name], params={
-                'page' : 'dapi',
-                's'    : 'post',
-                'q'    : 'index',
-                'tags' : " ".join(tags),
-                'limit': 100,
-                'json' : 1
-            }) as response:
-                try:
-                    response_jsond = await response.json()
-                except aiohttp.ContentTypeError:
-                    try:
-                        response_jsond = json.loads(await response.read())
-                    except json.JSONDecodeError:
-                        response_jsond = None
+            try:
+                response_jsond = await self._request_get(self.DAPI_LINKS[dapi_name], params={
+                    'page' : 'dapi',
+                    's'    : 'post',
+                    'q'    : 'index',
+                    'tags' : " ".join(tags),
+                    'limit': 100,
+                    'json' : 1
+                }, return_json=True)
+            except NotFoundError:
+                if score > 1:
+                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 1)
+                else:
+                    raise NotFoundError
 
-                if not response_jsond:
-                    if score > 1:
-                        return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 1)
-                    else:
-                        raise NotFoundError
+            for data in response_jsond:
+                if dapi_name == 'gelbooru':
+                    image_url = data.get('file_url')
+                elif dapi_name == 'rule34':
+                    image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
+                else:
+                    raise Exception(f"Unknown DAPI name: {dapi_name}")
 
-                for data in response_jsond:
-                    if dapi_name == 'gelbooru':
-                        image_url = data.get('file_url')
-                    elif dapi_name == 'rule34':
-                        image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
+                image_tags = data.get('tags').split(' ')
+                if self.is_blacklisted(image_tags) or (not allow_video and self.is_video(image_url)):
+                    continue
+                else:
+                    images.append(image_url)
 
-                    image_tags = data.get('tags').split(' ')
-                    if self.is_blacklisted(image_tags) or (not allow_video and self.is_video(image_url)):
-                        continue
-                    else:
-                        images.append(image_url)
-
-                return images
+            return images
 
     async def _get_danbooru(self, tags=None, allow_video=False):
         images = []
 
-        async with self.session.get(self.DAPI_LINKS['danbooru'], params={
+        response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
             'limit' : 100,
             'tags'  : " ".join(tags),
             'random': 'true'
-        }) as r:
-            response = await r.json()
+        }, return_json=True)
 
-            if not response:
-                raise NotFoundError
+        if 'success' in response and response['success'] is False:
+            raise NotFoundError
 
-            elif 'success' in response and response['success'] is False:
-                raise NotFoundError
+        for data in response:
+            if ('file_url' not in data
+                    or (not allow_video and self.is_video(data['file_url']))
+                    or self.is_blacklisted(data['tag_string'].split())):
+                continue
 
-            for data in response:
-                if ('file_url' not in data
-                        or (not allow_video and self.is_video(data['file_url']))
-                        or self.is_blacklisted(data['tag_string'].split())):
-                    continue
+            images.append(data.get('large_file_url', data['file_url']))
 
-                images.append(data.get('large_file_url', data['file_url']))
-
-            if not images:
-                raise NotFoundError
-            else:
-                return images
+        if not images:
+            raise NotFoundError
+        else:
+            return images
 
 
 class SpotifyAPI(MidoBotAPI):
@@ -447,12 +468,12 @@ class SpotifyAPI(MidoBotAPI):
 
         return query
 
-    async def _request(self, link: str) -> dict:
+    async def _request_get(self, link: str) -> dict:
+        """This overwrites the base method"""
         if not self.token or self.expire_date.end_date_has_passed:
             await self.get_token()
 
-        async with self.session.get(link, headers=self.auth_header) as r:
-            return await r.json()
+        return await super()._request_get(link, headers=self.auth_header, return_json=True)
 
     async def get_token(self):
         param = {'grant_type': 'client_credentials'}
@@ -478,7 +499,7 @@ class SpotifyAPI(MidoBotAPI):
         else:
             raise InvalidURL
 
-        response = await self._request(f'https://api.spotify.com/v1/{url_type}/{_id}')
+        response = await self._request_get(f'https://api.spotify.com/v1/{url_type}/{_id}')
 
         if url_type == 'tracks':
             track_list = [response]
@@ -556,27 +577,8 @@ class SomeRandomAPI(MidoBotAPI):
     def __init__(self, session: ClientSession):
         super(SomeRandomAPI, self).__init__(session)
 
-    async def _get_request(self,
-                           url: str,
-                           params: dict = None,
-                           convert_to_json=True,
-                           return_url=False) -> Union[dict, str]:
-        async with self.session.get(url, params=params) as r:
-            if return_url is True:
-                return str(r.url)
-
-            if convert_to_json:
-                js = await r.json()
-                if 'error' in js:
-                    raise RateLimited
-
-                return await r.json()
-
     async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
-        response = await self._get_request(self.URLs['lyrics'], params={'title': title})
-
-        if 'error' in response:
-            raise NotFoundError
+        response = await self._request_get(self.URLs['lyrics'], params={'title': title}, return_json=True)
 
         title = f"{response['author']} - {response['title']}"
         lyrics = self.parse_lyrics_for_discord(response['lyrics'])
@@ -585,32 +587,30 @@ class SomeRandomAPI(MidoBotAPI):
         return title, lyrics, thumbnail
 
     async def get_animal(self, animal_name: str) -> str:
-        response = await self._get_request(self.URLs[animal_name])
+        response = await self._request_get(self.URLs[animal_name], return_json=True)
         return response['link']
 
     async def view_color(self, color: str):
-        return await self._get_request(self.URLs['color'], params={'hex': color}, return_url=True)
+        return await self._request_get(self.URLs['color'], params={'hex': color}, return_url=True)
 
     async def get_pokemon(self, pokemon_name: str) -> Pokemon:
-        pokemon = await self._get_request(self.URLs["pokemon"], params={"pokemon": pokemon_name})
-        if not pokemon:
-            raise NotFoundError
+        pokemon = await self._request_get(self.URLs["pokemon"], params={"pokemon": pokemon_name}, return_json=True)
 
         return self.Pokemon(pokemon)
 
     async def get_meme(self) -> str:
-        response = await self._get_request(self.URLs["meme"])
+        response = await self._request_get(self.URLs["meme"], return_json=True)
         return response['image']
 
     async def get_joke(self) -> str:
-        response = await self._get_request(self.URLs["joke"])
+        response = await self._request_get(self.URLs["joke"], return_json=True)
         return response['joke']
 
     async def wasted_gay_or_triggered(self, avatar_url: str, _type: str = "wasted") -> str:
-        return await self._get_request(self.URLs[_type], params={'avatar': avatar_url}, return_url=True)
+        return await self._request_get(self.URLs[_type], params={'avatar': avatar_url}, return_url=True)
 
     async def youtube_comment(self, avatar_url: str, username: str, comment: str):
-        return await self._get_request(self.URLs["youtube"], params={'avatar'  : avatar_url,
+        return await self._request_get(self.URLs["youtube"], params={'avatar'  : avatar_url,
                                                                      "username": username,
                                                                      "comment" : comment,
                                                                      "dark"    : True},

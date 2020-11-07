@@ -43,7 +43,10 @@ class Moderation(commands.Cog):
 
                 if modlog.type == ModLog.Type.BAN:
                     member = discord.Object(id=modlog.user_id)
-                    await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
+                    try:
+                        await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
+                    except discord.NotFound:
+                        pass
 
                 elif modlog.type == ModLog.Type.MUTE:
                     member = guild.get_member(modlog.user_id)

@@ -151,6 +151,7 @@ class UserDB(BaseDBModel):
         super(UserDB, self).__init__(user_db, bot)
 
         self.cash: int = user_db.get('cash')
+
         self.discord_name = user_db.get('name_and_discriminator') or self.id
 
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
@@ -188,6 +189,11 @@ class UserDB(BaseDBModel):
     async def get_rich_people(cls, bot, limit=100):
         ret = await bot.db.fetch("SELECT * FROM users ORDER BY cash DESC LIMIT $1;", limit)
         return [cls(user_db, bot) for user_db in ret]
+
+    @property
+    def cash_readable(self) -> str:
+        from services.converters import readable_bigint
+        return readable_bigint(self.cash)
 
     async def update_name(self, new_name: str):
         self.discord_name = new_name
@@ -437,10 +443,10 @@ class GuildDB(BaseDBModel):
         self.level_up_notifs_silenced = not self.level_up_notifs_silenced
         return self.level_up_notifs_silenced
 
-    async def get_top_10(self) -> List[MemberDB]:
+    async def get_top_10(self) -> List[UserDB]:
         top_10 = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
                                      self.id)
-        return [MemberDB(user, self.bot) for user in top_10]
+        return [UserDB(user, self.bot) for user in top_10]
 
     async def set_welcome(self, channel_id: int = None, msg: str = None):
         await self.db.execute(

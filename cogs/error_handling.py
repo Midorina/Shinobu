@@ -3,7 +3,8 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import EmbedError, InsufficientCash, MusicError, NotFoundError, RateLimited, SilenceError
+from services.exceptions import APIError, EmbedError, InsufficientCash, MusicError, NotFoundError, RateLimited, \
+    SilenceError
 
 
 class Errors(commands.Cog):
@@ -31,6 +32,9 @@ class Errors(commands.Cog):
 
             elif isinstance(error, RateLimited):
                 return await ctx.send_error("You are rate limited. Please try again in a few minutes.")
+
+            elif isinstance(error, APIError):
+                return await ctx.send_error("There was an error communicating with the API. Please try again.")
 
             elif isinstance(error, (EmbedError, MusicError)):
                 return await ctx.send_error(str(error))
@@ -65,7 +69,10 @@ class Errors(commands.Cog):
                                                                        f"`{error.param.name}`**")
 
             elif isinstance(error,
-                            (commands.BadArgument, commands.ExpectedClosingQuoteError, commands.UnexpectedQuoteError)):
+                            (commands.BadArgument,
+                             commands.ExpectedClosingQuoteError,
+                             commands.UnexpectedQuoteError,
+                             commands.InvalidEndOfQuotedStringError)):
                 return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
 
             elif isinstance(error, discord.HTTPException):

@@ -29,5 +29,5 @@ class RateLimited(CommandError):
     pass
 
 
-class TooManyArgs(CommandError):
+class APIError(CommandError):
     pass

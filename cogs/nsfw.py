@@ -7,7 +7,7 @@ from midobot import MidoBot
 from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError, TooManyArgs
+from services.exceptions import EmbedError
 
 
 class NSFW(commands.Cog):
@@ -64,7 +64,7 @@ class NSFW(commands.Cog):
         image = await self.reddit.get_from_the_db(ctx.bot, 'boobs')
         await self.send_nsfw_embed(ctx, image.url)
 
-    @commands.command(aliases=['butt'])
+    @commands.command(aliases=['butt', 'ass'])
     async def butts(self, ctx: MidoContext):
         """Get a random butt picture."""
 
@@ -122,7 +122,7 @@ class NSFW(commands.Cog):
         **Danbooru doesn't allow more than 2 tags.**"""
         try:
             image = await self.api.get('danbooru', tags)
-        except TooManyArgs:
+        except commands.TooManyArguments:
             return await ctx.send_error("Danbooru doesn't allow more than 2 tags.")
 
         await self.send_nsfw_embed(ctx, image[0])
