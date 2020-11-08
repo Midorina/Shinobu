@@ -8,7 +8,6 @@ from midobot import MidoBot
 from models.db_models import ReminderDB
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
 from services.time_stuff import MidoTime
 
 
@@ -109,7 +108,7 @@ class Reminder(commands.Cog):
             else:
                 raise commands.BadArgument("Incorrect channel! Please input either `me` or specify a channel.")
 
-        reminder = await ReminderDB.create(ctx.db, author_id=ctx.author.id,
+        reminder = await ReminderDB.create(bot=ctx.bot, author_id=ctx.author.id,
                                            channel_id=channel_id,
                                            channel_type=channel_type,
                                            content=str(message),
@@ -128,7 +127,7 @@ class Reminder(commands.Cog):
         reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)
 
         if not reminders:
-            raise EmbedError("You don't have any reminders!")
+            raise commands.UserInputError("You don't have any reminders!")
 
         e = MidoEmbed(self.bot)
         e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar_url)
@@ -162,12 +161,12 @@ class Reminder(commands.Cog):
         reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)
 
         if not reminders:
-            raise EmbedError("You don't have any reminders!")
+            raise commands.UserInputError("You don't have any reminders!")
 
         try:
             reminder_to_remove = reminders[reminder_index - 1]
         except IndexError:
-            raise EmbedError("Invalid reminder index!")
+            raise commands.UserInputError("Invalid reminder index!")
 
         self.cancel_reminder(reminder_to_remove)
         await reminder_to_remove.complete()

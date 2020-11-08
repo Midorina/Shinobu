@@ -3,7 +3,7 @@ from discord.ext import commands
 
 from midobot import MidoBot
 from services import context, embed
-from services.apis import Google, SomeRandomAPI
+from services.apis import BlizzardAPI, Google, SomeRandomAPI
 from services.embed import MidoEmbed
 
 
@@ -16,6 +16,7 @@ class Searches(commands.Cog):
         self.google: Google = Google(self.bot.http_session)
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
         self.some_random_api = SomeRandomAPI(self.bot.http_session)
+        self.blizzard_api = BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
 
     @commands.command()
     async def color(self, ctx: context.MidoContext, *, color: str):
@@ -99,6 +100,21 @@ class Searches(commands.Cog):
         """Get a random bird picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
+    @commands.command(aliases=['hs'])
+    async def hearthstone(self, ctx: context.MidoContext, keyword: str = None):
+        """Search or get a random Hearthstone card!"""
+        card = await self.blizzard_api.get_hearthstone_card(keyword)
+        e = MidoEmbed(bot=ctx.bot,
+                      title=card.name,
+                      image_url=card.image,
+                      colour=0xc7ac86)
+        e.set_thumbnail(url=card.thumb)
+
+        e.description = f"**Health:** {card.health}\n" \
+                        f"**Attack:** {card.attack}\n" \
+                        f"**Mana Cost:** {card.mana_cost}\n\n" \
+                        f"{card.description}"
+        await ctx.send(embed=e)
 
 def setup(bot):
     bot.add_cog(Searches(bot))

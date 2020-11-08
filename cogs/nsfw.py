@@ -7,7 +7,6 @@ from midobot import MidoBot
 from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
 
 
 class NSFW(commands.Cog):
@@ -29,7 +28,7 @@ class NSFW(commands.Cog):
             raise commands.CommandOnCooldown(bucket, retry_after)
 
         if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
-            raise EmbedError('This command can only be used in channels that are marked as NSFW.')
+            raise commands.NSFWChannelRequired(ctx.channel)
 
         return True
 
@@ -123,7 +122,7 @@ class NSFW(commands.Cog):
         try:
             image = await self.api.get('danbooru', tags)
         except commands.TooManyArguments:
-            return await ctx.send_error("Danbooru doesn't allow more than 2 tags.")
+            raise commands.TooManyArguments("Danbooru doesn't allow more than 2 tags.")
 
         await self.send_nsfw_embed(ctx, image[0])
 

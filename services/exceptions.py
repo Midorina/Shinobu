@@ -1,11 +1,15 @@
 from discord.ext.commands import CommandError
 
 
-class EmbedError(CommandError):
+class OnCooldownError(CommandError):
     pass
 
 
-class SilenceError(CommandError):
+class DidntVoteError(CommandError):
+    pass
+
+
+class SilentError(CommandError):
     pass
 
 

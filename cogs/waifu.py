@@ -2,6 +2,7 @@ import math
 from typing import List
 
 from discord.ext import commands
+from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
 
 from midobot import MidoBot
@@ -10,7 +11,7 @@ from models.waifu_models import Item
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, readable_bigint
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
+from services.exceptions import NotFoundError
 from services.resources import Resources
 
 
@@ -31,8 +32,9 @@ class Waifu(commands.Cog):
             user = self.bot.get_user(user_db.id)
             user_name = str(user) if user else user_db.discord_name
 
-            affinity_name = self.bot.get_user_name(user_db.waifu.affinity_id)
-            claimer_name = self.bot.get_user_name(user_db.waifu.claimer_id) if user_db.waifu.claimer_id else "no one."
+            affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id)
+            claimer_name = await self.bot.get_user_name(user_db.waifu.claimer_id) if user_db.waifu.claimer_id \
+                else "no one."
 
             # if its the #1 user
             if i == 1 and user:
@@ -101,13 +103,13 @@ class Waifu(commands.Cog):
             await e.paginate(ctx, item_blocks, item_per_page=9)
         else:
             if not item_name or not target:
-                raise commands.BadArgument
+                raise commands.BadArgument("You need to specify both the item name and the target waifu.")
             elif target.id == ctx.author.id:
-                raise commands.BadArgument("You can't buy gifts to yourself. This level of loneliness is no good.")
+                raise commands.UserInputError("You can't buy gifts to yourself. This level of loneliness is no good.")
 
             item_obj = Item.find(item_name)
             if not item_obj:
-                raise EmbedError(f"Could not find a waifu item called **\"{item_name}\"**.")
+                raise NotFoundError(f"Could not find a waifu item called **\"{item_name}\"**.")
 
             await ctx.user_db.remove_cash(item_obj.price)
 
@@ -178,10 +180,10 @@ class Waifu(commands.Cog):
         """
         if ctx.user_db.waifu.affinity_id:
             if ctx.user_db.waifu.affinity_id == target.id:
-                raise EmbedError(f"You already have affinity towards {target.mention}. "
-                                 f"Use `{ctx.prefix}affinity` without any parameters to clear your affinity.")
+                raise UserInputError(f"You already have affinity towards {target.mention}. "
+                                     f"Use `{ctx.prefix}affinity` without any parameters if you want to clear your affinity.")
         elif not target:
-            raise EmbedError("Your affinity is already empty.")
+            raise commands.BadArgument("Your affinity is already empty.")
 
         await ctx.user_db.waifu.change_affinity(target.id if target else None)
 
@@ -206,15 +208,16 @@ class Waifu(commands.Cog):
         target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
 
         if target.id == ctx.author.id:
-            raise EmbedError("Why'd you try to do that? You technically already own yourself.")
+            raise commands.UserInputError("Why'd you try to do that? You technically already own yourself.")
         elif target_db.waifu.claimer_id == ctx.author.id:
-            raise EmbedError(f"{target.mention} is already your waifu. "
-                             f"Try gifting items to them to increase their price and make them happier :)")
+            raise commands.UserInputError(f"{target.mention} is already your waifu. "
+                                          f"Try gifting items to them to increase their price and make them happier :)")
 
         required_amount = target_db.waifu.get_price_to_claim(ctx.author.id)
 
         if price < required_amount:
-            raise EmbedError(f"You must pay at least **{readable_bigint(required_amount)}** to claim {target.mention}.")
+            raise commands.UserInputError(
+                f"You must pay at least **{readable_bigint(required_amount)}** to claim {target.mention}.")
 
         await ctx.user_db.remove_cash(required_amount)
 
@@ -245,10 +248,10 @@ class Waifu(commands.Cog):
         target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
 
         if target.id == ctx.author.id:
-            raise EmbedError("Why'd you try to do that? "
-                             "Yes, most people hate themselves, however, life is worth living.")
+            raise commands.UserInputError("Why'd you try to do that? "
+                                          "Yes, most people hate themselves, however, life is worth living.")
         elif target_db.waifu.claimer_id != ctx.author.id:
-            raise EmbedError(f"{target.mention} is not your waifu!")
+            raise commands.UserInputError(f"{target.mention} is not your waifu!")
 
         amount = math.floor(target_db.waifu.price / 2)
 
@@ -280,7 +283,7 @@ class Waifu(commands.Cog):
         # new_owner_db = await UserDB.get_or_create(bot=ctx.bot, user_id=new_owner.id)
 
         if ex_waifu_db.waifu.claimer_id != ctx.author.id:
-            raise EmbedError(f'{ex_waifu.mention} is not your waifu!')
+            raise commands.UserInputError(f'{ex_waifu.mention} is not your waifu!')
 
         cost = math.floor(ex_waifu_db.waifu.price / 10)
 

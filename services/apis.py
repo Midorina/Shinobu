@@ -280,10 +280,7 @@ class RedditAPI(CachedImageAPI):
 
         for category, sub_names in self.SUBREDDITS.items():
             for sub in sub_names:
-                if category == 'memes':
-                    await _fill(sub, go_ham=True)
-                else:
-                    await _fill(sub)
+                await _fill(sub)
                 await asyncio.sleep(5.0)
 
 
@@ -443,74 +440,6 @@ class NSFW_DAPIs(CachedImageAPI):
             raise NotFoundError
         else:
             return images
-
-
-class SpotifyAPI(MidoBotAPI):
-    # noinspection PyTypeChecker
-    def __init__(self, session: ClientSession, credentials: dict):
-        super(SpotifyAPI, self).__init__(session)
-
-        self.client_id: str = credentials.get('client_id')
-        self.client_secret: str = credentials.get('client_secret')
-
-        self.token: str = None
-        self.token_type: str = None
-        self.expire_date: MidoTime = None
-
-    @property
-    def auth_header(self):
-        return {'Authorization': f'{self.token_type.title()} {self.token}'}
-
-    @staticmethod
-    def get_search_query_from_track_obj(track: dict):
-        query = ", ".join(artist['name'] for artist in track['artists'])
-        query += f" - {track['name']}"
-
-        return query
-
-    async def _request_get(self, link: str) -> dict:
-        """This overwrites the base method"""
-        if not self.token or self.expire_date.end_date_has_passed:
-            await self.get_token()
-
-        return await super()._request_get(link, headers=self.auth_header, return_json=True)
-
-    async def get_token(self):
-        param = {'grant_type': 'client_credentials'}
-
-        base_64 = base64.b64encode(
-            f'{self.client_id}:{self.client_secret}'.encode('ascii'))
-
-        header = {'Authorization': f'Basic {base_64.decode("ascii")}'}
-
-        async with self.session.post('https://accounts.spotify.com/api/token', data=param, headers=header) as r:
-            token_dict = await r.json()
-
-            self.token = token_dict['access_token']
-            self.token_type = token_dict['token_type']
-            self.expire_date = MidoTime.add_to_current_date_and_get(token_dict['expires_in'])
-
-    async def get_song_names(self, url: str):
-        url_type = url.split('/')[3]
-        _id = url.split('/')[-1]
-
-        if url_type in ('track', 'playlist', 'album'):
-            url_type += 's'
-        else:
-            raise InvalidURL
-
-        response = await self._request_get(f'https://api.spotify.com/v1/{url_type}/{_id}')
-
-        if url_type == 'tracks':
-            track_list = [response]
-        elif url_type == 'albums':
-            track_list = response['tracks']['items']
-        elif url_type == 'playlists':
-            track_list = [item['track'] for item in response['tracks']['items']]
-        else:
-            raise InvalidURL
-
-        return [self.get_search_query_from_track_obj(track) for track in track_list]
 
 
 class SomeRandomAPI(MidoBotAPI):
@@ -682,7 +611,7 @@ class Google(MidoBotAPI):
                 return self.parse_results(soup.find_all("div", {'class': ['r', 's']}))
 
             else:
-                raise Exception('There has been an error. Please try again later.')
+                raise APIError
 
     def parse_results(self, results):
         actual_results = []
@@ -727,3 +656,126 @@ class Google(MidoBotAPI):
                 search_results.append(self.SearchResult(title, url, description))
 
         return search_results
+
+
+class OAuthAPI(MidoBotAPI):
+    # noinspection PyTypeChecker
+    def __init__(self, session: ClientSession, credentials: dict):
+        super().__init__(session)
+
+        self.url_to_get_token = None
+
+        self.client_id: str = credentials.get('client_id')
+        self.client_secret: str = credentials.get('client_secret')
+
+        self.token: str = None
+        self.token_type: str = None
+        self.expire_date: MidoTime = None
+
+    @property
+    def auth_header(self):
+        return {'Authorization': f'{self.token_type.title()} {self.token}'}
+
+    async def _request_get(self, link: str, *args, **kwargs):
+        """This overwrites the base method"""
+        if not self.token or self.expire_date.end_date_has_passed:
+            await self.get_token()
+
+        return await super()._request_get(link, headers=self.auth_header, *args, **kwargs)
+
+    async def get_token(self):
+        param = {'grant_type': 'client_credentials'}
+
+        base_64 = base64.b64encode(
+            f'{self.client_id}:{self.client_secret}'.encode('ascii'))
+
+        header = {'Authorization': f'Basic {base_64.decode("ascii")}'}
+
+        async with self.session.post(self.url_to_get_token, data=param, headers=header) as r:
+            token_dict = await r.json()
+
+            self.token = token_dict['access_token']
+            self.token_type = token_dict['token_type']
+            self.expire_date = MidoTime.add_to_current_date_and_get(token_dict['expires_in'])
+
+
+class SpotifyAPI(OAuthAPI):
+    API_URL = "https://api.spotify.com/v1"
+
+    # noinspection PyTypeChecker
+    def __init__(self, session: ClientSession, credentials: dict):
+        super().__init__(session, credentials)
+
+        self.url_to_get_token = 'https://accounts.spotify.com/api/token'
+
+    @staticmethod
+    def get_search_query_from_track_obj(track: dict):
+        query = ", ".join(artist['name'] for artist in track['artists'])
+        query += f" - {track['name']}"
+
+        return query
+
+    async def get_song_names(self, url: str):
+        url_type = url.split('/')[3]
+        _id = url.split('/')[-1]
+
+        if url_type in ('track', 'playlist', 'album'):
+            url_type += 's'
+        else:
+            raise InvalidURL
+
+        response = await self._request_get(f'{self.API_URL}/{url_type}/{_id}', return_json=True)
+
+        if url_type == 'tracks':
+            track_list = [response]
+        elif url_type == 'albums':
+            track_list = response['tracks']['items']
+        elif url_type == 'playlists':
+            track_list = [item['track'] for item in response['tracks']['items']]
+        else:
+            raise InvalidURL
+
+        return [self.get_search_query_from_track_obj(track) for track in track_list]
+
+
+class BlizzardAPI(OAuthAPI):
+    class HearthstoneCard:
+        def __init__(self, data: dict):
+            from services.parsers import html_to_discord
+
+            self.id: int = data.pop('id')
+
+            self.name: str = data.pop('name')
+            self.description: str = html_to_discord(data.pop('text'))
+
+            self.health: int = data.pop('health')
+            self.attack: int = data.pop('attack')
+            self.mana_cost: int = data.pop('manaCost')
+
+            self.image: str = data.pop('image')
+            self.thumb: str = data.pop('cropImage')
+
+    API_URL = "https://eu.api.blizzard.com"
+
+    def __init__(self, session: ClientSession, credentials: dict):
+        super().__init__(session, credentials)
+
+        self.url_to_get_token = "https://eu.battle.net/oauth/token"
+
+    async def get_hearthstone_card(self, keyword: str = None) -> HearthstoneCard:
+        if keyword:
+            r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+                                        params={"locale"  : "en_US",
+                                                "keyword" : keyword,
+                                                "pageSize": 1},
+                                        return_json=True)
+        else:  # get random
+            r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+                                        params={"locale"  : "en_US",
+                                                "pageSize": 1,
+                                                "page"    : random.randint(1, 2710)  # total amount of cards
+                                                },
+                                        return_json=True)
+
+        r = r['cards'][0]  # get the first result
+        return self.HearthstoneCard(r)

@@ -42,5 +42,9 @@
   "reddit_credentials"  : {
     "client_id"    : "",
     "client_secret": ""
+  },
+  "blizzard_credentials": {
+    "client_id"    : "",
+    "client_secret": ""
   }
 }

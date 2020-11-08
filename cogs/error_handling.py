@@ -3,8 +3,8 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services.exceptions import APIError, EmbedError, InsufficientCash, MusicError, NotFoundError, RateLimited, \
-    SilenceError
+from services import exceptions as local_errors
+from services.context import MidoContext
 
 
 class Errors(commands.Cog):
@@ -12,13 +12,13 @@ class Errors(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: MidoContext, error):
         if hasattr(ctx.command, 'on_error'):
             return
 
         ignored = (
             discord.NotFound,
-            SilenceError
+            local_errors.SilentError
         )
 
         error = getattr(error, 'original', error)
@@ -27,53 +27,37 @@ class Errors(commands.Cog):
             if isinstance(error, ignored):
                 return
 
-            elif isinstance(error, NotFoundError):
-                return await ctx.send_error("I couldn't find anything with that query.")
+            # this is to observe missing commands
+            elif isinstance(error, commands.CommandNotFound):
+                return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
-            elif isinstance(error, RateLimited):
-                return await ctx.send_error("You are rate limited. Please try again in a few minutes.")
+            elif isinstance(error, commands.NSFWChannelRequired):
+                return await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
 
-            elif isinstance(error, APIError):
-                return await ctx.send_error("There was an error communicating with the API. Please try again.")
-
-            elif isinstance(error, (EmbedError, MusicError)):
-                return await ctx.send_error(str(error))
-
-            elif isinstance(error, InsufficientCash):
+            elif isinstance(error, local_errors.InsufficientCash):
                 return await ctx.send_error("You don't have enough money to do that!")
 
             elif isinstance(error, commands.NoPrivateMessage):
                 return await ctx.send_error("This command can not be used through DMs!")
 
-            # this is to observe missing commands
-            elif isinstance(error, commands.CommandNotFound):
-                return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
+            elif isinstance(error, commands.NotOwner):
+                return await ctx.send_error(error, "This is an owner-only command. Sorry.")
 
-            elif isinstance(error, discord.Forbidden):
-                return await ctx.send_error("I don't have enough permissions!")
-
-            elif isinstance(error, commands.BotMissingPermissions):
+            elif isinstance(error, (commands.BotMissingPermissions, discord.Forbidden)):
                 return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
 
             elif isinstance(error, commands.DisabledCommand):
                 return await ctx.send_error("This command is currently disabled and can't be used.")
 
-            elif isinstance(error, commands.CheckFailure):
-                return await ctx.send_error("You don't have required permissions to do that!")
-
-            elif isinstance(error, commands.CommandOnCooldown):
-                return await ctx.send_error("You're on cooldown!")
+            elif isinstance(error, (commands.CommandOnCooldown, local_errors.OnCooldownError)):
+                return await ctx.send_error(error, "You're on cooldown!")
 
             elif isinstance(error, commands.MissingRequiredArgument):
                 return await ctx.send_help(entity=ctx.command, content=f"**You are missing this required argument: "
                                                                        f"`{error.param.name}`**")
 
-            elif isinstance(error,
-                            (commands.BadArgument,
-                             commands.ExpectedClosingQuoteError,
-                             commands.UnexpectedQuoteError,
-                             commands.InvalidEndOfQuotedStringError)):
-                return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
+            elif isinstance(error, commands.CheckFailure):
+                return await ctx.send_error(error, "You don't have required permissions to do that!")
 
             elif isinstance(error, discord.HTTPException):
                 if error.code == 0:
@@ -82,6 +66,29 @@ class Errors(commands.Cog):
                 elif error.code == 10014:
                     return await ctx.send_error(
                         "I don't have permission to use external emojis! Please give me permission to use them.")
+
+            elif isinstance(error, local_errors.NotFoundError):
+                return await ctx.send_error(error, "I couldn't find anything with that query.")
+
+            elif isinstance(error, local_errors.RateLimited):
+                return await ctx.send_error(error, "You are rate limited. Please try again in a few minutes.")
+
+            elif isinstance(error, local_errors.APIError):
+                return await ctx.send_error(error,
+                                            "There was an error communicating with the API. Please try again later.")
+
+            elif isinstance(error,
+                            (commands.BadArgument,
+                             commands.ExpectedClosingQuoteError,
+                             commands.UnexpectedQuoteError,
+                             commands.InvalidEndOfQuotedStringError)):
+                return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
+
+            elif isinstance(error, (local_errors.MusicError,
+                                    commands.UserInputError,
+                                    local_errors.DidntVoteError)
+                            ):
+                return await ctx.send_error(error)
 
         except discord.Forbidden:
             return

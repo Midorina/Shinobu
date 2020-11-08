@@ -1,3 +1,5 @@
+from typing import Union
+
 import discord
 from asyncpg.pool import Pool
 from discord.ext import commands
@@ -5,6 +7,7 @@ from discord.ext import commands
 from models.db_models import GuildDB, MemberDB, UserDB
 from services.embed import MidoEmbed
 from services.resources import Resources
+from services.time_stuff import MidoTime
 
 
 class MidoContext(commands.Context):
@@ -27,6 +30,8 @@ class MidoContext(commands.Context):
 
         self.voice_player: VoicePlayer = None
 
+        self.time_created: MidoTime = MidoTime()
+
     async def attach_db_objects(self):
         try:
             self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
@@ -39,10 +44,14 @@ class MidoContext(commands.Context):
         except AttributeError:  # not in guild
             self.user_db = await UserDB.get_or_create(self.bot, self.author.id)
 
-    async def send_error(self, message: str = 'Error!') -> discord.Message:
+    async def send_error(self,
+                         error_obj: Union[Exception, str],
+                         message_to_show_if_no_msg_is_included: str = 'Error!') -> discord.Message:
+        msg = str(error_obj) or message_to_show_if_no_msg_is_included
+
         embed = MidoEmbed(bot=self.bot,
                           color=discord.Colour.red(),
-                          description=message)
+                          description=msg)
 
         return await self.send(embed=embed)
 

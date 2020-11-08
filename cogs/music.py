@@ -10,7 +10,7 @@ from midobot import MidoBot
 from services.apis import SpotifyAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError, MusicError, NotFoundError
+from services.exceptions import MusicError, NotFoundError
 from services.music import Song, VoicePlayer
 from services.resources import Resources
 from services.time_stuff import MidoTime
@@ -55,26 +55,20 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='connect')
     async def _join(self, ctx: MidoContext):
         """Make me connect to your voice channel."""
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            raise EmbedError('You are not connected to any voice channel.')
+        await self.ensure_can_control(ctx)  # this is cuz ctx.invoke doesn't call pre-invoke hooks
 
-        if ctx.voice_client:
-            if ctx.voice_client.channel != ctx.author.voice.channel:
-                raise EmbedError('Bot is already connected to a different voice channel.')
-            if ctx.voice_client.channel.id == ctx.voice_player.channel_id:
-                raise EmbedError("I'm already connected to your voice channel.")
+        if ctx.voice_client and ctx.voice_client.channel.id == ctx.voice_player.channel_id:
+            raise MusicError("I'm already connected to your voice channel.")
 
         destination = ctx.author.voice.channel
 
         if not destination.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
-            raise MusicError("I do not have permission to connect to that voice channel!")
+            raise commands.BotMissingPermissions("I do not have permission to connect to that voice channel!")
 
         try:
             await ctx.voice_player.connect(destination.id)
         except asyncio.TimeoutError:
-            raise MusicError("I could not connect to the voice channel. Please try again later.")
-        except discord.ClientException as e:
-            raise MusicError(str(e))
+            raise discord.HTTPException
         else:
             await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
@@ -88,22 +82,19 @@ class Music(commands.Cog, WavelinkMixin):
             await ctx.send_success("I've successfully left the voice channel.")
 
         else:
-            raise EmbedError("I'm not currently not in a voice channel!")
+            raise MusicError("I'm not currently not in a voice channel!")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
     async def _volume(self, ctx: MidoContext, volume: int = None):
         """Change or see the volume."""
-        if not ctx.voice_player.is_playing:
-            raise EmbedError('Nothing is being played at the moment.')
-
         if volume is None:
             return await ctx.send_success(f'Current volume: **{ctx.voice_player.volume}**%')
 
         elif volume == 0:
-            raise EmbedError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
+            raise MusicError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
 
         elif volume < 0 or volume > 100:
-            raise EmbedError('The volume must be **between 0 and 100!**')
+            raise MusicError('The volume must be **between 0 and 100!**')
 
         # set
         await ctx.voice_player.set_volume(volume)
@@ -114,57 +105,39 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now_playing(self, ctx: MidoContext):
         """See what's currently playing."""
-        if ctx.voice_player.is_playing:
-            await ctx.send(embed=ctx.voice_player.current.create_embed())
-        else:
-            raise EmbedError("I'm not currently playing any music!")
+        await ctx.send(embed=ctx.voice_player.current.create_embed())
 
     @commands.command(name='pause')
     async def _pause(self, ctx: MidoContext):
         """Pause the song."""
         if ctx.voice_player.is_paused:
-            raise EmbedError(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
+            raise MusicError(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
 
-        elif ctx.voice_player.is_playing:
-            await ctx.voice_player.set_pause(pause=True)
-            await ctx.message.add_reaction("⏯")
-
-        else:
-            raise EmbedError("I'm not currently playing any music!")
+        await ctx.voice_player.set_pause(pause=True)
+        await ctx.message.add_reaction("⏯")
 
     @commands.command(name='resume')
     async def _resume(self, ctx: MidoContext):
         """Resume the player."""
         if not ctx.voice_player.is_paused:
-            raise EmbedError(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
+            raise MusicError(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
 
-        elif ctx.voice_player.is_playing:
-            await ctx.voice_player.set_pause(pause=False)
-            await ctx.message.add_reaction("⏯")
-
-        else:
-            raise EmbedError("I'm not currently playing any music!")
+        await ctx.voice_player.set_pause(pause=False)
+        await ctx.message.add_reaction("⏯")
 
     @commands.command(name='stop')
     async def _stop(self, ctx: MidoContext):
         """Stop playing and clear the queue."""
-
-        if ctx.voice_player.is_playing:
-            await ctx.voice_player.stop()
-            await ctx.send_success('⏹ Stopped.')
-        else:
-            raise EmbedError("I'm not currently playing any music!")
+        await ctx.voice_player.stop()
+        await ctx.send_success('⏹ Stopped.')
 
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: MidoContext):
         """Skip the currently playing song."""
-        if not ctx.voice_player.is_playing:
-            raise EmbedError('Not playing any music right now...')
-
         voter = ctx.message.author
         vc = ctx.guild.get_channel(ctx.voice_player.channel_id)
         if ctx.author not in vc.members:
-            raise EmbedError("You are not in the voice channel!")
+            raise MusicError("You are not in the voice channel!")
 
         people_in_vc = len(vc.members) - 1
         if people_in_vc <= 2:
@@ -192,7 +165,7 @@ class Music(commands.Cog, WavelinkMixin):
                 return await ctx.send_success(base_string)
 
         else:
-            raise EmbedError('You have already voted to skip this song.')
+            raise MusicError('You have already voted to skip this song.')
 
         await ctx.message.add_reaction('⏭')
 
@@ -202,9 +175,6 @@ class Music(commands.Cog, WavelinkMixin):
         """Skip the currently playing song without requiring votes if enabled.
 
         You need the **Manage Server** permission to use this command."""
-        if not ctx.voice_player.is_playing:
-            raise EmbedError('Not playing any music right now...')
-
         await ctx.voice_player.skip()
         await ctx.message.add_reaction('⏭')
 
@@ -212,7 +182,7 @@ class Music(commands.Cog, WavelinkMixin):
     async def _queue(self, ctx: MidoContext):
         """See the current song queue."""
         if len(ctx.voice_player.song_queue) == 0 and not ctx.voice_player.current:
-            raise EmbedError(f'The queue is empty. Try queueing songs with `{ctx.prefix}play`')
+            raise MusicError(f'The queue is empty. Try queueing songs with `{ctx.prefix}play`')
 
         blocks = []
         current = ctx.voice_player.current
@@ -244,7 +214,7 @@ class Music(commands.Cog, WavelinkMixin):
     async def _shuffle(self, ctx: MidoContext):
         """Shuffle the song queue."""
         if len(ctx.voice_player.song_queue) == 0:
-            raise EmbedError('The queue is empty.')
+            raise MusicError('The queue is empty.')
 
         ctx.voice_player.song_queue.shuffle()
         await ctx.send_success('Successfully shuffled the song queue.')
@@ -253,13 +223,13 @@ class Music(commands.Cog, WavelinkMixin):
     async def _remove(self, ctx: MidoContext, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_player.song_queue) == 0:
-            raise EmbedError('The queue is empty.')
+            raise MusicError('The queue is empty.')
 
         if not 0 < index <= len(ctx.voice_player.song_queue):
-            raise EmbedError("Please specify a proper index!")
+            raise commands.BadArgument("Please specify a proper index!")
 
         if ctx.author.id != ctx.voice_player.song_queue[index - 1].requester.id:
-            raise EmbedError("You are not the requester of this song!")
+            raise commands.CheckFailure("You are not the requester of this song!")
 
         ctx.voice_player.song_queue.remove(index - 1)
         await ctx.send_success('✅ Removed the song.')
@@ -267,9 +237,6 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='loop')
     async def _loop(self, ctx: MidoContext):
         """Enable the loop feature to play the same song over and over."""
-        if not ctx.voice_player.is_playing:
-            return await ctx.send('Nothing being played at the moment.')
-
         # Inverse boolean value to loop and unloop.
         ctx.voice_player.loop = not ctx.voice_player.loop
 
@@ -281,14 +248,8 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='play', aliases=['p'])
     async def _play(self, ctx: MidoContext, *, query: str):
         """Queue a song to play!"""
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            raise EmbedError('You are not connected to any voice channel.')
-
         task = None
-        if ctx.voice_player.channel_id:
-            if ctx.voice_player.channel_id != ctx.author.voice.channel.id:
-                raise EmbedError('Bot is already in a voice channel.')
-        else:
+        if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
 
         async with ctx.typing():
@@ -304,7 +265,8 @@ class Music(commands.Cog, WavelinkMixin):
             for song_name in song_names:
                 song = await self.wavelink.get_tracks(song_name)
                 if not song and len(song_names) == 1:
-                    raise EmbedError(f"Couldn't find anything that matches `{query}`.")
+                    raise NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                        f"`{query}`.")
 
                 if isinstance(song, TrackPlaylist):
                     song_to_add = song.tracks
@@ -333,7 +295,7 @@ class Music(commands.Cog, WavelinkMixin):
     async def lyrics(self, ctx: MidoContext, *, song_name: str = None):
         """See the lyrics of the current song or a specific song."""
         if not song_name and not ctx.voice_player.current:
-            raise EmbedError("You need to play a song then use this command or specify a song name!")
+            raise MusicError("You need to play a song then use this command or specify a song name!")
         elif not song_name:
             song_name = ctx.voice_player.current.source.title
 
@@ -342,8 +304,8 @@ class Music(commands.Cog, WavelinkMixin):
         try:
             song_title, lyrics_pages, thumbnail = await api.get_lyrics(song_name)
         except NotFoundError:
-            raise EmbedError(f"I couldn't find the lyrics of **{song_name}**.\n"
-                             f"Try writing the title in a simpler form.")
+            raise NotFoundError(f"I couldn't find the lyrics of **{song_name}**.\n"
+                                f"Try writing the title in a simpler form.")
 
         e = MidoEmbed(bot=self.bot, title=song_title, default_footer=True)
         e.set_thumbnail(url=thumbnail)
@@ -353,6 +315,30 @@ class Music(commands.Cog, WavelinkMixin):
             item_per_page=1,
             blocks=lyrics_pages,
             extra_sep='\n')
+
+    @_volume.before_invoke
+    @_now_playing.before_invoke
+    @_pause.before_invoke
+    @_resume.before_invoke
+    @_stop.before_invoke
+    @_skip.before_invoke
+    @_force_skip.before_invoke
+    @_loop.before_invoke
+    async def ensure_playing(self, ctx: MidoContext):
+        """This func ensures that the voice player is playing something."""
+        if not ctx.voice_player.is_playing:
+            raise MusicError('Not playing any music right now...')
+
+    @_play.before_invoke
+    @_join.before_invoke
+    async def ensure_can_control(self, ctx: MidoContext):
+        """This func ensures that the author can control the player."""
+        if not ctx.author.voice or not ctx.author.voice.channel:
+            raise MusicError('You are not connected to any voice channel.')
+
+        if ctx.voice_client:
+            if ctx.voice_client.channel != ctx.author.voice.channel:
+                raise MusicError('Bot is connected to a different voice channel.')
 
 
 def setup(bot):

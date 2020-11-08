@@ -126,18 +126,14 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
         text = text.replace(ph, str(to_place))
 
         # todo: fix this
-        #
-    # 1|midobot  | Ignoring exception in on_message
-    # 1|midobot  | Traceback (most recent call last):
-    # 1|midobot  |   File "/usr/local/lib/python3.8/dist-packages/discord/client.py", line 333, in _run_event
-    # 1|midobot  |     await coro(*args, **kwargs)
-    # 1|midobot  |   File "/root/MidoBot/cogs/custom_reactions.py", line 37, in on_message
-    # 1|midobot  |     message_to_send = parse_text_with_context(text=cr.response,
-    # 1|midobot  |   File "/root/MidoBot/services/parsers.py", line 131, in parse_text_with_context
-    # 1|midobot  |     return discord.Embed.from_dict(embed)
-    # 1|midobot  |   File "/usr/local/lib/python3.8/dist-packages/discord/embeds.py", line 147, in from_dict
-    # 1|midobot  |     self.title = data.get('title', EmptyEmbed)
-    # 1|midobot  | AttributeError: 'int' object has no attribute 'get'
+        # 7|shinobu  | Traceback (most recent call last):
+        # 7|shinobu  |   File "/usr/local/lib/python3.8/dist-packages/discord/client.py", line 333, in _run_event
+        # 7|shinobu  |     await coro(*args, **kwargs)
+        # 7|shinobu  |   File "/root/MidoBot/cogs/custom_reactions.py", line 37, in on_message
+        # 7|shinobu  |     content, embed = parse_text_with_context(text=cr.response,
+        # 7|shinobu  |   File "/root/MidoBot/services/parsers.py", line 148, in parse_text_with_context
+        # 7|shinobu  |     content = embed.get('plainText', None) or embed.get('content', None)
+        # 7|shinobu  | AttributeError: 'int' object has no attribute 'get'
 
     try:
         embed: dict = json.loads(text)
@@ -149,3 +145,20 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
         embed = embed.get('embed', None) or embed
 
         return content, discord.Embed.from_dict(embed)
+
+
+def html_to_discord(text: str):
+    a = {
+        "<b>"  : "**",
+        "<i>"  : "*",
+        "<del>": "~~",
+        "<ins>": "__"
+    }
+
+    for start, to_place in a.items():
+        end = start[0] + '/' + start[1:]
+
+        text = text.replace(start, str(to_place))
+        text = text.replace(end, str(to_place))
+
+    return text

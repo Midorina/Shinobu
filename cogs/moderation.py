@@ -9,7 +9,6 @@ from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
 from services.parsers import parse_text_with_context
 from services.time_stuff import MidoTime
 
@@ -135,7 +134,7 @@ class Moderation(commands.Cog):
                     channel_str = 'DMs'
                     channel_id = 1
                 else:
-                    raise commands.BadArgument("Invalid channel!")
+                    raise commands.ChannelNotFound("Invalid channel!")
             else:
                 channel_str = channel.mention
                 channel_id = channel.id
@@ -169,7 +168,7 @@ class Moderation(commands.Cog):
         """
         if not channel:
             if not ctx.guild_db.bye_channel_id:
-                raise EmbedError("Goodbye feature has already been disabled.")
+                raise commands.BadArgument("Goodbye feature has already been disabled.")
             else:
                 await ctx.guild_db.set_bye(channel_id=None)
                 return await ctx.send_success("Goodbye feature has been successfully disabled.")
@@ -333,7 +332,7 @@ class Moderation(commands.Cog):
 
         user_is_banned = await ctx.guild.fetch_ban(target)
         if not user_is_banned:
-            raise EmbedError("That user isn't banned.")
+            raise commands.UserInputError("That user isn't banned.")
 
         else:
             await ctx.guild.unban(target, reason=f"User unbanned by {ctx.author}"
@@ -386,7 +385,7 @@ class Moderation(commands.Cog):
         mute_role = await self.get_or_create_muted_role(ctx)
 
         if mute_role in target.roles:
-            raise EmbedError("That user is already muted!")
+            raise commands.UserInputError("That user is already muted!")
 
         await target.add_roles(mute_role, reason=f"User muted by {ctx.author}"
                                                  f"{self.get_reason_string(reason)}")
@@ -421,7 +420,7 @@ class Moderation(commands.Cog):
         mute_role = await self.get_or_create_muted_role(ctx)
 
         if mute_role not in target.roles:
-            raise EmbedError("That user is not muted!")
+            raise commands.UserInputError("That user is not muted!")
 
         await target.remove_roles(mute_role, reason=f"User unmuted by {ctx.author}"
                                                     f"{self.get_reason_string(reason)}")
@@ -450,7 +449,7 @@ class Moderation(commands.Cog):
 
         logs = await ModLog.get_guild_logs(bot=ctx.bot, guild_id=ctx.guild.id, user_id=target.id)
         if not logs:
-            raise EmbedError("No logs have been found for that user.")
+            raise commands.UserInputError(f"No logs have been found for user **{target}**.")
 
         e = MidoEmbed(self.bot)
         e.set_author(icon_url=getattr(target, 'avatar_url', None),
@@ -504,11 +503,11 @@ class Moderation(commands.Cog):
         """
         log = await ModLog.get_by_id(bot=ctx.bot, log_id=case_id, guild_id=ctx.guild.id)
         if not log:
-            raise EmbedError("No logs have been found with that case ID.")
+            raise commands.UserInputError("No logs have been found with that case ID.")
 
         if log.executor_id != ctx.author.id and not ctx.author.guild_permissions.administrator:
-            raise EmbedError("You have to be the executor of this case "
-                             "or have Administrator permission in the server to do that!")
+            raise commands.UserInputError("You have to be the executor of this case "
+                                          "or have Administrator permission in the server to do that!")
 
         await log.change_reason(new_reason)
 
@@ -526,7 +525,7 @@ class Moderation(commands.Cog):
         """
         # already has that role check
         if role in member.roles:
-            raise EmbedError(f"Member {member.mention} already has the {role.mention} role.")
+            raise commands.UserInputError(f"Member {member.mention} already has the {role.mention} role.")
 
         await member.add_roles(role, reason=f'Role has been added by {ctx.author}.')
 
@@ -545,7 +544,7 @@ class Moderation(commands.Cog):
 
         # if they dont have the role
         if role not in member.roles:
-            raise EmbedError(f"Member {member.mention} don't have the {role.mention} role.")
+            raise commands.UserInputError(f"Member {member.mention} don't have the {role.mention} role.")
 
         await member.remove_roles(role, reason=f'Role has been removed by {ctx.author}.')
 
@@ -603,7 +602,7 @@ class Moderation(commands.Cog):
                 return m.author.id == target_user.id
 
         if number <= 0:
-            raise EmbedError("Invalid message amount. It can't be less than or equal to 0.")
+            raise commands.BadArgument("Invalid message amount. It can't be less than or equal to 0.")
         elif number > 100:
             number = 100
 

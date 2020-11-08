@@ -5,7 +5,6 @@ from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
 from services.converters import MidoRoleConverter
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
 
 
 class AssignableRoles(commands.Cog, name='Assignable Roles'):
@@ -23,7 +22,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         """
 
         if role.id in ctx.guild_db.assignable_role_ids:
-            raise EmbedError(f"Role {role.mention} is already in your assignable role list.")
+            raise commands.UserInputError(f"Role {role.mention} is already in your assignable role list.")
 
         await ctx.guild_db.add_assignable_role(role_id=role.id)
 
@@ -40,7 +39,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         """
 
         if role.id not in ctx.guild_db.assignable_role_ids:
-            raise EmbedError(f"Role {role.mention} is not in your assignable role list.")
+            raise commands.UserInputError(f"Role {role.mention} is not in your assignable role list.")
 
         await ctx.guild_db.remove_assignable_role(role_id=role.id)
 
@@ -94,11 +93,11 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
                    role: MidoRoleConverter()):
         """Join an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
-            raise EmbedError("That role is not assignable.")
+            raise commands.UserInputError("That role is not assignable.")
 
         # already has that role check
         if role in ctx.author.roles:
-            raise EmbedError(f"You already have the {role.mention} role.")
+            raise commands.UserInputError(f"You already have the {role.mention} role.")
 
         await ctx.author.add_roles(role, reason=f'Role has been added using {ctx.prefix}join')
 
@@ -121,11 +120,11 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
                     role: MidoRoleConverter()):
         """Leave an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
-            raise EmbedError("That role is not assignable.")
+            raise commands.UserInputError("That role is not assignable.")
 
         # already has that role check
         if role not in ctx.author.roles:
-            raise EmbedError(f"You don't even the {role.mention} role.")
+            raise commands.UserInputError(f"You don't even the {role.mention} role.")
 
         await ctx.author.remove_roles(role, reason=f'Role has been removed using {ctx.prefix}leave')
 

@@ -3,10 +3,8 @@ from discord.ext import commands
 
 from midobot import MidoBot
 from models.db_models import CustomReaction
-from services.checks import is_owner
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
 from services.parsers import parse_text_with_context
 
 
@@ -61,7 +59,6 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         return e
 
-    @commands.has_permissions(administrator=True)
     @commands.command(aliases=['acr'])
     async def addcustomreaction(self, ctx: MidoContext, trigger: str, *, response):
         """Add a custom reaction with a trigger and a response.
@@ -69,10 +66,14 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         http://nadekobot.readthedocs.io/en/latest/custom-reactions/"""
 
+        if ctx.guild and not ctx.author.guild_permissions.administrator:
+            raise commands.MissingPermissions(['administrator'])
+
+        guild_id = ctx.guild.id if ctx.guild else None
         cr = await CustomReaction.add(bot=ctx.bot,
                                       trigger=trigger,
                                       response=response,
-                                      guild_id=ctx.guild.id)
+                                      guild_id=guild_id)
 
         e = self.get_cr_embed(cr)
         e.title = "New Custom Reaction"
@@ -176,15 +177,15 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         cr: CustomReaction = ctx.args[2]  # arg after the context
 
         if not cr.guild_id:  # if its global
-            if not is_owner(ctx.author.id, ctx.bot):  # and not owner
-                raise EmbedError(f"You can not delete a global custom reaction!\n"
-                                 f"Use `{ctx.prefix}acr \"{cr.trigger}\" -` to disable "
-                                 f"this global custom reaction for your server.")
+            if not await ctx.bot.is_owner(ctx.author):  # if user is not the owner
+                raise commands.NotOwner(f"You can not delete a global custom reaction!\n\n"
+                                        f"Use `{ctx.prefix}acr \"{cr.trigger}\" -` to disable "
+                                        f"this global custom reaction for your server.")
         else:
             if cr.guild_id != ctx.guild.id:  # if it belongs to a different server
-                raise EmbedError("This custom reaction belongs to a different server!")
+                raise commands.UserInputError("This custom reaction belongs to a different server!")
             elif not ctx.author.guild_permissions.administrator:
-                raise commands.MissingPermissions
+                raise commands.MissingPermissions(['administrator'])
 
 
 def setup(bot):

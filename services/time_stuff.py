@@ -15,8 +15,8 @@ time_multipliers = {
 
 
 class MidoTime:
-    def __init__(self, start_date: datetime, end_date: datetime = None, initial_seconds: int = 0):
-        self.start_date = start_date
+    def __init__(self, start_date: datetime = None, end_date: datetime = None, initial_seconds: int = 0):
+        self.start_date = start_date or datetime.now(timezone.utc)
         self.end_date = end_date
 
         self.initial_remaining_seconds = initial_seconds
@@ -38,11 +38,15 @@ class MidoTime:
         return self.end_date <= datetime.now(timezone.utc)
 
     @property
-    def passed_seconds(self):
+    def passed_seconds(self) -> int:
         """Returns the time that has passed since the start."""
         remaining_in_float = (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
 
         return math.ceil(remaining_in_float)
+
+    @property
+    def passed_seconds_in_float(self) -> float:
+        return (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
 
     @property
     def passed_string(self):
@@ -139,40 +143,44 @@ class MidoTime:
         return sep.join(str_blocks)
 
     @classmethod
-    async def convert(cls, ctx, argument):  # ctx arg is passed no matter what
+    async def convert(cls, ctx, argument: str):  # ctx arg is passed no matter what
         """Converts a time length argument into MidoTime object."""
         length_in_seconds = 0
 
-        index = 0
-        while argument:
-            if argument[index].isdigit():
-                if argument[index] == argument[-1]:  # if its the last index
-                    raise BadArgument("Invalid time format!")
-                index += 1
-                continue
+        if argument.isdigit():  # if only digit is passed
+            length_in_seconds = int(argument) * 60  # its probably minutes, so we convert to seconds
 
-            elif argument[index] in time_multipliers.keys():
-                if index == 0:
-                    raise BadArgument("Invalid time format!")
+        else:
+            index = 0
+            while argument:
+                if argument[index].isdigit():
+                    if argument[index] == argument[-1]:  # if its the last index
+                        raise BadArgument("Invalid time format!")
+                    index += 1
+                    continue
 
-                # if its a month
-                if argument[index: index + 2] == 'mo':
-                    multiplier = time_multipliers['mo']
+                elif argument[index] in time_multipliers.keys():
+                    if index == 0:
+                        raise BadArgument("Invalid time format!")
+
+                    # if its a month
+                    if argument[index: index + 2] == 'mo':
+                        multiplier = time_multipliers['mo']
+                    else:
+                        multiplier = time_multipliers[argument[index]]
+
+                    length_in_seconds += int(argument[:index]) * multiplier
+
+                    # if its a month
+                    if multiplier == time_multipliers['mo']:
+                        argument = argument[index + 2:]
+                    else:
+                        argument = argument[index + 1:]
+
+                    index = 0
+
                 else:
-                    multiplier = time_multipliers[argument[index]]
-
-                length_in_seconds += int(argument[:index]) * multiplier
-
-                # if its a month
-                if multiplier == time_multipliers['mo']:
-                    argument = argument[index + 2:]
-                else:
-                    argument = argument[index + 1:]
-
-                index = 0
-
-            else:
-                raise BadArgument("Invalid time format!")
+                    raise BadArgument("Invalid time format!")
 
         return cls.add_to_current_date_and_get(length_in_seconds)
 

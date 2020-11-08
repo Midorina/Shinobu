@@ -13,7 +13,7 @@ from models.db_models import UserDB
 from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError
+from services.exceptions import InvalidURL
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
@@ -105,7 +105,7 @@ class MidoHelp(commands.HelpCommand):
 
     async def send_command_help(self, command, content=''):
         if command.hidden:
-            raise commands.CommandInvokeError("That is a hidden command. Sorry.")
+            raise commands.CheckFailure("That is a hidden command. Sorry.")
 
         embed = MidoEmbed(self.context.bot, default_footer=True)
         self.common_command_formatting(embed, command)
@@ -136,7 +136,7 @@ class Misc(commands.Cog):
         self.bot.logger.info('Updated the name cache of users.')
 
     @commands.command(hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def eval(self, ctx, *, cmd):
         """A developer command that evaluates code.
 
@@ -211,22 +211,23 @@ class Misc(commands.Cog):
     @commands.guild_only()
     @commands.command()
     async def prefix(self, ctx: MidoContext, *, prefix: str = None):
-        """See or change the prefix.
+        """Provide no arguments to see the prefix.
+        Specify one to change the server's prefix.
 
         You need the **Administrator** permission to change the prefix.
         """
         if prefix:
             if not ctx.author.guild_permissions.administrator:
-                raise commands.CheckFailure
+                raise commands.CheckFailure("You need Administrator permission to change the prefix.")
 
             await ctx.guild_db.change_prefix(prefix)
 
             # update cache
             self.bot.prefix_cache[ctx.guild.id] = prefix
 
-            return await ctx.send(f"The prefix has been successfully changed to `{prefix}`")
+            await ctx.send_success(f"The prefix has been successfully changed to `{prefix}`")
         else:
-            return await ctx.send(f"Current prefix for this server: `{ctx.prefix}`")
+            await ctx.send_success(f"Current prefix for this server: `{ctx.prefix}`")
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
@@ -295,7 +296,7 @@ class Misc(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def reload(self, ctx, cog_name: str = None):
         cog_counter = 0
         for file in os.listdir("cogs"):
@@ -316,7 +317,7 @@ class Misc(commands.Cog):
         await ctx.send(f"Successfully reloaded **{cog_counter}** cog(s)!")
 
     @commands.command(hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def shutdown(self, ctx, *, force: str = None):
         await ctx.send("Shutting down...")
 
@@ -325,7 +326,7 @@ class Misc(commands.Cog):
 
         await self.bot.close()
 
-    @checks.owner_only()
+    @checks.is_owner()
     @commands.command(hidden=True)
     async def setavatar(self, ctx, new_av: str = None):
         if new_av:
@@ -341,7 +342,7 @@ class Misc(commands.Cog):
             if r.status == 200:
                 img_bytes = await r.read()
             else:
-                raise EmbedError("Invalid URL!")
+                raise InvalidURL("Invalid URL!")
 
         await self.bot.user.edit(avatar=img_bytes)
         await ctx.send("Avatar has been successfully updated.")

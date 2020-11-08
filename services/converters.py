@@ -15,7 +15,7 @@ class MidoMemberConverter(commands.MemberConverter):
                 member = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.members)
 
             if not member:
-                raise commands.BadArgument(f"Member \"{argument}\" not found.")
+                raise commands.MemberNotFound(argument)
 
         return member
 
@@ -28,7 +28,7 @@ class MidoRoleConverter(commands.RoleConverter):
             role = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
 
         if not role:
-            raise commands.BadArgument(f"Role \"{argument}\" not found.")
+            raise commands.RoleNotFound(argument)
 
         return role
 

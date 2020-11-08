@@ -12,7 +12,7 @@ from services import checks
 from services.context import MidoContext
 from services.converters import MidoMemberConverter
 from services.embed import MidoEmbed
-from services.exceptions import EmbedError, InsufficientCash
+from services.exceptions import APIError, DidntVoteError, InsufficientCash, OnCooldownError
 from services.resources import Resources
 
 
@@ -79,15 +79,14 @@ class Gambling(commands.Cog):
         try:
             has_voted = ctx.author.id in self.votes or await self.dblpy.get_user_vote(ctx.author.id)
         except dbl.HTTPException:
-            raise EmbedError("There is an error from website's side. Please try again in a few minutes.")
+            raise APIError
 
         if not daily_status.end_date_has_passed:
-            raise EmbedError(
-                f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
+            raise OnCooldownError(f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
         elif not has_voted:
-            raise EmbedError(f"It seems like you haven't voted yet.\n\n"
-                             f"Vote [here]({Resources.links.upvote}), "
-                             f"then use this command again to get your **{daily_amount}{Resources.emotes.currency}**!")
+            raise DidntVoteError(f"It seems like you haven't voted yet.\n\n"
+                                 f"Vote [here]({Resources.links.upvote}), "
+                                 f"then use this command again to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
             try:
@@ -271,7 +270,7 @@ class Gambling(commands.Cog):
     async def give_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         """Give a specific amount of donut to someone else."""
         if member.id == ctx.author.id:
-            raise EmbedError("Why'd you send money to yourself?")
+            raise commands.UserInputError("Why'd you send money to yourself?")
 
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
@@ -279,8 +278,8 @@ class Gambling(commands.Cog):
         await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}{Resources.emotes.currency}** "
                                f"to **{member.mention}**!")
 
-    @checks.owner_only()
-    @commands.command(name="award", hidden=True)
+    @checks.is_owner()
+    @commands.command(name="award", aliases=['addcash'], hidden=True)
     async def add_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
@@ -288,8 +287,8 @@ class Gambling(commands.Cog):
         await member.send(f"You've been awarded **{amount}{Resources.emotes.currency}** by the bot owner!")
         await ctx.send_success(f"You've successfully awarded {member} with **{amount}{Resources.emotes.currency}**!")
 
-    @checks.owner_only()
-    @commands.command(name="punish", aliases=['withdraw'], hidden=True)
+    @checks.is_owner()
+    @commands.command(name="punish", aliases=['withdraw, removecash'], hidden=True)
     async def remove_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Union
 
 import discord
 from discord.ext import commands
@@ -40,7 +40,7 @@ class XP(commands.Cog):
 
         return e
 
-    def get_leaderboard_embed(self, top_10: List[UserDB], title: str):
+    def get_leaderboard_embed(self, top_10: List[Union[UserDB, MemberDB]], title: str):
         e = discord.Embed(color=self.bot.main_color,
                           title=title)
 
@@ -191,28 +191,28 @@ class XP(commands.Cog):
             await ctx.send("You've successfully enabled level up notifications in this server!")
 
     @commands.command(name="addxp", hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def add_xp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def add_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.add_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def remove_xp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
-    @checks.owner_only()
+    @checks.is_owner()
     async def remove_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.remove_xp(amount)

@@ -7,12 +7,8 @@ import asyncpg
 from asyncpg import Record
 
 from models.waifu_models import Waifu
-from services.exceptions import InsufficientCash, NotFoundError
+from services.exceptions import InsufficientCash, NotFoundError, OnCooldownError
 from services.time_stuff import MidoTime
-
-
-class OnCooldown(Exception):
-    pass
 
 
 class XpAnnouncement(Enum):
@@ -152,7 +148,7 @@ class UserDB(BaseDBModel):
 
         self.cash: int = user_db.get('cash')
 
-        self.discord_name = user_db.get('name_and_discriminator') or self.id
+        self._discord_name = user_db.get('name_and_discriminator') or self.id
 
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
@@ -165,6 +161,14 @@ class UserDB(BaseDBModel):
                                                                        bot.config['cooldowns']['daily'])
 
         self.waifu: Waifu = Waifu(self)
+
+    @property
+    def discord_name(self) -> str:
+        user = self.bot.get_user(self.id)
+        if user:
+            return str(user)
+        else:
+            return self._discord_name
 
     @classmethod
     async def get_or_create(cls, bot, user_id: int):
@@ -227,8 +231,8 @@ class UserDB(BaseDBModel):
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_status.end_date_has_passed and not owner:
-            raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{self.xp_status.remaining_string}**.")
+            raise OnCooldownError(f"You're still on cooldown! "
+                                  f"Try again after **{self.xp_status.remaining_string}**.")
         else:
             await self.db.execute(
                 """UPDATE users SET xp = xp + $1, last_xp_gain = $2 WHERE id=$3""",
@@ -301,6 +305,10 @@ class MemberDB(BaseDBModel):
         self.xp_date_status = MidoTime.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), bot.config['cooldowns']['xp'])
 
+    @property
+    def discord_name(self):
+        return self.user.discord_name
+
     @classmethod
     async def get_or_create(cls, bot, guild_id: int, member_id: int):
         user_db = await UserDB.get_or_create(bot, member_id)
@@ -326,8 +334,8 @@ class MemberDB(BaseDBModel):
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_date_status.end_date_has_passed and not owner:
-            raise OnCooldown(f"You're still on cooldown! "
-                             f"Try again after **{self.xp_date_status.remaining_string}**.")
+            raise OnCooldownError(f"You're still on cooldown! "
+                                  f"Try again after **{self.xp_date_status.remaining_string}**.")
         else:
             await self.db.execute(
                 """UPDATE members SET xp = xp + $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",
@@ -443,10 +451,11 @@ class GuildDB(BaseDBModel):
         self.level_up_notifs_silenced = not self.level_up_notifs_silenced
         return self.level_up_notifs_silenced
 
-    async def get_top_10(self) -> List[UserDB]:
+    async def get_top_10(self) -> List[MemberDB]:
         top_10 = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
                                      self.id)
-        return [UserDB(user, self.bot) for user in top_10]
+        return [await MemberDB.get_or_create(bot=self.bot, guild_id=member['guild_id'], member_id=member['user_id'])
+                for member in top_10]
 
     async def set_welcome(self, channel_id: int = None, msg: str = None):
         await self.db.execute(

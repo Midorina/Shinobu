@@ -23,6 +23,8 @@ async def _get_prefix(_bot, msg: discord.Message):
 
 
 intents = discord.Intents.default()
+
+
 # intents.members = True
 # intents.presences = True
 
@@ -42,6 +44,8 @@ class MidoBot(commands.AutoShardedBot):
 
         with open(f'config_{self.name}.json') as f:
             self.config = json.load(f)
+
+        self.owner_ids = set(self.config['owner_ids'])
 
         self.first_time = True
 
@@ -121,16 +125,14 @@ class MidoBot(commands.AutoShardedBot):
         await self.log_channel.send(
             f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
 
-    @staticmethod
-    async def on_command_completion(ctx):
-        if ctx.guild is not None:
-            if ctx.guild_db.delete_commands is True:
-                try:
-                    await ctx.message.delete()
-                except discord.Forbidden:
-                    pass
+    def log_command(self, ctx: MidoContext, error: Exception = None):
+        execution_time = '{:.2f}s'.format(ctx.time_created.passed_seconds_in_float)
 
-    async def on_command(self, ctx):
+        if error:
+            log_msg = f"Command errored in {execution_time}:\n"
+        else:
+            log_msg = f"Command executed successfully in {execution_time}:\n"
+
         if isinstance(ctx.channel, discord.DMChannel):
             server = "DM"
             channel = f"{ctx.channel.id}"
@@ -138,22 +140,34 @@ class MidoBot(commands.AutoShardedBot):
             server = f"{ctx.guild.name} ({ctx.guild.id})"
             channel = f"{ctx.channel.name} ({ctx.channel.id})"
 
-        self.logger.info(f"Command executed:\n"
-                         f"Server\t: {server}\n"
-                         f"Channel\t: {channel}\n"
-                         f"User\t: {str(ctx.author)} ({ctx.author.id})\n"
-                         f"Command\t: {ctx.message.content}"
-                         )
+        tab = '\t' * 8
+        log_msg += f"{tab}Server\t: {server}\n" \
+                   f"{tab}Channel\t: {channel}\n" \
+                   f"{tab}User\t: {str(ctx.author)} ({ctx.author.id})\n" \
+                   f"{tab}Command\t: {ctx.message.content}"
+        if error:
+            error_msg = str(error).split('\n')[0] or error.__class__.__name__
+            log_msg += f"\n{tab}Error: {error_msg}"
 
+        self.logger.info(log_msg)
         self.command_counter += 1
 
-    async def get_user_name(self, _id: int, user_db: UserDB = None):
-        user = self.get_user(_id)
-        if user:
-            return str(user)
-        else:
-            user_db = user_db or await UserDB.get_or_create(self.db, _id)
-            return user_db.discord_name
+    async def on_command_completion(self, ctx: MidoContext):
+        if ctx.guild is not None:
+            if ctx.guild_db.delete_commands is True:
+                try:
+                    await ctx.message.delete()
+                except discord.Forbidden:
+                    pass
+
+        self.log_command(ctx)
+
+    async def on_command_error(self, ctx: MidoContext, exception):
+        self.log_command(ctx, error=exception)
+
+    async def get_user_name(self, _id: int) -> str:
+        user_db = await UserDB.get_or_create(bot=self, user_id=_id)
+        return user_db.discord_name
 
     def run(self):
         super().run(self.config["token"])
