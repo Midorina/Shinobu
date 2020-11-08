@@ -8,7 +8,7 @@ import discord
 import wavelink
 from discord.ext import commands
 
-from models.db_models import MidoTime, UserDB
+from models.db import MidoTime, UserDB
 from services.apis import MidoBotAPI
 from services.context import MidoContext
 

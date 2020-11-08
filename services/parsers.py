@@ -137,6 +137,7 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
 
     try:
         embed: dict = json.loads(text)
+        print("parser embed: ", embed)
     except json.JSONDecodeError:
         return text, None
     else:
@@ -149,10 +150,11 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
 
 def html_to_discord(text: str):
     a = {
-        "<b>"  : "**",
-        "<i>"  : "*",
-        "<del>": "~~",
-        "<ins>": "__"
+        "<b>"   : "**",
+        "<i>"   : "*",
+        "<del>" : "~~",
+        "<ins>" : "__",
+        "&nbsp;": " "
     }
 
     for start, to_place in a.items():
@@ -160,5 +162,10 @@ def html_to_discord(text: str):
 
         text = text.replace(start, str(to_place))
         text = text.replace(end, str(to_place))
+
+    # todo
+    # for d in a.values():
+    #     if d*2 in text:
+    #         text = text.replace(d*2, d + ' ')
 
     return text

@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands, tasks
 
 from midobot import MidoBot
-from models.db_models import GuildDB, ModLog
+from models.db import GuildDB, ModLog
 from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, MidoRoleConverter

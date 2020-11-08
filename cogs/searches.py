@@ -101,19 +101,28 @@ class Searches(commands.Cog):
         await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
     @commands.command(aliases=['hs'])
-    async def hearthstone(self, ctx: context.MidoContext, keyword: str = None):
+    async def hearthstone(self, ctx: context.MidoContext, *, keyword: str = None):
         """Search or get a random Hearthstone card!"""
         card = await self.blizzard_api.get_hearthstone_card(keyword)
         e = MidoEmbed(bot=ctx.bot,
                       title=card.name,
                       image_url=card.image,
-                      colour=0xc7ac86)
-        e.set_thumbnail(url=card.thumb)
+                      colour=card.rarity_color)
 
-        e.description = f"**Health:** {card.health}\n" \
-                        f"**Attack:** {card.attack}\n" \
-                        f"**Mana Cost:** {card.mana_cost}\n\n" \
-                        f"{card.description}"
+        if card.thumb:
+            e.set_thumbnail(url=card.thumb)
+
+        e.description = f"**Mana Cost:** {card.mana_cost}\n"
+        if card.health:
+            e.description += f"**Health:** {card.health}\n"
+        if card.attack:
+            e.description += f"**Attack:** {card.attack}\n"
+        if card.durability:
+            e.description += f"**Durability:** {card.durability}\n"
+
+        e.description += f"\n{card.description}"
+
+        e.set_footer(text=card.type.name)
         await ctx.send(embed=e)
 
 def setup(bot):

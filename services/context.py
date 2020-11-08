@@ -4,7 +4,7 @@ import discord
 from asyncpg.pool import Pool
 from discord.ext import commands
 
-from models.db_models import GuildDB, MemberDB, UserDB
+from models.db import GuildDB, MemberDB, UserDB
 from services.embed import MidoEmbed
 from services.resources import Resources
 from services.time_stuff import MidoTime

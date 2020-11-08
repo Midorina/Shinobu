@@ -100,7 +100,7 @@ _ITEMS = (
 
 class Waifu:
     def __init__(self, user):
-        from models.db_models import UserDB
+        from models.db import UserDB
 
         self.user: UserDB = user
 

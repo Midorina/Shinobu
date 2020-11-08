@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db_models import CustomReaction
+from models.db import CustomReaction
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.parsers import parse_text_with_context

@@ -6,7 +6,7 @@ from typing import List, Union
 import asyncpg
 from asyncpg import Record
 
-from models.waifu_models import Waifu
+from models.waifu import Waifu
 from services.exceptions import InsufficientCash, NotFoundError, OnCooldownError
 from services.time_stuff import MidoTime
 

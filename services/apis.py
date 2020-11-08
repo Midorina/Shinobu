@@ -15,7 +15,8 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 from discord.ext.commands import TooManyArguments
 
-from models.db_models import CachedImage
+from models.db import CachedImage
+from models.hearthstone import HearthstoneCard
 from services.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
 from services.resources import Resources
 from services.time_stuff import MidoTime
@@ -739,22 +740,6 @@ class SpotifyAPI(OAuthAPI):
 
 
 class BlizzardAPI(OAuthAPI):
-    class HearthstoneCard:
-        def __init__(self, data: dict):
-            from services.parsers import html_to_discord
-
-            self.id: int = data.pop('id')
-
-            self.name: str = data.pop('name')
-            self.description: str = html_to_discord(data.pop('text'))
-
-            self.health: int = data.pop('health')
-            self.attack: int = data.pop('attack')
-            self.mana_cost: int = data.pop('manaCost')
-
-            self.image: str = data.pop('image')
-            self.thumb: str = data.pop('cropImage')
-
     API_URL = "https://eu.api.blizzard.com"
 
     def __init__(self, session: ClientSession, credentials: dict):
@@ -765,9 +750,9 @@ class BlizzardAPI(OAuthAPI):
     async def get_hearthstone_card(self, keyword: str = None) -> HearthstoneCard:
         if keyword:
             r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
-                                        params={"locale"  : "en_US",
-                                                "keyword" : keyword,
-                                                "pageSize": 1},
+                                        params={"locale"    : "en_US",
+                                                "textFilter": keyword,
+                                                "pageSize"  : 1},
                                         return_json=True)
         else:  # get random
             r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
@@ -778,4 +763,4 @@ class BlizzardAPI(OAuthAPI):
                                         return_json=True)
 
         r = r['cards'][0]  # get the first result
-        return self.HearthstoneCard(r)
+        return HearthstoneCard(r)

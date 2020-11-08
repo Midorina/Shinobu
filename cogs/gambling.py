@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db_models import UserDB
+from models.db import UserDB
 from services import checks
 from services.context import MidoContext
 from services.converters import MidoMemberConverter

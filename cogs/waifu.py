@@ -6,8 +6,8 @@ from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
 
 from midobot import MidoBot
-from models.db_models import UserDB
-from models.waifu_models import Item
+from models.db import UserDB
+from models.waifu import Item
 from services.context import MidoContext
 from services.converters import MidoMemberConverter, readable_bigint
 from services.embed import MidoEmbed

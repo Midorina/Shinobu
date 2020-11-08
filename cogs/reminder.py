@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db_models import ReminderDB
+from models.db import ReminderDB
 from services.context import MidoContext
 from services.embed import MidoEmbed
 from services.time_stuff import MidoTime
