@@ -281,7 +281,8 @@ class UserDB(BaseDBModel):
 
     @classmethod
     async def get_top_expensive_waifus(cls, limit: int, bot):
-        ret = await bot.db.fetch("SELECT * FROM users ORDER BY waifu_price DESC LIMIT $1;", limit)
+        ret = await bot.db.fetch(
+            "SELECT * FROM users WHERE waifu_price IS NOT NULL ORDER BY waifu_price DESC LIMIT $1;", limit)
         return [cls(user, bot) for user in ret]
 
     async def delete(self):

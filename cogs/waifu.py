@@ -32,7 +32,8 @@ class Waifu(commands.Cog):
             user = self.bot.get_user(user_db.id)
             user_name = str(user) if user else user_db.discord_name
 
-            affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id)
+            affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id) if user_db.waifu.affinity_id \
+                else "no one."
             claimer_name = await self.bot.get_user_name(user_db.waifu.claimer_id) if user_db.waifu.claimer_id \
                 else "no one."
 
@@ -40,7 +41,7 @@ class Waifu(commands.Cog):
             if i == 1 and user:
                 e.set_thumbnail(url=user.avatar_url)
 
-            e.description += f"`#{i}` **{user_db.waifu.price}{Resources.emotes.currency}** " \
+            e.description += f"`#{i}` **{user_db.waifu.price_readable} {Resources.emotes.currency}** " \
                              f"**{user_name}** claimed by **{claimer_name}**\n"
             if not user_db.waifu.affinity_id:
                 if not user_db.waifu.claimer_id:
