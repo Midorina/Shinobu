@@ -754,6 +754,12 @@ class BlizzardAPI(OAuthAPI):
                                                 "textFilter": keyword,
                                                 "pageSize"  : 1},
                                         return_json=True)
+            if not r['cards']:
+                r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+                                            params={"locale"  : "en_US",
+                                                    "keyword" : keyword,
+                                                    "pageSize": 1},
+                                            return_json=True)
         else:  # get random
             r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
                                         params={"locale"  : "en_US",
@@ -762,5 +768,8 @@ class BlizzardAPI(OAuthAPI):
                                                 },
                                         return_json=True)
 
-        r = r['cards'][0]  # get the first result
-        return HearthstoneCard(r)
+        cards = r['cards']
+        if not cards:
+            raise NotFoundError
+
+        return HearthstoneCard(cards[0])  # get the first result
