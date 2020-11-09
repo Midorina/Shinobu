@@ -15,6 +15,19 @@ from services.embed import MidoEmbed
 from services.exceptions import APIError, DidntVoteError, InsufficientCash, OnCooldownError
 from services.resources import Resources
 
+DIGIT_TO_EMOJI = {
+    0: ":zero:",
+    1: ":one:",
+    2: ":two:",
+    3: ":three:",
+    4: ":four:",
+    5: ":five:",
+    6: ":six:",
+    7: ":seven:",
+    8: ":eight:",
+    9: ":nine:"
+}
+
 
 class Gambling(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -244,6 +257,41 @@ class Gambling(commands.Cog):
 
         await ctx.send(content=content)
 
+    @commands.command(aliases=['br'])
+    async def betroll(self, ctx: MidoContext, amount: Union[int, str]):
+        """Roll a random number between 1 and 100."""
+        rolled = random.randint(1, 100)
+        win_multip = 0
+
+        if rolled > 66:
+            color = self.success_color
+            if rolled == 100:
+                win_multip = 10
+                msg = f"Congratulations!! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling 100 🎉"
+            elif rolled > 90:
+                win_multip = 4
+                msg = f"Congratulations! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 90."
+            else:
+                win_multip = 2
+                msg = f"Congratulations! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 66."
+        else:
+            color = self.fail_color
+            msg = f"Better luck next time 🥺"
+
+        await ctx.user_db.add_cash(amount=amount * win_multip)
+
+        e = MidoEmbed(bot=ctx.bot, colour=color)
+        e.description = "**You rolled:** "
+        rolled_str = "{:02d}".format(rolled)
+        for digit in rolled_str:
+            e.description += DIGIT_TO_EMOJI[int(digit)]
+
+        e.description += '\n\n' + msg
+
+        e.set_footer(icon_url=ctx.author.avatar_url, text=str(ctx.author))
+
+        await ctx.send(embed=e)
+
     @commands.command(aliases=['lb'])
     async def leaderboard(self, ctx: MidoContext):
         """See the donut leaderboard!"""
@@ -296,6 +344,7 @@ class Gambling(commands.Cog):
         await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
 
     @wheel.before_invoke
+    @betroll.before_invoke
     @slots.before_invoke
     @coin_flip.before_invoke
     @give_cash.before_invoke
