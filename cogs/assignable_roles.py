@@ -61,7 +61,6 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
             await ctx.send_success("Assignable roles are no longer exclusive.")
 
     @commands.command(aliases=['lar'])
-    @commands.has_permissions(manage_roles=True)
     async def listassignableroles(self,
                                   ctx: MidoContext):
         """List all assignable roles available.
@@ -87,7 +86,6 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         await ctx.send(embed=e)
 
     @commands.command(aliases=['iam'])
-    @commands.has_permissions(manage_roles=True)
     async def join(self,
                    ctx: MidoContext,
                    role: MidoRoleConverter()):
@@ -114,7 +112,6 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
 
     @commands.command(aliases=['iamn'])
-    @commands.has_permissions(manage_roles=True)
     async def leave(self,
                     ctx: MidoContext,
                     role: MidoRoleConverter()):

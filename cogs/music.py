@@ -326,8 +326,11 @@ class Music(commands.Cog, WavelinkMixin):
     @_loop.before_invoke
     async def ensure_playing(self, ctx: MidoContext):
         """This func ensures that the voice player is playing something."""
+        ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=VoicePlayer)
+
         if not ctx.voice_player.is_playing:
-            raise MusicError('Not playing any music right now...')
+            raise MusicError(f'Not playing anything at the moment. '
+                             f'Try playing something with `{ctx.prefix}play`')
 
     @_play.before_invoke
     @_join.before_invoke

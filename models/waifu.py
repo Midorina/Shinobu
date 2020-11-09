@@ -40,7 +40,10 @@ class Item:
 
     @classmethod
     def find(cls, item_name: str):
-        return next(x for x in _ITEMS if x.name.lower() == item_name)
+        try:
+            return next(x for x in _ITEMS if x.name.lower() == item_name)
+        except StopIteration:
+            return None
 
     @classmethod
     def get_emotes_and_amounts(cls, items: List[Item]) -> List[Tuple[str, int]]:
@@ -94,9 +97,6 @@ _ITEMS = (
     Item(35, 'Moon', "🌕", 100000)
 )
 
-
-# https://gitlab.com/Kwoth/nadekobot/-/tree/1.9/NadekoBot.Core/Services/Database/Models
-# https://gitlab.com/Kwoth/nadekobot/-/tree/1.9/NadekoBot.Core/Modules/Gambling/Common/Waifu
 
 class Waifu:
     def __init__(self, user):

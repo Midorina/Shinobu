@@ -543,7 +543,7 @@ class SomeRandomAPI(MidoBotAPI):
         return await self._request_get(self.URLs["youtube"], params={'avatar'  : avatar_url,
                                                                      "username": username,
                                                                      "comment" : comment,
-                                                                     "dark"    : True},
+                                                                     "dark"    : 'true'},
                                        return_url=True)
 
     @staticmethod

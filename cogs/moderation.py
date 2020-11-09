@@ -578,6 +578,13 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
+    @commands.command(aliases=['av'])
+    async def avatar(self, ctx: MidoContext, *, target: MidoMemberConverter() = None):
+        """See the avatar of someone."""
+        user = target or ctx.author
+        e = MidoEmbed(bot=self.bot, image_url=user.avatar_url)
+        await ctx.send(embed=e)
+
     @setrole.before_invoke
     @removerole.before_invoke
     @deleterole.before_invoke

@@ -7,6 +7,12 @@ from typing import List
 import discord
 
 
+# todo: organize colors
+# class MidoColor:
+#     def __init__(self, hex):
+#         self.color = hex
+
+
 class MidoEmbed(discord.Embed):
     def __init__(self, bot, default_footer=False, image_url=None, **kwargs):
         super().__init__(**kwargs)
@@ -184,3 +190,38 @@ class MidoEmbed(discord.Embed):
 
         else:
             return str(reaction.emoji) == emotes[0]
+
+    @staticmethod
+    async def get_msg(bot,
+                      ctx,
+                      author_id: int = None,
+                      message_to_send: str = None,
+                      must_be_int=False,
+                      must_be_letter=False,
+                      delete_response_after=False,
+                      timeout: float = 120) -> discord.Message:
+        def message_check(m: discord.Message):
+            if not author_id or m.author.id == author_id:
+                if m.channel == ctx.channel:
+                    content = m.content
+                    if must_be_int is True:
+                        if content.isdigit():
+                            return True
+                    elif must_be_letter is True:
+                        if len(content) == 1:
+                            return True
+                    else:
+                        return True
+
+        if message_to_send:
+            await ctx.send(message_to_send)
+
+        try:
+            message = await bot.wait_for('message', check=message_check, timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+        else:
+            if delete_response_after:
+                await message.delete()
+
+            return message

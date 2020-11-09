@@ -35,3 +35,7 @@ class RateLimited(CommandError):
 
 class APIError(CommandError):
     pass
+
+
+class TimedOut(CommandError):
+    pass

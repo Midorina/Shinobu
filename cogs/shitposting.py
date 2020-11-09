@@ -113,8 +113,12 @@ class Shitposting(commands.Cog):
         image = await self.get_reddit_api().get_from_the_db(ctx.bot, 'memes')
         await ctx.send_simple_image(image.url)
 
-    @commands.command()
-    async def youtube(self, ctx: MidoContext, target: Union[MidoMemberConverter, str] = None, *, comment: str = ''):
+    @commands.command(aliases=['youtubecomment'])
+    async def ytcomment(self, ctx: MidoContext, target: Union[MidoMemberConverter, str] = None, *, comment: str = ''):
+        """Generate a YouTube comment."""
+        if not target and not comment:
+            raise commands.BadArgument("You should at least provide a comment to be shown in the image.")
+
         # if only comment is passed
         if isinstance(target, str):
             comment = f"{target} {comment}"

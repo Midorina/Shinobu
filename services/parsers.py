@@ -125,19 +125,10 @@ def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, autho
     for ph, to_place in base_dict.items():
         text = text.replace(ph, str(to_place))
 
-        # todo: fix this
-        # 7|shinobu  | Traceback (most recent call last):
-        # 7|shinobu  |   File "/usr/local/lib/python3.8/dist-packages/discord/client.py", line 333, in _run_event
-        # 7|shinobu  |     await coro(*args, **kwargs)
-        # 7|shinobu  |   File "/root/MidoBot/cogs/custom_reactions.py", line 37, in on_message
-        # 7|shinobu  |     content, embed = parse_text_with_context(text=cr.response,
-        # 7|shinobu  |   File "/root/MidoBot/services/parsers.py", line 148, in parse_text_with_context
-        # 7|shinobu  |     content = embed.get('plainText', None) or embed.get('content', None)
-        # 7|shinobu  | AttributeError: 'int' object has no attribute 'get'
-
     try:
         embed: dict = json.loads(text)
-        print("parser embed: ", embed)
+        if not isinstance(embed, dict):  # avoid loads returning something else (such as int)
+            raise json.JSONDecodeError
     except json.JSONDecodeError:
         return text, None
     else:
@@ -163,7 +154,7 @@ def html_to_discord(text: str):
         text = text.replace(start, str(to_place))
         text = text.replace(end, str(to_place))
 
-    # todo
+    # todo: fix consecutive html tags
     # for d in a.values():
     #     if d*2 in text:
     #         text = text.replace(d*2, d + ' ')

@@ -7,7 +7,7 @@ from services.apis import BlizzardAPI, Google, SomeRandomAPI
 from services.embed import MidoEmbed
 
 
-# TODO: pokemon, hearthstone
+# TODO: pokemon
 
 class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -29,7 +29,7 @@ class Searches(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    @commands.command(aliases=['g'], enabled=False)  # todo
+    @commands.command(aliases=['g'], enabled=False)  # todo: fix google
     async def google(self, ctx: context.MidoContext, *, search: str):
         """Makes a Google search."""
 
