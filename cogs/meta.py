@@ -128,9 +128,11 @@ class Misc(commands.Cog):
 
     @tasks.loop(minutes=10)
     async def update_name_cache(self):
-        for user_db in await UserDB.get_all(bot=self.bot):
-            user = self.bot.get_user(user_db.id)
-            if user and str(user) != user_db.discord_name:
+        await self.bot.wait_until_ready()
+
+        for user in self.bot.users:
+            user_db = await UserDB.get_or_create(bot=self.bot, user_id=user.id)
+            if str(user) != user_db._discord_name:
                 await user_db.update_name(str(user))
 
         self.bot.logger.info('Updated the name cache of users.')

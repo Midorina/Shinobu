@@ -5,9 +5,9 @@ from midobot import MidoBot
 from services import context, embed
 from services.apis import BlizzardAPI, Google, SomeRandomAPI
 from services.embed import MidoEmbed
-
-
 # TODO: pokemon
+from services.resources import Resources
+
 
 class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -35,7 +35,7 @@ class Searches(commands.Cog):
 
         results = await self.google.search(query=search)
         e = embed.MidoEmbed(self.bot)
-        e.set_author(icon_url="https://w7.pngwing.com/pngs/506/509/png-transparent-google-company-text-logo.png",
+        e.set_author(icon_url=Resources.images.google,
                      name=f"Google: {search}")
 
         e.description = ""

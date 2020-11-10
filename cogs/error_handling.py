@@ -40,6 +40,12 @@ class Errors(commands.Cog):
             elif isinstance(error, commands.NoPrivateMessage):
                 return await ctx.send_error("This command can not be used through DMs!")
 
+            elif isinstance(error, commands.errors.MaxConcurrencyReached):
+                suffix = 'per %s' % error.per.name if error.per.name != 'default' else 'globally'
+                plural = '%s times %s' if error.number > 1 else '%s time %s'
+                fmt = plural % (error.number, suffix)
+                return await ctx.send_error(f"This command can only be used {fmt}.")
+
             elif isinstance(error, commands.NotOwner):
                 return await ctx.send_error(error, "This is an owner-only command. Sorry.")
 
@@ -86,7 +92,9 @@ class Errors(commands.Cog):
 
             elif isinstance(error, (local_errors.MusicError,
                                     commands.UserInputError,
-                                    local_errors.DidntVoteError)
+                                    local_errors.TimedOut,
+                                    local_errors.DidntVoteError
+                                    )
                             ):
                 return await ctx.send_error(error)
 

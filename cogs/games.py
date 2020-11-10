@@ -79,6 +79,11 @@ class Games(commands.Cog):
 
         If you use this command without categories, a list of available categories will be shown."""
         # todo: more hangman categories
+        # Pokemon -> done
+        # book
+        # video games
+        # music (songs or albums)
+        # Celebrities
 
         e = MidoEmbed(bot=ctx.bot)
 

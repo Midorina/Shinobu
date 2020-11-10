@@ -49,14 +49,14 @@ class Reminder(commands.Cog):
         await reminder.complete()
 
     def add_reminder(self, reminder: ReminderDB):
-        task = self.bot.loop.create_task(self.complete_reminder(reminder), name=reminder.id)
+        task = self.bot.loop.create_task(self.complete_reminder(reminder), name=str(reminder.id))
 
         self.active_reminders.append(task)
 
     def cancel_reminder(self, reminder: ReminderDB):
         # find the reminder
         for task in self.active_reminders:
-            if task.get_name() == reminder.id:
+            if task.get_name() == str(reminder.id):
                 task.cancel()
                 self.active_reminders.remove(task)
 

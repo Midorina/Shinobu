@@ -60,7 +60,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         else:
             await ctx.send_success("Assignable roles are no longer exclusive.")
 
-    @commands.command(aliases=['lar'])
+    @commands.command(aliases=['lsar', 'lar'])
     async def listassignableroles(self,
                                   ctx: MidoContext):
         """List all assignable roles available.

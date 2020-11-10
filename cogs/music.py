@@ -136,8 +136,6 @@ class Music(commands.Cog, WavelinkMixin):
         """Skip the currently playing song."""
         voter = ctx.message.author
         vc = ctx.guild.get_channel(ctx.voice_player.channel_id)
-        if ctx.author not in vc.members:
-            raise MusicError("You are not in the voice channel!")
 
         people_in_vc = len(vc.members) - 1
         if people_in_vc <= 2:
