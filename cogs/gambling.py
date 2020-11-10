@@ -7,13 +7,14 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db import UserDB
+from models.db import ReminderDB, UserDB
 from services import checks
 from services.context import MidoContext
 from services.converters import MidoMemberConverter
 from services.embed import MidoEmbed
 from services.exceptions import APIError, DidntVoteError, InsufficientCash, OnCooldownError
 from services.resources import Resources
+from services.time_stuff import MidoTime
 
 DIGIT_TO_EMOJI = {
     0: ":zero:",
@@ -108,8 +109,26 @@ class Gambling(commands.Cog):
                 pass
 
             await ctx.user_db.add_cash(daily_amount, daily=True)
-            await ctx.send_success(f"You've successfully claimed "
-                                   f"your daily **{daily_amount}{Resources.emotes.currency}**!")
+
+            base_msg = f"You've successfully claimed your daily **{daily_amount}{Resources.emotes.currency}**!\n\n"
+
+            m = await ctx.send_success(base_msg + "Would you like to get reminded when you can vote again?")
+
+            yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, m)
+            if yes:
+                reminder = await ReminderDB.create(bot=ctx.bot,
+                                                   author_id=ctx.author.id,
+                                                   channel_id=ctx.author.id,
+                                                   channel_type=ReminderDB.ChannelType.DM,
+                                                   content=f"Your daily is ready! You can vote [here]({Resources.links.upvote}).",
+                                                   date_obj=MidoTime.add_to_current_date_and_get(
+                                                       seconds=ctx.bot.config['cooldowns']['daily']))
+
+                await ctx.edit_custom(m, base_msg + f"Success! I will remind you to get your daily again "
+                                                    f"in {reminder.time_obj.initial_remaining_string}.")
+            else:
+                await ctx.edit_custom(m,
+                                      base_msg + f"Alright, you won't be reminded when you can get your daily again.")
 
     @commands.command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
     async def coin_flip(self, ctx: MidoContext, amount: Union[int, str], guessed_side: str):
