@@ -1,12 +1,15 @@
+import asyncio
 from typing import List
 
 import discord
 from discord.ext import commands, tasks
 
 from midobot import MidoBot
+from models.db import GuildDB
 from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
+from services.time_stuff import MidoTime
 
 
 class NSFW(commands.Cog):
@@ -20,6 +23,39 @@ class NSFW(commands.Cog):
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 
         self.fill_the_database.start()
+
+        self.active_auto_hentai_services = list()
+        self.bot.loop.create_task(self.start_auto_hentai_services())
+
+    async def start_auto_hentai_services(self):
+        auto_hentai_guilds = await GuildDB.get_auto_hentai_guilds(bot=self.bot)
+        for guild in auto_hentai_guilds:
+            self.add_auto_hentai_task(guild)
+
+    def add_auto_hentai_task(self, guild: GuildDB):
+        task = self.bot.loop.create_task(self.auto_hentai_loop(guild), name=str(guild.id))
+
+        self.active_auto_hentai_services.append(task)
+
+    def cancel_auto_hentai_task(self, guild: GuildDB):
+        for task in self.active_auto_hentai_services:  # find the guild
+            if task.get_name() == str(guild.id):
+                task.cancel()
+                self.active_auto_hentai_services.remove(task)
+
+    async def auto_hentai_loop(self, guild: GuildDB):
+        channel = self.bot.get_channel(guild.auto_hentai_channel_id)
+        if not channel:
+            # reset
+            return await guild.set_auto_hentai(channel_id=None,
+                                               tags=None,
+                                               interval=None)
+
+        while True:
+            image = await self._hentai(guild.auto_hentai_tags, limit=1)
+            await self.send_nsfw_embed(channel, image[0])
+
+            await asyncio.sleep(guild.auto_hentai_interval)
 
     async def cog_check(self, ctx: MidoContext):
         bucket = self._cd.get_bucket(ctx.message)
@@ -35,14 +71,18 @@ class NSFW(commands.Cog):
     def cog_unload(self):
         self.fill_the_database.cancel()
 
-    async def send_nsfw_embed(self, ctx, image_url: str):
+        for task in self.active_auto_hentai_services:
+            task.cancel()
+        self.active_auto_hentai_services = set()
+
+    async def send_nsfw_embed(self, ctx_or_channel, image_url: str):
         e = MidoEmbed(bot=self.bot,
                       image_url=image_url,
                       # description=f"Image not working? [Report]({Resources.links.support_server})"
                       description=f"Image not working? [Click here.]({image_url})"
                       )
-        e.set_footer(text=f"{ctx.bot.name.title()} NSFW API")
-        await ctx.send(embed=e)
+        e.set_footer(text=f"{self.bot.name.title()} NSFW API")
+        await ctx_or_channel.send(embed=e)
 
     async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:
         if not tags:
@@ -151,6 +191,40 @@ class NSFW(commands.Cog):
         image = await self._hentai(tags, limit=3, allow_video=True)
 
         await ctx.send(content="\n".join(im for im in image))
+
+    @commands.has_permissions(manage_messages=True)
+    @commands.command()
+    async def autohentai(self, ctx: MidoContext, interval: int = None, *, tags: str = None):
+        """Have hentai automatically posted!
+
+        Interval argument can be 3 seconds minimum.
+        Tag argument can be left empty.
+        Don't type any argument to disable the autohentai service.
+
+        Only 1 autohentai service can be active in a server.
+        You need Manage Messages permission to use this command."""
+
+        if not interval:
+            if not ctx.guild_db.auto_hentai_channel_id:  # if already disabled
+                raise commands.BadArgument("Autohentai is already disabled.")
+
+            else:
+                self.cancel_auto_hentai_task(guild=ctx.guild_db)
+                await ctx.guild_db.set_auto_hentai()  # disable
+
+                return await ctx.send_success("Autohentai service has successfully been disabled.")
+
+        if interval < 3:
+            raise commands.UserInputError("Interval can not be less than 3!")
+
+        await ctx.guild_db.set_auto_hentai(channel_id=ctx.channel.id,
+                                           tags=tags,
+                                           interval=interval)
+        self.add_auto_hentai_task(guild=ctx.guild_db)
+
+        return await ctx.send_success(f"Success! I'll post hentai in this channel "
+                                      f"every **{MidoTime.parse_seconds_to_str(interval)}** "
+                                      f"with these tags: `{tags if tags else 'random'}`")
 
 
 def setup(bot):

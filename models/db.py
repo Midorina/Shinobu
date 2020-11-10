@@ -200,7 +200,7 @@ class UserDB(BaseDBModel):
         return readable_bigint(self.cash)
 
     async def update_name(self, new_name: str):
-        self.discord_name = new_name
+        self._discord_name = new_name
         await self.db.execute("UPDATE users SET name_and_discriminator=$1 WHERE id=$2;", new_name, self.id)
 
     async def change_level_up_preference(self, new_preference: XpAnnouncement):
@@ -402,6 +402,11 @@ class GuildDB(BaseDBModel):
         # music
         self.volume: int = guild_db.get('volume')
 
+        # auto hentai
+        self.auto_hentai_channel_id: int = guild_db.get('auto_hentai_channel_id')
+        self.auto_hentai_tags: str = guild_db.get('auto_hentai_tags')
+        self.auto_hentai_interval: int = guild_db.get('auto_hentai_interval')
+
     @classmethod
     async def get_or_create(cls, bot, guild_id: int):
         guild_db = None
@@ -416,6 +421,11 @@ class GuildDB(BaseDBModel):
                     pass
 
         return cls(guild_db, bot)
+
+    @classmethod
+    async def get_auto_hentai_guilds(cls, bot):
+        ret = await bot.db.fetch("SELECT * FROM guilds WHERE auto_hentai_channel_id IS NOT NULL;")
+        return [cls(guild, bot) for guild in ret]
 
     async def change_prefix(self, new_prefix: str) -> str:
         await self.db.execute(
@@ -489,6 +499,17 @@ class GuildDB(BaseDBModel):
             self.id)
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
+
+    async def set_auto_hentai(self, channel_id: int = None, tags: str = None, interval: int = None):
+        self.auto_hentai_channel_id = channel_id
+        self.auto_hentai_tags = tags
+        self.auto_hentai_interval = interval
+        await self.db.execute(
+            """UPDATE guilds SET 
+            auto_hentai_channel_id=$1,
+            auto_hentai_tags=$2,
+            auto_hentai_interval=$3 
+            WHERE id=$4;""", channel_id, tags, interval, self.id)
 
 
 class ReminderDB(BaseDBModel):
