@@ -47,7 +47,8 @@ class MidoHelp(commands.HelpCommand):
     async def send_bot_help(self, cogs_and_commands):
         e = MidoEmbed(self.context.bot,
                       title=f'{self.context.bot.name.title()} Command Modules',
-                      description=f'You can type `{self.context.prefix}help <module>` '
+                      description=f" You can type `{self.context.prefix}invite` to invite me to your server.\n\n" \
+                                  f'You can type `{self.context.prefix}help <module>` '
                                   f'to see the commands that are in that module.\n\n'
                                   f'Feel free to join the [support server]({Resources.links.support_server})'
                                   f' if you need additional help.',
@@ -187,6 +188,7 @@ class Misc(commands.Cog):
             'ctx'       : ctx,
             '__import__': __import__
         }
+
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 
         result = await eval(f"{fn_name}()", env) or 'None'
@@ -258,9 +260,8 @@ class Misc(commands.Cog):
 
         embed.description = f"I'm a general purpose bot that features various features! " \
                             f"Type `{ctx.prefix}help` to learn more.\n\n" \
-                            f"**I've recently got a rewrite, so some features are missing.**\n" \
-                            f"Additionally, I am not verified yet. " \
-                            f"So, you can't invite me to new servers until I get verified.\n\n" \
+                            f"Type `{ctx.prefix}invite` to invite me to your server.\n\n" \
+                            f"**I've recently got re-written, so some features might be missing or misbehaving.**\n\n" \
                             f"Join the [support server]({Resources.links.support_server}) " \
                             f"if you want to provide feedback, get the latest news and join donut events."
 

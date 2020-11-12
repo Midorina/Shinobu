@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import random
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Union
+from typing import List, Set, Union
 
 import asyncpg
+import discord
 from asyncpg import Record
+from discord.ext.commands import BadArgument
 
 from models.waifu import Waifu
+from services.embed import MidoEmbed
 from services.exceptions import InsufficientCash, NotFoundError, OnCooldownError
+from services.resources import Resources
 from services.time_stuff import MidoTime
 
 
@@ -27,7 +33,7 @@ class BaseDBModel:
         self.id = data.get('id')
 
     def __eq__(self, other):
-        return self.id == other.id
+        raise NotImplemented
 
 
 class ModLog(BaseDBModel):
@@ -124,6 +130,10 @@ class ModLog(BaseDBModel):
         await bot.db.execute(
             """UPDATE modlogs SET hidden=TRUE WHERE guild_id=$1 AND user_id=$2;""", guild_id, user_id)
 
+    def __eq__(self, other):
+        if isinstance(other, ModLog):
+            return self.id == other.id
+
 
 def calculate_xp_data(total_xp: int):
     base_xp = 30
@@ -170,6 +180,10 @@ class UserDB(BaseDBModel):
         else:
             return self._discord_name
 
+    @property
+    def discord_obj(self) -> discord.User:
+        return self.bot.get_user(self.id)
+
     @classmethod
     async def get_or_create(cls, bot, user_id: int):
         user_db = None
@@ -208,7 +222,12 @@ class UserDB(BaseDBModel):
             """UPDATE users SET level_up_notification=$1 WHERE id=$2;""",
             new_preference.value, self.id)
 
-    async def add_cash(self, amount: int, daily=False):
+    async def add_cash(self, amount: int, reason: str, daily=False):
+        if amount == 0:
+            return
+
+        self.cash += amount
+
         if daily:
             await self.db.execute(
                 """UPDATE users SET cash = cash + $1, last_daily_claim=$2 WHERE id=$3;""",
@@ -218,16 +237,14 @@ class UserDB(BaseDBModel):
                 """UPDATE users SET cash = cash + $1 WHERE id=$2;""",
                 amount, self.id)
 
-        self.cash += amount
+        await self.db.execute("""INSERT INTO transaction_history(user_id, amount, reason) VALUES ($1, $2, $3);""",
+                              self.id, amount, reason)
 
-    async def remove_cash(self, amount: int, force=False):
+    async def remove_cash(self, amount: int, reason: str, force=False):
         if force is False and self.cash < amount:
             raise InsufficientCash
 
-        await self.db.execute(
-            """UPDATE users SET cash = cash - $1 WHERE id=$2;""", amount, self.id)
-
-        self.cash -= amount
+        await self.add_cash(amount=0 - amount, reason=reason)
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_status.end_date_has_passed and not owner:
@@ -288,6 +305,10 @@ class UserDB(BaseDBModel):
     async def delete(self):
         await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
         await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
+
+    def __eq__(self, other):
+        if isinstance(other, UserDB):
+            return self.id == other.id
 
 
 class MemberDB(BaseDBModel):
@@ -376,6 +397,10 @@ class MemberDB(BaseDBModel):
 
         return result['row_number']
 
+    def __eq__(self, other):
+        if isinstance(other, MemberDB):
+            return self.id == other.id
+
 
 class GuildDB(BaseDBModel):
     def __init__(self, guild_db: Record, bot):
@@ -404,7 +429,7 @@ class GuildDB(BaseDBModel):
 
         # auto hentai
         self.auto_hentai_channel_id: int = guild_db.get('auto_hentai_channel_id')
-        self.auto_hentai_tags: str = guild_db.get('auto_hentai_tags')
+        self.auto_hentai_tags: List[str] = guild_db.get('auto_hentai_tags')
         self.auto_hentai_interval: int = guild_db.get('auto_hentai_interval')
 
     @classmethod
@@ -500,7 +525,7 @@ class GuildDB(BaseDBModel):
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
 
-    async def set_auto_hentai(self, channel_id: int = None, tags: str = None, interval: int = None):
+    async def set_auto_hentai(self, channel_id: int = None, tags: List[str] = None, interval: int = None):
         self.auto_hentai_channel_id = channel_id
         self.auto_hentai_tags = tags
         self.auto_hentai_interval = interval
@@ -510,6 +535,10 @@ class GuildDB(BaseDBModel):
             auto_hentai_tags=$2,
             auto_hentai_interval=$3 
             WHERE id=$4;""", channel_id, tags, interval, self.id)
+
+    def __eq__(self, other):
+        if isinstance(other, GuildDB):
+            return self.id == other.id
 
 
 class ReminderDB(BaseDBModel):
@@ -563,6 +592,10 @@ class ReminderDB(BaseDBModel):
         self.done = True
         await self.db.execute("""UPDATE reminders SET done=TRUE WHERE id=$1;""", self.id)
 
+    def __eq__(self, other):
+        if isinstance(other, ReminderDB):
+            return self.id == other.id
+
 
 class CustomReaction(BaseDBModel):
     def __init__(self, data: Record, bot):
@@ -587,7 +620,10 @@ class CustomReaction(BaseDBModel):
     @classmethod
     async def convert(cls, ctx, cr_id: int):  # ctx arg is passed no matter what
         """Converts a Custom Reaction ID argument into local object."""
-        return await CustomReaction.get(bot=ctx.bot, _id=int(cr_id))
+        try:
+            return await CustomReaction.get(bot=ctx.bot, _id=int(cr_id))
+        except ValueError:
+            raise BadArgument("Please type the ID of the custom reaction, not the name.")
 
     @classmethod
     async def add(cls, bot, trigger: str, response: str, guild_id=None):
@@ -655,6 +691,10 @@ class CustomReaction(BaseDBModel):
         await self.db.execute("""UPDATE custom_reactions SET delete_trigger=$1 WHERE id=$2;""",
                               self.delete_trigger, self.id)
 
+    def __eq__(self, other):
+        if isinstance(other, CustomReaction):
+            return self.id == other.id
+
 
 class CachedImage(BaseDBModel):
     def __init__(self, data: Record, bot):
@@ -682,3 +722,97 @@ class CachedImage(BaseDBModel):
                 api_names)
 
         return cls(ret, bot)
+
+
+class DonutEvent(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.guild_id: int = data.get('guild_id')
+        self.channel_id: int = data.get('channel_id')
+        self.message_id: int = data.get('message_id')
+
+        self.reward: int = data.get('reward')
+
+        self.end_date: MidoTime = MidoTime(end_date=data.get('end_date'))
+        self.attenders: Set[int] = set(data.get('attenders'))
+
+    @classmethod
+    async def get(cls,
+                  bot,
+                  id: int = None,
+                  guild_id: int = None,
+                  channel_id: int = None,
+                  message_id: int = None):
+        ret = await bot.db.fetch("""SELECT * FROM donut_events 
+        WHERE id=$1 OR guild_id=$2 OR channel_id=$3 OR message_id=$4;""", id, guild_id, channel_id, message_id)
+
+        return [cls(x, bot) for x in ret]
+
+    @classmethod
+    async def get_active_ones(cls, bot) -> List[DonutEvent]:
+        ret = await bot.db.fetch("SELECT * FROM donut_events;")
+        objects = [cls(x, bot) for x in ret]
+
+        return list(x for x in objects if x.end_date.end_date_has_passed is False)
+
+    @classmethod
+    async def create(cls,
+                     bot,
+                     reward: int,
+                     guild_id: int,
+                     channel_id: int,
+                     message_id: int,
+                     length: MidoTime):
+        ret = await bot.db.fetchrow(
+            """INSERT INTO donut_events(reward, guild_id, channel_id, message_id, end_date) 
+            VALUES ($1, $2, $3, $4, $5) RETURNING  *;""",
+            reward, guild_id, channel_id, message_id, length.end_date)
+
+        return cls(ret, bot)
+
+    async def add_attender(self, attender_id: int):
+        self.attenders.add(attender_id)
+        await self.db.execute("UPDATE donut_events SET attenders=array_append(attenders, $1) WHERE id=$2;",
+                              attender_id, self.id)
+
+    def user_is_eligible(self, user):
+        return user.bot is False and user.id not in self.attenders
+
+    async def reward_attender(self, attender_id: int, user_db_obj: UserDB = None):
+        await self.add_attender(attender_id)
+
+        user_db = user_db_obj or await UserDB.get_or_create(bot=self.bot, user_id=attender_id)
+        await user_db.add_cash(amount=self.reward, reason="Attended a donut event.")
+
+        self.bot.logger.info(
+            f"User {user_db.discord_name} has been awarded {self.reward} donuts for reacting to the donut event."
+        )
+
+        e = MidoEmbed(bot=self.bot,
+                      description=f"You have been awarded **{self.reward} {Resources.emotes.currency}** "
+                                  f"for attending the donut event!")
+        try:
+            await user_db.discord_obj.send(embed=e)
+        except discord.Forbidden:
+            pass
+
+    def __eq__(self, other):
+        if isinstance(other, DonutEvent):
+            return self.id == other.id
+
+
+class TransactionLog(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.user_id: int = data.get('user_id')
+        self.amount: int = data.get('amount')
+        self.reason: str = data.get('reason')
+        self.date: MidoTime = MidoTime(start_date=data.get('date'))
+
+    @classmethod
+    async def get_users_logs(cls, bot, user_id: int) -> List[TransactionLog]:
+        ret = await bot.db.fetch("SELECT * FROM transaction_history WHERE user_id=$1 ORDER BY date DESC;", user_id)
+
+        return [cls(x, bot) for x in ret]

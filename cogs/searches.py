@@ -24,7 +24,8 @@ class Searches(commands.Cog):
         color_str = color.replace('#', '')
         color = int(color_str, 16)
 
-        e = MidoEmbed(ctx.bot, image_url=self.some_random_api.view_color(color_str), colour=color)
+        image = await self.some_random_api.view_color(color_str)
+        e = MidoEmbed(ctx.bot, image_url=image, colour=color)
 
         await ctx.send(embed=e)
 

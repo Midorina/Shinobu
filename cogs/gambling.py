@@ -1,13 +1,13 @@
 import math
 import random
-from typing import Union
+from typing import List, Union
 
 import dbl
 import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db import ReminderDB, UserDB
+from models.db import DonutEvent, ReminderDB, TransactionLog, UserDB
 from services import checks
 from services.context import MidoContext
 from services.converters import MidoMemberConverter
@@ -42,7 +42,7 @@ class Gambling(commands.Cog):
         self.coin_sides = {
             "heads": {
                 "aliases": ['heads', 'head', 'h'],
-                "images": [
+                "images" : [
                     "https://i.imgur.com/BcSMPgD.png"
                 ]
             },
@@ -58,8 +58,57 @@ class Gambling(commands.Cog):
         self.dblpy = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'])
         self.votes = set()
 
+        self.active_donut_events: List[DonutEvent] = list()
+
+        self.bot.loop.create_task(self.get_active_donut_events())
+
+    async def get_active_donut_events(self):
+        self.active_donut_events = await DonutEvent.get_active_ones(self.bot)
+
+        for donut_event in self.active_donut_events:
+            channel: discord.TextChannel = self.bot.get_channel(donut_event.channel_id)
+            if not channel:
+                continue
+
+            msg_obj: discord.Message = await channel.fetch_message(donut_event.message_id)
+            if not msg_obj:
+                continue
+
+            self.bot.loop.create_task(msg_obj.delete(delay=donut_event.end_date.remaining_seconds))
+
+            try:
+                event_reaction = next(x for x in msg_obj.reactions if str(x.emoji) == Resources.emotes.currency)
+            except StopIteration:
+                continue
+            else:
+                users = await event_reaction.users().flatten()
+
+                for user in users:
+                    if donut_event.user_is_eligible(user):  # if we missed their reaction
+                        await donut_event.reward_attender(attender_id=user.id)
+
     def cog_unload(self):
         self.bot.loop.create_task(self.dblpy.close())
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        try:
+            donut_event = next(x for x in self.active_donut_events if x.message_id == payload.message_id)
+        except StopIteration:
+            return
+        else:
+            if donut_event.end_date.end_date_has_passed is True:  # if expired
+                channel: discord.TextChannel = self.bot.get_channel(donut_event.channel_id)
+                msg_obj: discord.Message = await channel.fetch_message(donut_event.message_id)
+                await msg_obj.delete()
+                self.active_donut_events.remove(donut_event)
+                return
+
+            if str(payload.emoji) == Resources.emotes.currency:
+                user = self.bot.get_user(payload.user_id)
+
+                if donut_event.user_is_eligible(user):
+                    await donut_event.reward_attender(attender_id=user.id)
 
     @commands.Cog.listener()
     async def on_dbl_vote(self, data):
@@ -100,7 +149,8 @@ class Gambling(commands.Cog):
         elif not has_voted:
             raise DidntVoteError(f"It seems like you haven't voted yet.\n\n"
                                  f"Vote [here]({Resources.links.upvote}), "
-                                 f"then use this command again to get your **{daily_amount}{Resources.emotes.currency}**!")
+                                 f"then use this command again "
+                                 f"to get your **{daily_amount}{Resources.emotes.currency}**!")
 
         else:
             try:
@@ -108,7 +158,7 @@ class Gambling(commands.Cog):
             except KeyError:
                 pass
 
-            await ctx.user_db.add_cash(daily_amount, daily=True)
+            await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
 
             base_msg = f"You've successfully claimed your daily **{daily_amount}{Resources.emotes.currency}**!\n\n"
 
@@ -116,16 +166,18 @@ class Gambling(commands.Cog):
 
             yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, m)
             if yes:
-                reminder = await ReminderDB.create(bot=ctx.bot,
-                                                   author_id=ctx.author.id,
-                                                   channel_id=ctx.author.id,
-                                                   channel_type=ReminderDB.ChannelType.DM,
-                                                   content=f"Your daily is ready! You can vote [here]({Resources.links.upvote}).",
-                                                   date_obj=MidoTime.add_to_current_date_and_get(
-                                                       seconds=ctx.bot.config['cooldowns']['daily']))
+                reminder = await ReminderDB.create(
+                    bot=ctx.bot,
+                    author_id=ctx.author.id,
+                    channel_id=ctx.author.id,
+                    channel_type=ReminderDB.ChannelType.DM,
+                    content=f"Your daily is ready! You can vote [here]({Resources.links.upvote}).",
+                    date_obj=MidoTime.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
+                )
 
-                await ctx.edit_custom(m, base_msg + f"Success! I will remind you to get your daily again "
-                                                    f"in {reminder.time_obj.initial_remaining_string}.")
+                await ctx.edit_custom(m,
+                                      base_msg + f"Success! I will remind you to get your daily again "
+                                                 f"in {reminder.time_obj.initial_remaining_string}.")
             else:
                 await ctx.edit_custom(m,
                                       base_msg + f"Alright, you won't be reminded when you can get your daily again.")
@@ -151,7 +203,7 @@ class Gambling(commands.Cog):
         e.set_image(url=random.choice(self.coin_sides[random_side_name]['images']))
 
         if actual_guessed_side_name == random_side_name:
-            await ctx.user_db.add_cash(amount * 2)
+            await ctx.user_db.add_cash(amount * 2, reason="Won coin flip game.")
 
             e.title = "Congratulations!"
             e.description = f"You flipped {random_side_name} and won **{amount * 2}{Resources.emotes.currency}**!"
@@ -189,7 +241,7 @@ class Gambling(commands.Cog):
         e.set_author(icon_url=ctx.author.avatar_url,
                      name=f'{ctx.author.display_name} has just won: {won_cash}{Resources.emotes.currency}')
 
-        await ctx.user_db.add_cash(won_cash)
+        await ctx.user_db.add_cash(won_cash, reason="Won wheel game.")
 
         e.description = ""
         for i, multiplier_and_arrow in enumerate(possibilities_and_arrows.items()):
@@ -237,7 +289,7 @@ class Gambling(commands.Cog):
 
         won = win_multiplier * amount
 
-        await ctx.user_db.add_cash(amount=won)
+        await ctx.user_db.add_cash(amount=won, reason="Won slot game.")
 
         if win_multiplier >= 1:
             content = '**[ 🟢  WIN  🟢 ]**\n'
@@ -286,18 +338,21 @@ class Gambling(commands.Cog):
             color = self.success_color
             if rolled == 100:
                 win_multip = 10
-                msg = f"Congratulations!! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling 100 🎉"
+                msg = f"Congratulations!! " \
+                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling 100 🎉"
             elif rolled > 90:
                 win_multip = 4
-                msg = f"Congratulations! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 90."
+                msg = f"Congratulations! " \
+                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 90."
             else:
                 win_multip = 2
-                msg = f"Congratulations! You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 66."
+                msg = f"Congratulations! " \
+                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 66."
         else:
             color = self.fail_color
             msg = f"Better luck next time 🥺"
 
-        await ctx.user_db.add_cash(amount=amount * win_multip)
+        await ctx.user_db.add_cash(amount=amount * win_multip, reason="Won betroll game.")
 
         e = MidoEmbed(bot=ctx.bot, colour=color)
         e.description = "**You rolled:** "
@@ -341,7 +396,7 @@ class Gambling(commands.Cog):
 
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
-        await other_usr.add_cash(amount)
+        await other_usr.add_cash(amount, reason=f"Transferred from {ctx.author.id}.")
         await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}{Resources.emotes.currency}** "
                                f"to **{member.mention}**!")
 
@@ -350,7 +405,7 @@ class Gambling(commands.Cog):
     async def add_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
-        await other_usr.add_cash(amount)
+        await other_usr.add_cash(amount, reason="Rewarded by the bot owner.")
         await member.send(f"You've been awarded **{amount}{Resources.emotes.currency}** by the bot owner!")
         await ctx.send_success(f"You've successfully awarded {member} with **{amount}{Resources.emotes.currency}**!")
 
@@ -359,8 +414,58 @@ class Gambling(commands.Cog):
     async def remove_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
-        await other_usr.remove_cash(amount)
+        await other_usr.remove_cash(amount, reason="Removed by the bot owner.")
         await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
+
+    @checks.is_owner()
+    @commands.command(name='donutevent', aliases=['event'], hidden=True)
+    async def donut_event(self, ctx: MidoContext, reward: int, length: MidoTime):
+        e = MidoEmbed(bot=ctx.bot,
+                      title="Donut Event!",
+                      description=f"React with {Resources.emotes.currency} "
+                                  f"to get **{reward} {Resources.emotes.currency}** for free!"
+                      )
+        e.set_footer(text="Ends at:")
+        e.timestamp = length.end_date
+
+        msg = await ctx.send(embed=e)
+        await msg.add_reaction(Resources.emotes.currency)
+
+        self.bot.loop.create_task(msg.delete(delay=length.remaining_seconds))
+
+        event = await DonutEvent.create(bot=ctx.bot,
+                                        guild_id=ctx.guild.id,
+                                        channel_id=ctx.channel.id,
+                                        message_id=msg.id,
+                                        length=length,
+                                        reward=reward)
+        self.active_donut_events.append(event)
+
+    @commands.command(aliases=['curtrs'])
+    async def transactions(self, ctx: MidoContext, *, target: discord.User = None):
+        """See your transaction log!"""
+        if target and not await ctx.bot.is_owner(ctx.author):
+            raise commands.NotOwner("You can't see the transaction log of someone else.")
+
+        user = target or ctx.author
+
+        e = MidoEmbed(bot=ctx.bot)
+        e.set_author(icon_url=user.avatar_url, name=f"Transaction History of {user}:")
+
+        blocks = []
+        for transaction in await TransactionLog.get_users_logs(bot=ctx.bot, user_id=user.id):
+            block = ""
+            if transaction.amount < 0:
+                block += "🔴"  # red circle
+            else:
+                block += "🔵"  # blue circle
+
+            block += f" `[{transaction.date.start_date_string}]` **{transaction.amount}**\n" \
+                     f"{transaction.reason}"
+
+            blocks.append(block)
+
+        await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
     @wheel.before_invoke
     @betroll.before_invoke
@@ -384,7 +489,7 @@ class Gambling(commands.Cog):
             else:
                 raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
-        await ctx.user_db.remove_cash(ctx.args[2])
+        await ctx.user_db.remove_cash(ctx.args[2], reason="Used for gambling.")
 
 
 def setup(bot):

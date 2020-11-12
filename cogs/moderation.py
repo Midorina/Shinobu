@@ -78,9 +78,12 @@ class Moderation(commands.Cog):
                                                      author=member,
                                                      channel=channel)
 
-            await channel.send(content=content,
-                               embed=embed,
-                               delete_after=guild_db.welcome_delete_after)
+            try:
+                await channel.send(content=content,
+                                   embed=embed,
+                                   delete_after=guild_db.welcome_delete_after)
+            except discord.Forbidden:
+                pass
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
@@ -94,9 +97,12 @@ class Moderation(commands.Cog):
                                                      author=member,
                                                      channel=channel)
 
-            await channel.send(content=content,
-                               embed=embed,
-                               delete_after=guild_db.welcome_delete_after)
+            try:
+                await channel.send(content=content,
+                                   embed=embed,
+                                   delete_after=guild_db.welcome_delete_after)
+            except discord.Forbidden:
+                pass
 
     # TODO: welcome and bye del set commands
 
@@ -591,7 +597,7 @@ class Moderation(commands.Cog):
     async def _ensure_role_hierarchy(self, ctx):
         ensure_role_hierarchy(ctx)
 
-    @commands.command(aliases=['purge'])
+    @commands.command(aliases=['purge', 'clear'])
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     async def prune(self, ctx: MidoContext, number: int, target_user: MidoMemberConverter() = None):

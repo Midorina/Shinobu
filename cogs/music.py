@@ -295,9 +295,9 @@ class Music(commands.Cog, WavelinkMixin):
         if not song_name and not ctx.voice_player.current:
             raise MusicError("You need to play a song then use this command or specify a song name!")
         elif not song_name:
-            song_name = ctx.voice_player.current.source.title
+            song_name = ctx.voice_player.current.title
 
-        api = self.bot.get_cog('Searches')
+        api = self.bot.get_cog('Searches').some_random_api
 
         try:
             song_title, lyrics_pages, thumbnail = await api.get_lyrics(song_name)

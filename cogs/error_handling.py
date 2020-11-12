@@ -115,6 +115,9 @@ class Errors(commands.Cog):
         else:
             used_in = f"{ctx.channel.name}({ctx.channel.id}), guild {ctx.guild.name}({ctx.guild.id})"
 
+        # convert every arg to str to avoid this:
+        # TypeError: __repr__ returned non-string (type int)
+        ctx.args = list(map(lambda x: str(x), ctx.args))
         content = f"""
 ***ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>
 
@@ -123,7 +126,7 @@ An error occurred during the execution of a command:
 
 **Command:** `{ctx.invoked_with}`
 
-**Command args:** `{ctx.args[2:]}`
+**Command args:** `{str(ctx.args[2:])}`
 **Command kwargs:** `{ctx.kwargs}`
 
 **Command used by:** {ctx.author.mention} | `{str(ctx.author)}` | `{ctx.author.id}`

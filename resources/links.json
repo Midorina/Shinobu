@@ -2,8 +2,8 @@
   "upvote"           : "https://top.gg/bot/212783784163016704/",
   "website"          : "https://midorina.dev/",
   "support_server"   : "https://discord.gg/5RXauct",
-  "invite_admin"     : "https://discord.com/api/oauth2/authorize?client_id={}&permissions=8&scope=bot",
-  "invite_minimal"   : "https://discord.com/api/oauth2/authorize?client_id={}&permissions=271969366&scope=bot",
-  "invite_selectable": "https://discord.com/api/oauth2/authorize?client_id={}&permissions=-1&scope=bot",
-  "invite_none"      : "https://discord.com/api/oauth2/authorize?client_id={}&permissions=0&scope=bot"
+  "invite_admin"     : "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=8&scope=bot",
+  "invite_minimal"   : "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=271969366&scope=bot",
+  "invite_selectable": "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=-1&scope=bot",
+  "invite_none"      : "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=0&scope=bot"
 }

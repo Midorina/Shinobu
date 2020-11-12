@@ -119,6 +119,9 @@ class MidoBot(commands.AutoShardedBot):
             f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
 
     def log_command(self, ctx: MidoContext, error: Exception = None):
+        if isinstance(error, commands.CommandNotFound):
+            return
+
         execution_time = '{:.2f}s'.format(ctx.time_created.passed_seconds_in_float)
 
         if error:

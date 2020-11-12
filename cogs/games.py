@@ -108,14 +108,19 @@ class Games(commands.Cog):
 
         word: str = random.choice(self.hangman_dict[category]).lower()
 
-        print(word)
-
         e.title = f"Hangman Game ({category.title()})"
 
         extra_msg = "A new hangman game has just started! Start typing letters and try to guess the word."
         wrong_guess = 0
         guessed_letters = []
-        word_censored = ''.join('_' if c.isalnum() else ' ' for c in word)
+        word_censored = ""
+        for c in word:
+            if c == ' ':
+                word_censored += ' '
+            elif c.isalnum():
+                word_censored += '_'
+            else:
+                word_censored += c
 
         end = False
 
@@ -154,7 +159,7 @@ class Games(commands.Cog):
                 raise TimedOut(f"No one tried to solve the last Hangman game, so its shut down."
                                f"You can start a new game by typing `{ctx.prefix}hangman`.")
 
-            user_guess = user_input.content
+            user_guess: str = user_input.content
 
             if len(user_guess) != 1:  # tried to guess the word or a random msg
                 if user_guess.lower() == word:  # found it
@@ -163,10 +168,13 @@ class Games(commands.Cog):
                 continue
 
             if len(user_guess) == 1:  # if letter
+                if not user_guess.isalnum():  # if emoji or smth
+                    continue
+
                 update = True
 
                 if user_guess in guessed_letters:  # already guessed
-                    extra_msg = f"{ctx.author.mention}, letter `{user_guess}` has already been used. " \
+                    extra_msg = f"{user_input.author.mention}, letter `{user_guess}` has already been used. " \
                                 f"Try a different letter."
                     e.colour = self.fail_color
                     update = True
@@ -180,7 +188,7 @@ class Games(commands.Cog):
                             word_censored = word_censored[:i] + c + word_censored[i + 1:]
 
                     e.colour = self.success_color
-                    extra_msg = f"{ctx.author.mention} found a letter: **{user_guess}**"
+                    extra_msg = f"{user_input.author.mention} found a letter: **{user_guess}**"
 
                     if '_' not in word_censored:  # all solved
                         end = True
@@ -188,7 +196,7 @@ class Games(commands.Cog):
                     wrong_guess += 1
                     e.colour = self.fail_color
 
-                    extra_msg = f"{ctx.author.mention}, letter `{user_guess}` does not exist. Try again."
+                    extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
 
 
 def setup(bot):

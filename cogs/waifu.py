@@ -76,7 +76,7 @@ class Waifu(commands.Cog):
 
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
         if yes:
-            await ctx.user_db.remove_cash(price_to_reset)
+            await ctx.user_db.remove_cash(price_to_reset, reason="Used to reset their waifu stats.")
 
             await ctx.user_db.waifu.reset_waifu_stats()
 
@@ -112,7 +112,7 @@ class Waifu(commands.Cog):
             if not item_obj:
                 raise NotFoundError(f"Could not find a waifu item called **\"{item_name}\"**.")
 
-            await ctx.user_db.remove_cash(item_obj.price)
+            await ctx.user_db.remove_cash(item_obj.price, reason=f"Bought {item_obj.name} for {target.id}.")
 
             target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
             await target_db.waifu.add_item(item_obj)
@@ -220,7 +220,7 @@ class Waifu(commands.Cog):
             raise commands.UserInputError(
                 f"You must pay at least **{readable_bigint(required_amount)}** to claim {target.mention}.")
 
-        await ctx.user_db.remove_cash(required_amount)
+        await ctx.user_db.remove_cash(required_amount, reason=f"Claimed waifu {target.id}.")
 
         await target_db.waifu.get_claimed(ctx.author.id, price)
 
@@ -257,9 +257,9 @@ class Waifu(commands.Cog):
         amount = math.floor(target_db.waifu.price / 2)
 
         if target_db.waifu.affinity_id == ctx.author.id:
-            await target_db.add_cash(amount)
+            await target_db.add_cash(amount, reason="Got divorced by a waifu.")
         else:
-            await ctx.user_db.add_cash(amount)
+            await ctx.user_db.add_cash(amount, reason="Divorced a waifu.")
 
         await ctx.user_db.waifu.divorce(target_db.waifu)
 
@@ -288,7 +288,8 @@ class Waifu(commands.Cog):
 
         cost = math.floor(ex_waifu_db.waifu.price / 10)
 
-        await ctx.user_db.remove_cash(cost)
+        await ctx.user_db.remove_cash(cost,
+                                      reason=f"Transferred the ownership of waifu {ex_waifu.id} to {new_owner.id}.")
 
         await ex_waifu_db.waifu.change_claimer(new_owner.id)
 

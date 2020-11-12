@@ -33,6 +33,8 @@ class MidoContext(commands.Context):
         self.time_created: MidoTime = MidoTime()
 
     async def attach_db_objects(self):
+        await self.bot.wait_until_ready()
+
         try:
             self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
 

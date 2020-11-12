@@ -1,4 +1,5 @@
 import asyncio
+import random
 from typing import List
 
 import discord
@@ -47,12 +48,11 @@ class NSFW(commands.Cog):
         channel = self.bot.get_channel(guild.auto_hentai_channel_id)
         if not channel:
             # reset
-            return await guild.set_auto_hentai(channel_id=None,
-                                               tags=None,
-                                               interval=None)
+            return await guild.set_auto_hentai()
 
         while True:
-            image = await self._hentai(guild.auto_hentai_tags, limit=1)
+            tags = random.choice(guild.auto_hentai_tags) if guild.auto_hentai_tags else None
+            image = await self._hentai(tags=tags, limit=1)
             await self.send_nsfw_embed(channel, image[0])
 
             await asyncio.sleep(guild.auto_hentai_interval)
@@ -198,7 +198,11 @@ class NSFW(commands.Cog):
         """Have hentai automatically posted!
 
         Interval argument can be 3 seconds minimum.
-        Tag argument can be left empty.
+
+        Put `+` between tags.
+        Put `|` between tag groups. A random tag group will be chosen each time.
+        (Tag argument can be left empty.)
+
         Don't type any argument to disable the autohentai service.
 
         Only 1 autohentai service can be active in a server.
@@ -218,7 +222,7 @@ class NSFW(commands.Cog):
             raise commands.UserInputError("Interval can not be less than 3!")
 
         await ctx.guild_db.set_auto_hentai(channel_id=ctx.channel.id,
-                                           tags=tags,
+                                           tags=tags.split('|') if tags else None,
                                            interval=interval)
         self.add_auto_hentai_task(guild=ctx.guild_db)
 
