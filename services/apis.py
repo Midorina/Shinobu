@@ -47,6 +47,9 @@ class MidoBotAPI:
                            return_json=False) -> Union[str, dict, ClientResponse]:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
+                if not response.status == 200:
+                    raise APIError
+
                 if return_url is True:
                     return str(response.url)
                 elif return_json is True:
@@ -62,6 +65,7 @@ class MidoBotAPI:
                         raise NotFoundError
                     elif 'error' in js:
                         raise RateLimited
+
                     return js
                 else:
                     return response

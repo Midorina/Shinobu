@@ -42,7 +42,7 @@ class Shitposting(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.command(aliases=['pp'])
     async def penis(self, ctx, *, target: Union[MidoMemberConverter, str] = None):
         """Learn the size of penis of someone."""
         user = target or ctx.author
@@ -70,7 +70,7 @@ class Shitposting(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def gay(self, ctx: MidoContext, *, target: Union[MidoMemberConverter, str] = None):
+    async def gay(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
         """Place a pride flag on someone's avatar."""
         user = target or ctx.author
 
@@ -81,7 +81,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def wasted(self, ctx: MidoContext, *, target: Union[MidoMemberConverter, str] = None):
+    async def wasted(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
         """Place a wasted screen on someone's avatar."""
         user = target or ctx.author
 
@@ -92,7 +92,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def triggered(self, ctx: MidoContext, *, target: Union[MidoMemberConverter, str] = None):
+    async def triggered(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
         """See triggered version of someone's avatar."""
         user = target or ctx.author
 
@@ -114,7 +114,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(image.url)
 
     @commands.command(aliases=['youtubecomment'])
-    async def ytcomment(self, ctx: MidoContext, target: Union[MidoMemberConverter, str] = None, *, comment: str = ''):
+    async def ytcomment(self, ctx: MidoContext, target: MidoMemberConverter = None, *, comment: str = ''):
         """Generate a YouTube comment."""
         if not target and not comment:
             raise commands.BadArgument("You should at least provide a comment to be shown in the image.")

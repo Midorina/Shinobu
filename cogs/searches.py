@@ -22,7 +22,10 @@ class Searches(commands.Cog):
     async def color(self, ctx: context.MidoContext, *, color: str):
         """Get a color image from specified hex."""
         color_str = color.replace('#', '')
-        color = int(color_str, 16)
+        try:
+            color = int(color_str, 16)
+        except ValueError:
+            raise commands.BadArgument("You need to input a hex code.")
 
         image = await self.some_random_api.view_color(color_str)
         e = MidoEmbed(ctx.bot, image_url=image, colour=color)
