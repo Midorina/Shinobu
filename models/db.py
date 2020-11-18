@@ -441,7 +441,8 @@ class GuildDB(BaseDBModel):
             if not guild_db:
                 try:
                     guild_db = await bot.db.fetchrow(
-                        """INSERT INTO guilds(id) VALUES ($1) RETURNING *;""", guild_id)
+                        """INSERT INTO guilds(id, prefix) VALUES ($1, $2) RETURNING *;""",
+                        guild_id, bot.config['default_prefix'])
                 except asyncpg.UniqueViolationError:
                     pass
 
@@ -740,12 +741,12 @@ class DonutEvent(BaseDBModel):
     @classmethod
     async def get(cls,
                   bot,
-                  id: int = None,
+                  event_id: int = None,
                   guild_id: int = None,
                   channel_id: int = None,
                   message_id: int = None):
         ret = await bot.db.fetch("""SELECT * FROM donut_events 
-        WHERE id=$1 OR guild_id=$2 OR channel_id=$3 OR message_id=$4;""", id, guild_id, channel_id, message_id)
+        WHERE id=$1 OR guild_id=$2 OR channel_id=$3 OR message_id=$4;""", event_id, guild_id, channel_id, message_id)
 
         return [cls(x, bot) for x in ret]
 
