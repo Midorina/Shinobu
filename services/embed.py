@@ -118,6 +118,7 @@ class MidoEmbed(discord.Embed):
         while True:
             done, pending = await asyncio.wait([
                 self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
+                self.bot.wait_for('reaction_remove', timeout=60, check=reaction_check),
                 self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
             try:
                 for thing in done:
@@ -126,7 +127,10 @@ class MidoEmbed(discord.Embed):
                 stuff = done.pop().result()
 
             except asyncio.TimeoutError:
-                await message.clear_reactions()
+                try:
+                    await message.clear_reactions()
+                except discord.Forbidden:
+                    pass
                 return
 
             else:
@@ -156,7 +160,10 @@ class MidoEmbed(discord.Embed):
                             page = total_pages
                             await update_message(message)
 
-                    await arrow.remove(user)
+                    try:
+                        await arrow.remove(user)
+                    except discord.Forbidden:
+                        pass
 
                 else:
                     if 0 < int(stuff.content) <= total_pages:

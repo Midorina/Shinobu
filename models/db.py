@@ -644,7 +644,10 @@ class CustomReaction(BaseDBModel):
 
     @classmethod
     async def get_all(cls, bot, guild_id: int = None):
-        ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id=$1;", guild_id)
+        if guild_id:
+            ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id=$1;", guild_id)
+        else:
+            ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id is NULL;")
 
         return [cls(cr, bot) for cr in ret]
 
