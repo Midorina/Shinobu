@@ -170,7 +170,10 @@ class MidoEmbed(discord.Embed):
                         page = int(stuff.content)
                         await update_message(message)
 
-                    await stuff.delete()
+                    try:
+                        await stuff.delete()
+                    except discord.Forbidden:
+                        pass
 
             for future in pending:
                 future.cancel()

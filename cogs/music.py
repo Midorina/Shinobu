@@ -305,7 +305,7 @@ class Music(commands.Cog, WavelinkMixin):
             raise NotFoundError(f"I couldn't find the lyrics of **{song_name}**.\n"
                                 f"Try writing the title in a simpler form.")
 
-        e = MidoEmbed(bot=self.bot, title=song_title, default_footer=True)
+        e = MidoEmbed(bot=self.bot, title=song_title[:256], default_footer=True)
         e.set_thumbnail(url=thumbnail)
 
         await e.paginate(
