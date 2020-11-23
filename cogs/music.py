@@ -1,6 +1,6 @@
 import asyncio
 import math
-from typing import List
+from typing import List, Union
 
 import discord
 from discord.ext import commands
@@ -49,7 +49,12 @@ class Music(commands.Cog, WavelinkMixin):
         ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=VoicePlayer)
 
     @WavelinkMixin.listener(event="on_track_end")
-    async def track_end_event(self, node: Node, payload: events.TrackEnd):
+    @WavelinkMixin.listener(event="on_track_exception")
+    @WavelinkMixin.listener(event="on_track_stuck")
+    @WavelinkMixin.listener(event="on_track_error")
+    async def track_end_event(self,
+                              node: Node,
+                              payload: Union[events.TrackEnd, events.TrackStuck, events.TrackException]):
         payload.player.next.set()
 
     @commands.command(name='connect')
@@ -275,7 +280,8 @@ class Music(commands.Cog, WavelinkMixin):
 
                 await ctx.voice_player.add_songs(song_to_add, ctx)
 
-            if task:  # if errored
+            if task:
+                await task
                 task.result()
 
             if len(added_songs) > 1:  # if its a playlist
