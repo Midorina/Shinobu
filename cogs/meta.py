@@ -6,10 +6,9 @@ from datetime import datetime
 
 import discord
 import psutil
-from discord.ext import commands, commands, tasks
+from discord.ext import commands, commands
 
 from midobot import MidoBot
-from models.db import UserDB
 from services import checks
 from services.context import MidoContext
 from services.embed import MidoEmbed
@@ -126,17 +125,6 @@ class Misc(commands.Cog):
 
     def cog_unload(self):
         self.bot.help_command = self.old_help_command
-
-    @tasks.loop(minutes=10)
-    async def update_name_cache(self):
-        await self.bot.wait_until_ready()
-
-        for user in self.bot.users:
-            user_db = await UserDB.get_or_create(bot=self.bot, user_id=user.id)
-            if str(user) != user_db._discord_name:
-                await user_db.update_name(str(user))
-
-        self.bot.logger.info('Updated the name cache of users.')
 
     @commands.command(hidden=True)
     @checks.is_owner()

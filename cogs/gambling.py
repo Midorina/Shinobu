@@ -414,7 +414,7 @@ class Gambling(commands.Cog):
     async def remove_cash(self, ctx: MidoContext, amount: Union[int, str], *, member: MidoMemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
-        await other_usr.remove_cash(amount, reason="Removed by the bot owner.")
+        await other_usr.remove_cash(amount, reason="Removed by the bot owner.", force=True)
         await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
 
     @checks.is_owner()
