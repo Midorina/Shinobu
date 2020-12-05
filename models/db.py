@@ -667,7 +667,7 @@ class CustomReaction(BaseDBModel):
         if guild_id:
             ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id=$1;", guild_id)
         else:
-            ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id is NULL;")
+            ret = await bot.db.fetch("SELECT * FROM custom_reactions WHERE guild_id IS NULL;")
 
         return [cls(cr, bot) for cr in ret]
 
