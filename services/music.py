@@ -9,7 +9,7 @@ from typing import List, Union
 
 import discord
 from async_timeout import timeout
-from wavelink import Node, Player, Track
+from wavelink import InvalidIDProvided, Node, Player, Track
 
 from services.context import MidoContext
 from services.resources import Resources
@@ -53,6 +53,21 @@ class VoicePlayer(Player):
     def position_str(self):
         return MidoTime.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
 
+    async def destroy(self) -> None:
+        await self.stop()
+
+        try:
+            await self.disconnect()
+        except InvalidIDProvided:
+            pass
+
+        await self.node._send(op='destroy', guildId=str(self.guild_id))
+
+        try:
+            del self.node.players[self.guild_id]
+        except KeyError:
+            pass
+
     async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: MidoContext):
         async def _convert_and_add(_song):
             if not isinstance(_song, Song):
@@ -77,17 +92,17 @@ class VoicePlayer(Player):
             if self.loop is False:
                 try:
                     async with timeout(180):
-                        song: Song = await self.song_queue.get()
-                        self.last_song = song
+                        self.current: Song = await self.song_queue.get()
+                        self.last_song = self.current
                 except asyncio.TimeoutError:
                     return await self.destroy()
             else:
-                song: Song = self.last_song
+                self.current: Song = self.last_song
 
-            await self.play(song)
+            await self.play(self.current)
 
             if not self.loop:
-                await self.current.send_embed()
+                await self.current.send_np_embed()
 
             await self.next.wait()
 
@@ -119,11 +134,11 @@ class Song(Track):
         """Converts a native wavelink track object to a local Song object."""
         return cls(track.id, track.info, ctx.voice_player, ctx.author, ctx.channel, track.query)
 
-    async def send_embed(self):
-        e = self.create_embed()
+    async def send_np_embed(self):
+        e = self.create_np_embed()
         await self.text_channel.send(embed=e)
 
-    def create_embed(self):
+    def create_np_embed(self):
         e = discord.Embed(
             title=self.title,
             color=0x15a34a)
