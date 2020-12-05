@@ -195,7 +195,7 @@ class Waifu:
         self.claimer_id = None
 
         await self.user.db.execute("UPDATE users SET waifu_price=$1, waifu_claimer_id=NULL WHERE id=$2;",
-                                   self.price, self.claimer_id)
+                                   self.price, self.user.id)
 
     async def divorce(self, waifu: Waifu):
         self.divorce_count += 1
