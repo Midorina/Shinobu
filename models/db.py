@@ -432,6 +432,11 @@ class GuildDB(BaseDBModel):
         self.auto_hentai_tags: List[str] = guild_db.get('auto_hentai_tags')
         self.auto_hentai_interval: int = guild_db.get('auto_hentai_interval')
 
+        # auto porn
+        self.auto_porn_channel_id: int = guild_db.get('auto_porn_channel_id')
+        self.auto_porn_tags: List[str] = guild_db.get('auto_porn_tags')
+        self.auto_porn_interval: int = guild_db.get('auto_porn_interval')
+
     @classmethod
     async def get_or_create(cls, bot, guild_id: int):
         guild_db = None
@@ -449,8 +454,10 @@ class GuildDB(BaseDBModel):
         return cls(guild_db, bot)
 
     @classmethod
-    async def get_auto_hentai_guilds(cls, bot):
-        ret = await bot.db.fetch("SELECT * FROM guilds WHERE auto_hentai_channel_id IS NOT NULL;")
+    async def get_auto_nsfw_guilds(cls, bot):
+        ret = await bot.db.fetch("SELECT * FROM guilds "
+                                 "WHERE auto_hentai_channel_id IS NOT NULL "
+                                 "OR auto_porn_channel_id IS NOT NULL;")
         return [cls(guild, bot) for guild in ret]
 
     async def change_prefix(self, new_prefix: str) -> str:
@@ -526,16 +533,29 @@ class GuildDB(BaseDBModel):
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
 
-    async def set_auto_hentai(self, channel_id: int = None, tags: List[str] = None, interval: int = None):
-        self.auto_hentai_channel_id = channel_id
-        self.auto_hentai_tags = tags
-        self.auto_hentai_interval = interval
-        await self.db.execute(
-            """UPDATE guilds SET 
-            auto_hentai_channel_id=$1,
-            auto_hentai_tags=$2,
-            auto_hentai_interval=$3 
-            WHERE id=$4;""", channel_id, tags, interval, self.id)
+    async def set_auto_nsfw(self, type='hentai', channel_id: int = None, tags: List[str] = None, interval: int = None):
+        if type == 'hentai':
+            self.auto_hentai_channel_id = channel_id
+            self.auto_hentai_tags = tags
+            self.auto_hentai_interval = interval
+            await self.db.execute(
+                """UPDATE guilds SET 
+                auto_hentai_channel_id=$1,
+                auto_hentai_tags=$2,
+                auto_hentai_interval=$3 
+                WHERE id=$4;""", channel_id, tags, interval, self.id)
+        elif type == 'porn':
+            self.auto_porn_channel_id = channel_id
+            self.auto_porn_tags = tags
+            self.auto_porn_interval = interval
+            await self.db.execute(
+                """UPDATE guilds SET 
+                auto_porn_channel_id=$1,
+                auto_porn_tags=$2,
+                auto_porn_interval=$3 
+                WHERE id=$4;""", channel_id, tags, interval, self.id)
+        else:
+            raise Exception("Unknown NSFW type!")
 
     def __eq__(self, other):
         if isinstance(other, GuildDB):

@@ -17,6 +17,7 @@ from discord.ext.commands import TooManyArguments
 
 from models.db import CachedImage
 from models.hearthstone import HearthstoneCard
+from models.subreddits import LocalSubreddit
 from services.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
 from services.resources import Resources
 from services.time_stuff import MidoTime
@@ -69,7 +70,7 @@ class MidoBotAPI:
                     return js
                 else:
                     return response
-        except aiohttp.ServerDisconnectedError:
+        except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError):
             raise APIError
 
 
@@ -117,76 +118,6 @@ class NekoAPI(NekosLifeClient, CachedImageAPI):
 
 
 class RedditAPI(CachedImageAPI):
-    SUBREDDITS = {
-        "boobs"  : [
-            "boobs",
-            "Boobies",
-            "TittyDrop",
-            "hugeboobs"
-        ],
-        "butts"  : [
-            "ass",
-            "bigasses",
-            "pawg",
-            "asstastic",
-            "CuteLittleButts"
-        ],
-        "pussy"  : [
-            "pussy",
-            "LipsThatGrip",
-            "GodPussy"
-        ],
-        "asian"  : [
-            "AsianHotties",
-            "juicyasians",
-            "AsiansGoneWild"
-        ],
-        "general": [
-            "gonewild",
-            "nsfw",
-            "RealGirls",
-            "NSFW_GIF",
-            "LegalTeens",
-            "cumsluts",
-            "BustyPetite",
-            "holdthemoan",
-            "PetiteGoneWild",
-            "collegesluts",
-            "porn",
-            "GirlsFinishingTheJob",
-            "adorableporn",
-            "nsfw_gifs",
-            "BiggerThanYouThought",
-            "Amateur",
-            "porninfifteenseconds",
-            "milf",
-            "OnOff",
-            "JizzedToThis",
-            "nsfwhardcore",
-            "BreedingMaterial",
-            "GWCouples",
-            "lesbians",
-            "porn_gifs",
-            "anal",
-            "Blowjobs"
-        ],
-        "hentai" : [
-            "hentai",
-            "rule34",
-            "HENTAI_GIF",
-            "ecchi",
-            "yuri",
-            "AnimeBooty"
-        ],
-
-        "memes"  : [
-            "dankmemes",
-            "2meirl4meirl",
-            "MemeEconomy",
-            "DeepFriedMemes"
-        ]
-    }
-
     def __init__(self, credentials: dict, session: ClientSession, db: Pool):
         super().__init__(session, db)
 
@@ -254,13 +185,15 @@ class RedditAPI(CachedImageAPI):
                              urls=urls,
                              tags=[subreddit_name])
 
-    async def get_from_the_db(self, bot, category: str, allow_gif=False) -> CachedImage:
-        if category not in self.SUBREDDITS:
-            raise Exception(f"Invalid category: {category}")
-
-        subreddit_names = [f'reddit_{sub}' for sub in self.SUBREDDITS[category]]
-
-        return await CachedImage.get_random(bot=bot, api_names=subreddit_names, allow_gif=allow_gif)
+    @staticmethod
+    async def get_reddit_post_from_db(bot,
+                                      category: str,
+                                      tags: List[str] = None,
+                                      allow_gif: bool = False) -> CachedImage:
+        db_api_names = [sub.db_name for sub in LocalSubreddit.get_with_related_tag(category=category, tags=tags)]
+        return await CachedImage.get_random(bot=bot,
+                                            api_names=db_api_names,
+                                            allow_gif=allow_gif)
 
     async def fill_the_database(self):
         async def _fill(sub_name: str, go_ham=False):
@@ -283,10 +216,9 @@ class RedditAPI(CachedImageAPI):
             await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
             await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
 
-        for category, sub_names in self.SUBREDDITS.items():
-            for sub in sub_names:
-                await _fill(sub)
-                await asyncio.sleep(5.0)
+        for sub in LocalSubreddit.get_all():
+            await _fill(sub.subreddit_name)
+            await asyncio.sleep(5.0)
 
 
 class NSFW_DAPIs(CachedImageAPI):
