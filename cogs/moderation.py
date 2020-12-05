@@ -1,3 +1,4 @@
+import math
 import typing
 
 import discord
@@ -280,7 +281,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
                   ctx: MidoContext,
-                  target: MidoMemberConverter(),
+                  target: discord.User,
                   length: typing.Union[MidoTime, str] = None,
                   *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
@@ -329,7 +330,7 @@ class Moderation(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
                     ctx: MidoContext,
-                    target: MidoMemberConverter(),
+                    target: discord.User,
                     *, reason: commands.clean_content = None):
         """Unbans a banned user.
 
@@ -626,6 +627,74 @@ class Moderation(commands.Cog):
         deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
 
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.")
+
+    @commands.command(name="serverinfo", aliases=['sinfo'])
+    async def server_info(self, ctx: MidoContext, server_id: int = None):
+        """Shows the information of the server."""
+
+        # if user is not the owner or server id isn't specified
+        if server_id is not None:
+            if not await ctx.bot.is_owner(ctx.author):
+                server_id = ctx.guild.id
+        else:
+            server_id = ctx.guild.id
+
+        server: discord.Guild = ctx.bot.get_guild(server_id)
+
+        if not server:
+            raise commands.UserInputError("Could not find the guild.")
+
+        humans = 0
+        bots = 0
+        online = 0
+
+        for member in server.members:
+            if member.status != discord.Status.offline:
+                online += 1
+
+            if member.bot:
+                bots += 1
+            else:
+                humans += 1
+
+        embed = MidoEmbed(bot=ctx.bot)
+        embed.set_author(icon_url=server.icon_url, name=server.name)
+        embed.set_image(url=server.icon_url)
+
+        embed.add_field(name="Owner",
+                        value=f"{server.owner}\n"
+                              f"`{server.owner.id}`",
+                        inline=True)
+
+        embed.add_field(name=f"Members ({server.member_count})",
+                        value=f"{humans} Humans\n"
+                              f"{bots} Bots\n"
+                              f"({online} Online)",
+                        inline=True)
+
+        embed.add_field(name=f"Channels ({len(server.channels)})",
+                        value=f"{len(server.categories)} Categories\n"
+                              f"{len(server.text_channels)} Text Channels\n"
+                              f"{len(server.voice_channels)} Voice Channels",
+                        inline=True)
+
+        embed.add_field(name="Emojis",
+                        value=f"{len(server.emojis)}/{server.emoji_limit}",
+                        inline=True)
+
+        embed.add_field(name="Roles",
+                        value=f"{len(server.roles)}/250",
+                        inline=True)
+
+        creation_date = MidoTime(start_date=server.created_at, offset_naive=True)
+        embed.add_field(name="Created at",
+                        value=f"{creation_date.start_date_string}\n"
+                              f"({math.floor(creation_date.remaining_seconds / (60 * 60 * 24))} days ago)",
+                        inline=True)
+
+        embed.set_footer(text=f"Server ID: {server.id}")
+
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
