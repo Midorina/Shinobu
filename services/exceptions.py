@@ -39,3 +39,11 @@ class APIError(CommandError):
 
 class TimedOut(CommandError):
     pass
+
+
+class UserIsBlacklisted(CommandError):
+    pass
+
+
+class GuildIsBlacklisted(CommandError):
+    pass

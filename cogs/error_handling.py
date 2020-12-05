@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from services import exceptions as local_errors
 from services.context import MidoContext
+from services.time_stuff import MidoTime
 
 
 class Errors(commands.Cog):
@@ -18,7 +19,9 @@ class Errors(commands.Cog):
 
         ignored = (
             discord.NotFound,
-            local_errors.SilentError
+            local_errors.SilentError,
+            local_errors.GuildIsBlacklisted,
+            local_errors.UserIsBlacklisted
         )
 
         error = getattr(error, 'original', error)
@@ -55,7 +58,13 @@ class Errors(commands.Cog):
             elif isinstance(error, commands.DisabledCommand):
                 return await ctx.send_error("This command is currently disabled and can't be used.")
 
-            elif isinstance(error, (commands.CommandOnCooldown, local_errors.OnCooldownError)):
+            # cooldown errors
+            elif isinstance(error, commands.CommandOnCooldown):
+                return await ctx.send_error("You're on cooldown! "
+                                            "Try again after **{}**."
+                                            .format(MidoTime.parse_seconds_to_str(total_seconds=error.retry_after))
+                                            )
+            elif isinstance(error, local_errors.OnCooldownError):
                 return await ctx.send_error(error, "You're on cooldown!")
 
             elif isinstance(error, commands.MissingRequiredArgument):
