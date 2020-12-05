@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import List
 
+from services.exceptions import NotFoundError
+
 
 class LocalSubreddit:
     def __init__(self, exact_subreddit_name: str, tags: List[str]):
@@ -33,6 +35,9 @@ class LocalSubreddit:
                 if tag in subreddit.tags:
                     ret.append(subreddit)
                     break
+
+        if not ret:
+            raise NotFoundError
 
         return ret
 
