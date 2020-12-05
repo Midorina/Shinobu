@@ -41,7 +41,8 @@ class MidoEmbed(discord.Embed):
 
         return filtered_blocks
 
-    async def paginate(self, ctx,
+    async def paginate(self,
+                       ctx,
                        blocks: List[str],
                        item_per_page: int = 6,
                        add_page_info_to: str = 'footer',
@@ -53,6 +54,8 @@ class MidoEmbed(discord.Embed):
             "▶",
             "⏩"
         ]
+
+        remove_reaction_mode = ctx.guild is not None
 
         def reaction_check(_reaction, _user):
             if _user == ctx.author:
@@ -67,6 +70,17 @@ class MidoEmbed(discord.Embed):
                         return int(m.content)
                     except ValueError:
                         pass
+
+        async def clear_message_reactions(_message: discord.Message):
+            try:
+                await _message.clear_reactions()
+            except discord.Forbidden:
+                _m = await ctx.fetch_message(_message.id)
+                if not _m:
+                    return
+                for _reaction in _m.reactions:
+                    if _reaction.me:
+                        await _reaction.remove(user=ctx.bot.user)
 
         async def update_message(msg=None):
             msg_for_embed = ""
@@ -116,10 +130,15 @@ class MidoEmbed(discord.Embed):
                 await message.add_reaction(arrow)
 
         while True:
-            done, pending = await asyncio.wait([
-                self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
-                self.bot.wait_for('reaction_remove', timeout=60, check=reaction_check),
-                self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
+            if remove_reaction_mode is True:
+                done, pending = await asyncio.wait([
+                    self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
+                    self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
+            else:
+                done, pending = await asyncio.wait([
+                    self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
+                    self.bot.wait_for('reaction_remove', timeout=60, check=reaction_check),
+                    self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
             try:
                 for thing in done:
                     thing.exception()  # this is to retrieve exceptions
@@ -127,11 +146,7 @@ class MidoEmbed(discord.Embed):
                 stuff = done.pop().result()
 
             except asyncio.TimeoutError:
-                try:
-                    await message.clear_reactions()
-                except discord.Forbidden:
-                    pass
-                return
+                return await clear_message_reactions(message)
 
             else:
                 if isinstance(stuff, tuple):
@@ -160,10 +175,11 @@ class MidoEmbed(discord.Embed):
                             page = total_pages
                             await update_message(message)
 
-                    try:
-                        await arrow.remove(user)
-                    except discord.Forbidden:
-                        pass
+                    if remove_reaction_mode is True:
+                        try:
+                            await arrow.remove(user)
+                        except discord.Forbidden:
+                            pass
 
                 else:
                     if 0 < int(stuff.content) <= total_pages:
