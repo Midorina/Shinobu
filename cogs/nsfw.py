@@ -10,6 +10,7 @@ from models.db import GuildDB
 from services.apis import NSFW_DAPIs, NekoAPI, RedditAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
+from services.exceptions import NotFoundError
 from services.time_stuff import MidoTime
 
 
@@ -62,24 +63,37 @@ class NSFW(commands.Cog):
 
         nsfw_channel = self.bot.get_channel(db_channel_id)
 
-        while nsfw_channel:  # if channel isn't found or set, code goes to the end
+        fail_counter = 0
+        while nsfw_channel and fail_counter < 10:  # if channel isn't found or set, code goes to the end
             tags = random.choice(db_tags) if db_tags else None
 
-            if type == 'hentai':
-                image = (await self._hentai(tags=tags, limit=1))[0]
-            elif type == 'porn':
-                image = (await self.reddit.get_reddit_post_from_db(self.bot,
-                                                                   category='porn',
-                                                                   tags=[tags] if tags else None,
-                                                                   allow_gif='gif' in tags if tags else False)).url
-            else:
-                raise Exception
-
             try:
+                if type == 'hentai':
+                    image = (await self._hentai(tags=tags, limit=1))[0]
+                elif type == 'porn':
+                    image = (await self.reddit.get_reddit_post_from_db(self.bot,
+                                                                       category='porn',
+                                                                       tags=[tags] if tags else None,
+                                                                       allow_gif='gif' in tags if tags else False)).url
+                else:
+                    raise Exception
+
                 await self.send_nsfw_embed(nsfw_channel, image)
+
             except discord.Forbidden:
                 nsfw_channel = None  # reset
                 break
+
+            except NotFoundError:
+                e = MidoEmbed(bot=self.bot,
+                              colour=discord.Colour.red(),
+                              description=f"Could  not find anything with tag: `{tags}`")
+                await nsfw_channel.send(embed=e)
+
+                fail_counter += 1
+                if fail_counter >= 10:
+                    nsfw_channel = None
+                    break
 
             await asyncio.sleep(db_interval)
 
@@ -101,8 +115,8 @@ class NSFW(commands.Cog):
         self.fill_the_database.cancel()
 
         for task in self.active_auto_nsfw_services:
-            print(task.result())
             task.cancel()
+
         self.active_auto_nsfw_services = list()
 
     async def send_nsfw_embed(self, ctx_or_channel, image_url: str):
@@ -143,7 +157,7 @@ class NSFW(commands.Cog):
     async def porn(self, ctx: MidoContext, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
 
-        image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=[tag])
+        image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=[tag] if tag else None)
         await self.send_nsfw_embed(ctx, image.url)
 
     @commands.command()
