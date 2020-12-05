@@ -53,8 +53,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
     def get_cr_embed(self, cr: CustomReaction):
         e = MidoEmbed(bot=self.bot)
-        e.add_field(name="Trigger", value=cr.trigger, inline=False)
-        e.add_field(name="Response", value=cr.response)
+        e.add_field(name="Trigger", value=cr.trigger[:1024], inline=False)
+        e.add_field(name="Response", value=cr.response[:1024])
         e.set_footer(text=f'ID: {cr.id}')
 
         return e
@@ -99,7 +99,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         for cr in crs:
             blocks.append(f'`{cr.id}` {cr.trigger}')
 
-        await e.paginate(ctx=ctx, blocks=blocks)
+        await e.paginate(ctx=ctx, blocks=blocks, item_per_page=15)
 
     @commands.command(aliases=['scr'])
     async def showcustomreaction(self, ctx: MidoContext, custom_reaction: CustomReaction):
