@@ -1,16 +1,16 @@
 import asyncio
 import math
-from typing import List, Union
+from typing import List
 
 import discord
 from discord.ext import commands
-from wavelink import Client, Node, TrackPlaylist, WavelinkMixin, events
+from wavelink import Client, Node, TrackPlaylist, WavelinkMixin, ZeroConnectedNodes, events
 
 from midobot import MidoBot
 from services.apis import SpotifyAPI
 from services.context import MidoContext
 from services.embed import MidoEmbed
-from services.exceptions import MusicError, NotFoundError
+from services.exceptions import MusicError, NotFoundError, OnCooldownError
 from services.music import Song, VoicePlayer
 from services.resources import Resources
 from services.time_stuff import MidoTime
@@ -26,18 +26,22 @@ class Music(commands.Cog, WavelinkMixin):
 
         if not self.bot.wavelink:
             self.bot.wavelink = Client(bot=self.bot)
+            self.bot.loop.create_task(self.start_nodes())
 
         self.wavelink = self.bot.wavelink
 
-        self.bot.loop.create_task(self.start_nodes())
-
     async def start_nodes(self):
-        await self.bot.wait_until_ready()
-
         # initiate the each node specified in the cfg file
         for node in self.bot.config['lavalink_nodes']:
-            if node['identifier'] not in self.wavelink.nodes:
-                await self.wavelink.initiate_node(**node)
+            await self.wavelink.initiate_node(**node)
+
+    async def reload_nodes(self):
+        for node in self.bot.config['lavalink_nodes']:
+            identifier = node['identifier']
+            if identifier in self.wavelink.nodes:
+                await self.wavelink.nodes[identifier].destroy()
+
+            await self.wavelink.initiate_node(**node)
 
     async def cog_check(self, ctx: MidoContext):
         if not ctx.guild:
@@ -48,13 +52,21 @@ class Music(commands.Cog, WavelinkMixin):
     async def cog_before_invoke(self, ctx: MidoContext):
         ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=VoicePlayer)
 
-    @WavelinkMixin.listener(event="on_track_end")
+    async def cog_command_error(self, ctx: MidoContext, error):
+        error = getattr(error, 'original', error)
+        if isinstance(error, ZeroConnectedNodes):
+            await self.reload_nodes()
+            await asyncio.sleep(0.5)
+            await ctx.reinvoke()
+
     @WavelinkMixin.listener(event="on_track_exception")
-    @WavelinkMixin.listener(event="on_track_stuck")
-    @WavelinkMixin.listener(event="on_track_error")
-    async def track_end_event(self,
-                              node: Node,
-                              payload: Union[events.TrackEnd, events.TrackStuck, events.TrackException]):
+    async def track_errored_event(self, node: Node, payload: events.TrackException):
+        channel = payload.player.last_song.text_channel
+        await channel.send(f"There has been an error while playing `{payload.player.current}`:\n"
+                           f"```{payload.error}```")
+
+    @WavelinkMixin.listener(event="on_track_end")
+    async def track_end_event(self, node: Node, payload: events.TrackEnd):
         payload.player.next.set()
 
     @commands.command(name='connect')
@@ -68,7 +80,7 @@ class Music(commands.Cog, WavelinkMixin):
         destination = ctx.author.voice.channel
 
         if not destination.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
-            raise commands.BotMissingPermissions("I do not have permission to connect to that voice channel!")
+            raise commands.UserInputError("I do not have permission to connect to that voice channel!")
 
         try:
             await ctx.voice_player.connect(destination.id)
@@ -78,7 +90,7 @@ class Music(commands.Cog, WavelinkMixin):
             await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
 
-    @commands.command(name='disconnect', aliases=['destroy', 'd'])
+    @commands.command(name='stop', aliases=['disconnect', 'destroy', 'd'])
     async def _leave(self, ctx: MidoContext):
         """Make me disconnect from your voice channel."""
         if ctx.voice_player.channel_id:
@@ -110,7 +122,7 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now_playing(self, ctx: MidoContext):
         """See what's currently playing."""
-        await ctx.send(embed=ctx.voice_player.current.create_embed())
+        await ctx.send(embed=ctx.voice_player.current.create_np_embed())
 
     @commands.command(name='pause')
     async def _pause(self, ctx: MidoContext):
@@ -130,17 +142,13 @@ class Music(commands.Cog, WavelinkMixin):
         await ctx.voice_player.set_pause(pause=False)
         await ctx.message.add_reaction("⏯")
 
-    @commands.command(name='stop')
-    async def _stop(self, ctx: MidoContext):
-        """Stop playing and clear the queue."""
-        await ctx.voice_player.stop()
-        await ctx.send_success('⏹ Stopped.')
-
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: MidoContext):
         """Skip the currently playing song."""
         voter = ctx.message.author
         vc = ctx.guild.get_channel(ctx.voice_player.channel_id)
+        if not vc:
+            raise MusicError("I can not see the voice channel I'm playing songs in.")
 
         people_in_vc = len(vc.members) - 1
         if people_in_vc <= 2:
@@ -248,9 +256,13 @@ class Music(commands.Cog, WavelinkMixin):
         else:
             await ctx.send_success("The loop feature has been disabled.")
 
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(name='play', aliases=['p'])
     async def _play(self, ctx: MidoContext, *, query: str):
         """Queue a song to play!"""
+        if len(ctx.voice_player.song_queue) > 500:
+            raise OnCooldownError("You can't add more than 500 songs.")
+
         task = None
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
@@ -266,10 +278,12 @@ class Music(commands.Cog, WavelinkMixin):
 
             added_songs: List[Song] = []
             for song_name in song_names:
-                song = await self.wavelink.get_tracks(song_name)
-                if not song and len(song_names) == 1:
-                    raise NotFoundError(f"Couldn't find anything that matches the query:\n"
-                                        f"`{query}`.")
+                song = await self.wavelink.get_tracks(query=song_name, retry_on_failure=True)
+                if not song:
+                    if len(song_names) == 1:
+                        raise NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                            f"`{query}`.")
+                    continue
 
                 if isinstance(song, TrackPlaylist):
                     song_to_add = song.tracks
@@ -277,6 +291,9 @@ class Music(commands.Cog, WavelinkMixin):
                 else:
                     song_to_add = song[0]
                     added_songs.append(song_to_add)
+
+                if len(ctx.voice_player.song_queue) > 500:
+                    raise OnCooldownError("You can't add more than 500 songs.")
 
                 await ctx.voice_player.add_songs(song_to_add, ctx)
 
@@ -294,6 +311,16 @@ class Music(commands.Cog, WavelinkMixin):
                     await ctx.send_success(
                         f'**{added_songs[0].title}** has been successfully added to the queue.\n\n'
                         f'You can type `{ctx.prefix}queue` to see it.')
+
+    @commands.command(name='youtube', aliases=['yt'])
+    async def _find_video(self, ctx: MidoContext, *, query: str):
+        """Find a YouTube video with the given query."""
+        song = await self.wavelink.get_tracks(query=f'ytsearch:{query}', retry_on_failure=True)
+        if not song:
+            raise NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                f"`{query}`.")
+
+        await ctx.send(content=song[0].uri)
 
     @commands.command()
     async def lyrics(self, ctx: MidoContext, *, song_name: str = None):
@@ -324,7 +351,6 @@ class Music(commands.Cog, WavelinkMixin):
     @_now_playing.before_invoke
     @_pause.before_invoke
     @_resume.before_invoke
-    @_stop.before_invoke
     @_skip.before_invoke
     @_force_skip.before_invoke
     @_loop.before_invoke
