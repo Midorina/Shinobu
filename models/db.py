@@ -176,6 +176,9 @@ class UserDB(BaseDBModel):
     def discord_name(self) -> str:
         user = self.bot.get_user(self.id)
         if user:
+            if user and str(user) != self._discord_name:  # name cache check
+                self.bot.loop.create_task(self.update_name(new_name=str(user)))
+
             return str(user)
         else:
             return self._discord_name
@@ -191,17 +194,14 @@ class UserDB(BaseDBModel):
             user_db = await bot.db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
             if not user_db:
                 try:
-                    user_db = await bot.db.fetchrow(
-                        """INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
+                    user_db = await bot.db.fetchrow("""INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
                 except asyncpg.UniqueViolationError:
                     pass
 
-        return cls(user_db, bot)
+        local_obj = cls(user_db, bot)
+        local_obj.discord_name  # trigger the name cache check
 
-    @classmethod
-    async def get_all(cls, bot):
-        _all = await bot.db.fetch("SELECT * FROM users;")
-        return [cls(user_db, bot) for user_db in _all]
+        return local_obj
 
     @classmethod
     async def get_rich_people(cls, bot, limit=100):
