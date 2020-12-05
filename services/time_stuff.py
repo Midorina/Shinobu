@@ -15,11 +15,23 @@ time_multipliers = {
 
 
 class MidoTime:
-    def __init__(self, start_date: datetime = None, end_date: datetime = None, initial_seconds: int = 0):
+    def __init__(self,
+                 start_date: datetime = None,
+                 end_date: datetime = None,
+                 initial_seconds: int = 0,
+                 offset_naive: bool = False):
         self.start_date = start_date or datetime.now(timezone.utc)
         self.end_date = end_date
 
         self.initial_remaining_seconds = initial_seconds
+
+        self.offset_naive = offset_naive
+
+    def now(self):
+        if self.offset_naive is True:
+            return datetime.now()
+        else:
+            return datetime.now(timezone.utc)
 
     @cached_property
     def start_date_string(self):
@@ -35,18 +47,18 @@ class MidoTime:
     def end_date_has_passed(self):
         if not self.end_date:
             raise Exception("No end date!")
-        return self.end_date <= datetime.now(timezone.utc)
+        return self.end_date <= self.now()
 
     @property
     def passed_seconds(self) -> int:
         """Returns the time that has passed since the start."""
-        remaining_in_float = (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
+        remaining_in_float = (self.now() - self.start_date) / timedelta(seconds=1)
 
         return math.ceil(remaining_in_float)
 
     @property
     def passed_seconds_in_float(self) -> float:
-        return (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
+        return (self.now() - self.start_date) / timedelta(seconds=1)
 
     @property
     def passed_string(self):
@@ -55,9 +67,9 @@ class MidoTime:
     @property
     def remaining_seconds(self):
         if self.end_date:
-            remaining_in_float = (self.end_date - datetime.now(timezone.utc)) / timedelta(seconds=1)
+            remaining_in_float = (self.end_date - self.now()) / timedelta(seconds=1)
         else:
-            remaining_in_float = (datetime.now(timezone.utc) - self.start_date) / timedelta(seconds=1)
+            remaining_in_float = (self.now() - self.start_date) / timedelta(seconds=1)
 
         if remaining_in_float < 0:
             return 0
