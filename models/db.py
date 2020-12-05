@@ -840,3 +840,45 @@ class TransactionLog(BaseDBModel):
         ret = await bot.db.fetch("SELECT * FROM transaction_history WHERE user_id=$1 ORDER BY date DESC;", user_id)
 
         return [cls(x, bot) for x in ret]
+
+
+class BlacklistDB(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.type: str = data.get('type')
+        self.reason: str = data.get('reason')
+        self.date = MidoTime(data.get('date'))
+
+    @classmethod
+    async def get(cls, bot, user_or_guild_id: int, type: str):
+        ret = await bot.db.fetchrow("SELECT * FROM blacklist WHERE user_or_guild_id=$1 AND type=$2;",
+                                    user_or_guild_id, type)
+        if not ret:
+            return None
+        else:
+            return cls(ret, bot)
+
+    @classmethod
+    async def blacklist(cls,
+                        bot,
+                        user_or_guild_id: int,
+                        type: str = 'user',
+                        reason: str = None):
+        ret = await bot.db.fetchrow(
+            "INSERT INTO blacklist(user_or_guild_id, type, reason) VALUES ($1, $2, $3) RETURNING *;",
+            user_or_guild_id, type, reason
+        )
+
+        return cls(ret, bot)
+
+    @classmethod
+    async def unblacklist(cls,
+                          bot,
+                          user_or_guild_id: int,
+                          type: str = 'user'):
+
+        return await bot.db.execute(
+            "DELETE FROM blacklist WHERE user_or_guild_id=$1 AND type=$2;",
+            user_or_guild_id, type
+        )
