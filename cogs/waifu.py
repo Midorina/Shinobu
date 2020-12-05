@@ -173,22 +173,29 @@ class Waifu(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=1800, type=BucketType.user)  # 30 minutes
+    @commands.command()
     async def affinity(self, ctx: MidoContext, target: MidoMemberConverter() = None):
         """
         Sets your affinity towards someone you want to be claimed by.
+
         Setting affinity will reduce their `{0.prefix}claim` on you by 20%.
-        Provide no parameters to clear your affinity. 30 minutes cooldown.
+        Provide no parameters to clear your affinity.
+        30 minutes cooldown.
         """
         if ctx.user_db.waifu.affinity_id:
-            if ctx.user_db.waifu.affinity_id == target.id:
-                raise UserInputError(f"You already have affinity towards {target.mention}. "
-                                     f"Use `{ctx.prefix}affinity` without any parameters if you want to clear your affinity.")
+            if target:
+                if ctx.user_db.waifu.affinity_id == target.id:
+                    raise UserInputError(f"You already have affinity towards {target.mention}.\n\n"
+                                         f"Use `{ctx.prefix}affinity` without any parameters if you want to clear your affinity.")
+                elif ctx.author.id == target.id:
+                    raise UserInputError("You can not set affinity towards yourself.")
+
         elif not target:
             raise commands.BadArgument("Your affinity is already empty.")
 
-        await ctx.user_db.waifu.change_affinity(target.id if target else None)
-
         previous_affinity = self.bot.get_user(ctx.user_db.waifu.affinity_id)
+
+        await ctx.user_db.waifu.change_affinity(target.id if target else None)
 
         if not target:
             await ctx.send_success("You've successfully cleared your affinity.")
