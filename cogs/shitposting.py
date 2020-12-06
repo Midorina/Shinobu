@@ -110,7 +110,7 @@ class Shitposting(commands.Cog):
     @commands.command()
     async def meme(self, ctx: MidoContext):
         """Get a random meme."""
-        image = await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='memes')
+        image = await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme')
         await ctx.send_simple_image(image.url)
 
     @commands.command(aliases=['youtubecomment'])
