@@ -34,6 +34,9 @@ class Errors(commands.Cog):
             elif isinstance(error, commands.CommandNotFound):
                 return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
+            elif isinstance(error, local_errors.RaceError):
+                return await ctx.send_error(error)
+
             elif isinstance(error, commands.NSFWChannelRequired):
                 return await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
 

@@ -1,11 +1,18 @@
+from __future__ import annotations
+
+import asyncio
 import json
 import random
+from typing import Tuple, Union
 
 from discord.ext import commands
 
+from models.db import MemberDB
 from services.context import MidoContext
+from services.converters import readable_bigint, readable_currency
 from services.embed import MidoEmbed
-from services.exceptions import TimedOut
+from services.exceptions import RaceError, TimedOut
+from services.resources import Resources
 
 HANGMAN_STAGES = [
     """. ┌─────┐
@@ -61,6 +68,162 @@ HANGMAN_STAGES = [
 ]
 
 
+class Race:
+    STARTS_IN = 30
+    MESSAGE_COUNTER_LIMIT = 7
+
+    class Participant:
+        def __init__(self, member_db: MemberDB, emoji: str, bet_amount: int = 0):
+            self.member_db = member_db
+            self.id = self.member_db.id
+
+            self.emoji = emoji
+            self.bet_amount = bet_amount
+
+            self.progress = 0
+
+        def add_random_progress(self):
+            self.progress += random.randint(1, 10)
+            if self.progress > 100:
+                self.progress = 100
+
+        def get_race_line(self):
+            return f'{self.progress}%|' + '‣' * int(self.progress / 2) + self.emoji
+
+        @property
+        def has_completed(self):
+            return self.progress >= 100
+
+        def __eq__(self, other):
+            return self.id == other.id
+
+    def __init__(self, ctx: MidoContext):
+        self.ctx = ctx
+        self.channel_id = self.ctx.channel.id
+
+        self.has_started = False
+        self._event = asyncio.Event()
+
+        self.participants = list()
+        self.message_counter = 0
+
+        self.ctx.bot.loop.create_task(self.race_loop())
+
+    async def race_loop(self):
+        await asyncio.sleep(self.STARTS_IN)
+
+        if len(self.participants) < 2:
+            await self.ctx.send_error("Race could not start because there weren't enough participants.")
+            return self.end()
+
+        # start
+        self.has_started = True
+        self.ctx.bot.loop.create_task(self.count_messages())
+
+        finished_participants = []
+        e = MidoEmbed(bot=self.ctx.bot, title="Race", description='')
+        msg = None
+        while not self.has_ended:
+            e.description = '**|**' + '🏁' * 18 + '🔚' + '**|**\n'
+
+            for participant in self.participants:
+                e.description += participant.get_race_line()
+
+                if participant.has_completed:
+                    if participant not in finished_participants:
+                        finished_participants.append(participant)
+
+                    position = finished_participants.index(participant) + 1
+
+                    e.description += f'**#{position}**'
+                    if position == 1:  # if first:
+                        e.description += ' 🏆'
+                e.description += '\n'
+
+            e.description += '**|**' + '🏁' * 18 + '🔚' + '**|**\n'
+
+            if not msg:
+                msg = await self.ctx.send(embed=e)
+            elif self.message_counter > self.MESSAGE_COUNTER_LIMIT:
+                await msg.delete()
+                msg = await self.ctx.send(embed=e)
+                self.message_counter = 0
+            else:
+                await msg.edit(embed=e)
+
+            if not list(filter(lambda x: not x.has_completed, self.participants)):  # if everybody finished:
+                break
+
+            for participant in self.participants:
+                if participant not in finished_participants:
+                    participant.add_random_progress()
+
+            await asyncio.sleep(2.0)
+
+        winner = finished_participants[0]
+        e.description = f"The race is over!\n\n" \
+                        f"The winner is: **{winner.member_db.user.discord_name}** "
+
+        if self.prize_pool > 0:
+            await winner.member_db.user.add_cash(self.prize_pool, reason="Won a race.")
+
+            e.description += f"and they've won **{readable_currency(self.prize_pool)}**!!"
+        else:
+            e.description += f"but they didn't get any donuts because the prize pool is empty :("
+
+        await self.ctx.send(embed=e)
+
+        # finish
+        self.end()
+
+    async def count_messages(self):
+        while not self.has_ended:
+            m = await MidoEmbed.get_msg(bot=self.ctx.bot, ctx=self.ctx)
+            if m:
+                self.message_counter += 1
+
+    def add_participant(self, member_db: MemberDB, bet_amount: int):
+        p = self.get_participant(member_db.id)
+        if p:
+            raise RaceError(f"**You've already joined the race** as {p.emoji} "
+                            f"and bet **{readable_currency(p.bet_amount)}**.")
+
+        if self.has_started:
+            raise RaceError("You can't join the race as it has already started.")
+
+        # set emoji
+        used_emojis = [x.emoji for x in self.participants]
+        remaining_emojis = [x for x in Resources.emotes.race_emotes if x not in used_emojis]
+        if not remaining_emojis:
+            raise RaceError("Race is full.")
+
+        emoji = random.choice(remaining_emojis)
+
+        p = self.Participant(member_db, emoji, bet_amount)
+        self.participants.append(p)
+        return p
+
+    def get_participant(self, user_id: int) -> Participant:
+        try:
+            return next(p for p in self.participants if p.id == user_id)
+        except StopIteration:
+            return None
+
+    def end(self):
+        return self._event.set()
+
+    @property
+    def prize_pool(self) -> int:
+        return sum(x.bet_amount for x in self.participants)
+
+    @property
+    def has_ended(self):
+        return self._event.is_set()
+
+    async def wait_until_race_finishes(self):
+        await self._event.wait()
+
+
 class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -71,6 +234,19 @@ class Games(commands.Cog):
         # todo: move this to db cuz its too large and might cause memory issues
         with open("resources/hangman.json") as f:
             self.hangman_dict = json.load(f)
+
+    def get_or_create_race(self, ctx: MidoContext) -> Tuple[Race, bool]:
+        """Returns a race and whether it is just created or not"""
+        for race in self.bot.active_races:
+            if race.has_ended:
+                del race
+            elif race.channel_id == ctx.channel.id:
+                return race, False
+
+        new_race = Race(ctx=ctx)
+        self.bot.active_races.append(new_race)
+
+        return new_race, True
 
     @commands.max_concurrency(number=1, per=commands.BucketType.channel)
     @commands.command()
@@ -197,6 +373,38 @@ class Games(commands.Cog):
                     e.colour = self.fail_color
 
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
+
+    @commands.command()
+    async def race(self, ctx: MidoContext, bet_amount: Union[int, str] = 0):
+        """Start or join a race!
+
+        You can bet donuts (optional) which will be added to the prize pool. The winner will get everything!
+        """
+        if bet_amount:
+            await ctx.bot.get_cog('Gambling').ensure_not_broke_and_parse_bet_amount(ctx)
+
+        race, just_created = self.get_or_create_race(ctx)
+        participant_obj = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
+
+        e = MidoEmbed(bot=ctx.bot, title="Race")
+        if just_created:
+            e.description = f"**{ctx.author}** has successfully created a new race and joined it" \
+                            f" as {participant_obj.emoji}!"
+        else:
+            e.description = f"**{ctx.author}** has successfully joined the race" \
+                            f" as {participant_obj.emoji}!"
+
+        if bet_amount:
+            e.description += f"\n\n" \
+                             f"And they've bet **{readable_currency(bet_amount)}**!"
+
+        if just_created:
+            e.description += f"\n\n" \
+                             f"Race starts in **{Race.STARTS_IN}** seconds."
+
+        e.set_footer(text=f"Prize Pool: {readable_bigint(race.prize_pool)} Donuts")
+
+        await ctx.send(embed=e)
 
 
 def setup(bot):

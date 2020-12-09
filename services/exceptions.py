@@ -47,3 +47,9 @@ class UserIsBlacklisted(CommandError):
 
 class GuildIsBlacklisted(CommandError):
     pass
+
+
+# race exceptions
+
+class RaceError(CommandError):
+    pass

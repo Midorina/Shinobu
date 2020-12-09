@@ -58,6 +58,8 @@ class MidoBot(commands.AutoShardedBot):
 
         self.wavelink: wavelink.Client = None
 
+        self.active_races = list()
+
     async def close(self):
         await self.http_session.close()
         await self.db.close()
