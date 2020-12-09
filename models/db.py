@@ -13,7 +13,6 @@ from discord.ext.commands import BadArgument
 from models.waifu import Waifu
 from services.embed import MidoEmbed
 from services.exceptions import InsufficientCash, NotFoundError, OnCooldownError
-from services.resources import Resources
 from services.time_stuff import MidoTime
 
 
@@ -209,9 +208,14 @@ class UserDB(BaseDBModel):
         return [cls(user_db, bot) for user_db in ret]
 
     @property
-    def cash_readable(self) -> str:
+    def cash_str_without_emoji(self) -> str:
         from services.converters import readable_bigint
         return readable_bigint(self.cash)
+
+    @property
+    def cash_str(self) -> str:
+        from services.converters import readable_currency
+        return readable_currency(self.cash)
 
     async def update_name(self, new_name: str):
         self._discord_name = new_name
@@ -813,8 +817,9 @@ class DonutEvent(BaseDBModel):
             f"User {user_db.discord_name} has been awarded {self.reward} donuts for reacting to the donut event."
         )
 
+        from services.converters import readable_currency
         e = MidoEmbed(bot=self.bot,
-                      description=f"You have been awarded **{self.reward} {Resources.emotes.currency}** "
+                      description=f"You have been awarded **{readable_currency(self.reward)}** "
                                   f"for attending the donut event!")
         try:
             await user_db.discord_obj.send(embed=e)

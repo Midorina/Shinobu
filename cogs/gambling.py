@@ -10,12 +10,13 @@ from midobot import MidoBot
 from models.db import DonutEvent, ReminderDB, TransactionLog, UserDB
 from services import checks
 from services.context import MidoContext
-from services.converters import MidoMemberConverter
+from services.converters import MidoMemberConverter, readable_currency
 from services.embed import MidoEmbed
 from services.exceptions import APIError, DidntVoteError, InsufficientCash, OnCooldownError
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
+# todo: br description
 DIGIT_TO_EMOJI = {
     0: ":zero:",
     1: ":one:",
@@ -58,8 +59,8 @@ class Gambling(commands.Cog):
         self.dblpy = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'])
         self.votes = set()
 
+        # donut event stuff
         self.active_donut_events: List[DonutEvent] = list()
-
         self.bot.loop.create_task(self.get_active_donut_events())
 
     async def get_active_donut_events(self):
@@ -115,11 +116,6 @@ class Gambling(commands.Cog):
         self.votes.add(int(data['user']))
         self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
-    @commands.Cog.listener()
-    async def on_dbl_test(self, data):
-        self.votes.add(int(data['user']))
-        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
-
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: MidoContext, *, user: MidoMemberConverter() = None):
         """Check how many donuts you have or someone else has."""
@@ -129,7 +125,7 @@ class Gambling(commands.Cog):
             user = ctx.author
             user_db = ctx.user_db
 
-        await ctx.send_success(f"**{user.mention}** has **{user_db.cash_readable}{Resources.emotes.currency}**!")
+        await ctx.send_success(f"**{user.mention}** has **{user_db.cash_str_without_emoji}**!")
 
     @commands.command()
     async def daily(self, ctx: MidoContext):
@@ -150,7 +146,7 @@ class Gambling(commands.Cog):
             raise DidntVoteError(f"It seems like you haven't voted yet.\n\n"
                                  f"Vote [here]({Resources.links.upvote}), "
                                  f"then use this command again "
-                                 f"to get your **{daily_amount}{Resources.emotes.currency}**!")
+                                 f"to get your **{readable_currency(daily_amount)}**!")
 
         else:
             try:
@@ -160,7 +156,7 @@ class Gambling(commands.Cog):
 
             await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
 
-            base_msg = f"You've successfully claimed your daily **{daily_amount}{Resources.emotes.currency}**!\n\n"
+            base_msg = f"You've successfully claimed your daily **{readable_currency(daily_amount)}**!\n\n"
 
             m = await ctx.send_success(base_msg + "Would you like to get reminded when you can vote again?")
 
@@ -174,6 +170,7 @@ class Gambling(commands.Cog):
                     content=f"Your daily is ready! You can vote [here]({Resources.links.upvote}).",
                     date_obj=MidoTime.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
                 )
+                ctx.bot.get_cog('Reminder').add_reminder(reminder)
 
                 await ctx.edit_custom(m,
                                       base_msg + f"Success! I will remind you to get your daily again "
@@ -203,18 +200,20 @@ class Gambling(commands.Cog):
         e.set_image(url=random.choice(self.coin_sides[random_side_name]['images']))
 
         if actual_guessed_side_name == random_side_name:
-            await ctx.user_db.add_cash(amount * 2, reason="Won coin flip game.")
+            won_amount = int(amount * 1.95)
+
+            await ctx.user_db.add_cash(won_amount, reason="Won coin flip game.")
 
             e.title = "Congratulations!"
-            e.description = f"You flipped {random_side_name} and won **{amount * 2}{Resources.emotes.currency}**!"
+            e.description = f"You flipped {random_side_name} and won **{readable_currency(won_amount)}**!"
             e.colour = self.success_color
 
         else:
             e.title = "I'm sorry..."
-            e.description = f"You flipped {random_side_name} and lost **{amount}{Resources.emotes.currency}**."
+            e.description = f"You flipped {random_side_name} and lost **{readable_currency(amount)}**."
             e.colour = self.fail_color
 
-        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash_readable}")
+        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
 
         return await ctx.send(embed=e)
 
@@ -238,19 +237,16 @@ class Gambling(commands.Cog):
         won_multiplier, won_arrow = random.choice(list(possibilities_and_arrows.items()))
         won_cash = int(won_multiplier * amount)
 
-        e.set_author(icon_url=ctx.author.avatar_url,
-                     name=f'{ctx.author.display_name} has just won: {won_cash}{Resources.emotes.currency}')
-
         await ctx.user_db.add_cash(won_cash, reason="Won wheel game.")
 
-        e.description = ""
+        e.description = f"**{ctx.author}** has just won: **{readable_currency(won_cash)}** [x{won_multiplier}]\n\n"
         for i, multiplier_and_arrow in enumerate(possibilities_and_arrows.items()):
             multiplier, arrow = multiplier_and_arrow
 
             if i == 4:
-                e.description += empty + won_arrow + empty * 7
+                e.description += empty + won_arrow + empty * 4
 
-            e.description += f'**『{multiplier}』**{empty * 5}'
+            e.description += f'**『{multiplier}』**{empty * 2}'
 
             if i in (2, 4):
                 e.description += '\n\n'
@@ -339,15 +335,15 @@ class Gambling(commands.Cog):
             if rolled == 100:
                 win_multip = 10
                 msg = f"Congratulations!! " \
-                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling 100 🎉"
+                      f"You won **{readable_currency(win_multip * amount)}** for rolling 100 🎉"
             elif rolled > 90:
                 win_multip = 4
                 msg = f"Congratulations! " \
-                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 90."
+                      f"You won **{readable_currency(win_multip * amount)}** for rolling above 90."
             else:
                 win_multip = 2
                 msg = f"Congratulations! " \
-                      f"You won **{win_multip * amount} {Resources.emotes.currency}** for rolling above 66."
+                      f"You won **{readable_currency(win_multip * amount)}** for rolling above 66."
         else:
             color = self.fail_color
             msg = f"Better luck next time 🥺"
@@ -383,7 +379,7 @@ class Gambling(commands.Cog):
                     e.set_thumbnail(url=user_obj.avatar_url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
-                          f"{user.cash_readable} {Resources.emotes.currency}")
+                          f"{user.cash_str}")
 
         await e.paginate(ctx, blocks, item_per_page=10, extra_sep='\n')
 
@@ -397,7 +393,7 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.add_cash(amount, reason=f"Transferred from {ctx.author.id}.")
-        await ctx.send_success(f"**{ctx.author.mention}** has just sent **{amount}{Resources.emotes.currency}** "
+        await ctx.send_success(f"**{ctx.author.mention}** has just sent **{readable_currency(amount)}** "
                                f"to **{member.mention}**!")
 
     @checks.is_owner()
@@ -406,8 +402,8 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.add_cash(amount, reason="Rewarded by the bot owner.")
-        await member.send(f"You've been awarded **{amount}{Resources.emotes.currency}** by the bot owner!")
-        await ctx.send_success(f"You've successfully awarded {member} with **{amount}{Resources.emotes.currency}**!")
+        await member.send(f"You've been awarded **{readable_currency(amount)}** by the bot owner!")
+        await ctx.send_success(f"You've successfully awarded {member} with **{readable_currency(amount)}**!")
 
     @checks.is_owner()
     @commands.command(name="punish", aliases=['withdraw, removecash'], hidden=True)
@@ -415,7 +411,7 @@ class Gambling(commands.Cog):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.remove_cash(amount, reason="Removed by the bot owner.", force=True)
-        await ctx.send_success(f"You've just removed **{amount}{Resources.emotes.currency}** from {member}.")
+        await ctx.send_success(f"You've just removed **{readable_currency(amount)}** from {member}.")
 
     @checks.is_owner()
     @commands.command(name='donutevent', aliases=['event'], hidden=True)
@@ -423,7 +419,7 @@ class Gambling(commands.Cog):
         e = MidoEmbed(bot=ctx.bot,
                       title="Donut Event!",
                       description=f"React with {Resources.emotes.currency} "
-                                  f"to get **{reward} {Resources.emotes.currency}** for free!"
+                                  f"to get **{readable_currency(reward)}** for free!"
                       )
         e.set_footer(text="Ends at:")
         e.timestamp = length.end_date
@@ -472,24 +468,26 @@ class Gambling(commands.Cog):
     @slots.before_invoke
     @coin_flip.before_invoke
     @give_cash.before_invoke
-    async def ensure_not_broke(self, ctx: MidoContext):
+    async def ensure_not_broke_and_parse_bet_amount(self, ctx: MidoContext):
         bet_amount = ctx.args[2]  # arg after the context is the amount.
 
-        if isinstance(bet_amount, int):
-            if bet_amount > ctx.user_db.cash:
-                raise InsufficientCash
-
-            elif bet_amount <= 0:
-                raise commands.BadArgument("The amount can not be less than or equal to 0!")
-        else:
+        if isinstance(bet_amount, str):
             if bet_amount == 'all':
-                ctx.args[2] = int(ctx.user_db.cash)
+                bet_amount = int(ctx.user_db.cash)
             elif bet_amount == 'half':
-                ctx.args[2] = int(ctx.user_db.cash / 2)
+                bet_amount = int(ctx.user_db.cash / 2)
             else:
                 raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
-        await ctx.user_db.remove_cash(ctx.args[2], reason="Used for gambling.")
+        if bet_amount > ctx.user_db.cash:
+            raise InsufficientCash
+
+        elif bet_amount <= 0:
+            raise commands.BadArgument("The amount can not be less than or equal to 0!")
+
+        await ctx.user_db.remove_cash(bet_amount, reason=f"Used for {ctx.command.name}")
+
+        ctx.args[2] = bet_amount  # change the arg to int
 
 
 def setup(bot):

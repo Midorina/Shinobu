@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 from services.context import MidoContext
+from services.resources import Resources
 
 
 class MidoMemberConverter(commands.MemberConverter):
@@ -35,3 +36,7 @@ class MidoRoleConverter(commands.RoleConverter):
 
 def readable_bigint(number: int) -> str:
     return '{:,}'.format(number)
+
+
+def readable_currency(number: int) -> str:
+    return readable_bigint(number) + Resources.emotes.currency

@@ -9,10 +9,9 @@ from midobot import MidoBot
 from models.db import UserDB
 from models.waifu import Item
 from services.context import MidoContext
-from services.converters import MidoMemberConverter, readable_bigint
+from services.converters import MidoMemberConverter, readable_bigint, readable_currency
 from services.embed import MidoEmbed
 from services.exceptions import NotFoundError
-from services.resources import Resources
 
 
 class Waifu(commands.Cog):
@@ -41,7 +40,7 @@ class Waifu(commands.Cog):
             if i == 1 and user:
                 e.set_thumbnail(url=user.avatar_url)
 
-            e.description += f"`#{i}` **{user_db.waifu.price_readable} {Resources.emotes.currency}** " \
+            e.description += f"`#{i}` **{user_db.waifu.price_readable}** " \
                              f"**{user_name}** claimed by **{claimer_name}**\n"
             if not user_db.waifu.affinity_id:
                 if not user_db.waifu.claimer_id:
@@ -71,7 +70,7 @@ class Waifu(commands.Cog):
         price_to_reset = ctx.user_db.waifu.get_price_to_reset()
 
         msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
-                                     f"This will cost you **{price_to_reset}{Resources.emotes.currency}**.\n\n"
+                                     f"This will cost you **{readable_currency(price_to_reset)}**.\n\n"
                                      f"*This action will reset everything **except your waifus**.*")
 
         yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
@@ -99,7 +98,7 @@ class Waifu(commands.Cog):
             item_blocks = []
             for item in Item.get_all():
                 item_blocks.append(
-                    f'**{item.emote_n_name}** -> {readable_bigint(item.price)}{Resources.emotes.currency}')
+                    f'**{item.emote_n_name}** -> {readable_currency(item.price)}')
 
             await e.paginate(ctx, item_blocks, item_per_page=9)
         else:
@@ -139,8 +138,7 @@ class Waifu(commands.Cog):
         e = MidoEmbed(ctx.bot)
         e.set_author(icon_url=target.avatar_url, name=f"Waifu {target}")
 
-        e.add_field(name="Price", value=f'{readable_bigint(target_db.waifu.price)} '
-                                        f'{Resources.emotes.currency}', inline=True)
+        e.add_field(name="Price", value=f'{readable_currency(target_db.waifu.price)} ', inline=True)
         e.add_field(name="Claimed by",
                     value=claimer_name,
                     inline=True)
@@ -232,7 +230,7 @@ class Waifu(commands.Cog):
         await target_db.waifu.get_claimed(ctx.author.id, price)
 
         base_msg = f"{ctx.author.mention} claimed {target.mention} as their waifu " \
-                   f"for **{price}{Resources.emotes.currency}**!\n"
+                   f"for **{readable_currency(price)}**!\n"
 
         if target_db.waifu.affinity_id == ctx.author.id:
             await ctx.send_success(base_msg +
@@ -240,7 +238,7 @@ class Waifu(commands.Cog):
                                    f"🎉 Their love is fulfilled! 🎉\n"
                                    f"\n"
                                    f"{target.mention}'s new value is "
-                                   f"**{target_db.waifu.price}{Resources.emotes.currency}**!")
+                                   f"**{target_db.waifu.price_readable}**!")
         else:
             await ctx.send_success(base_msg)
 
@@ -275,11 +273,11 @@ class Waifu(commands.Cog):
                                    f"Guess it was a "
                                    f"[1 sided love](https://open.spotify.com/track/39bs2V8huzcmWoeSlHKZeP).\n"
                                    f"\n"
-                                   f"{target.mention} received **{amount}{Resources.emotes.currency}** "
+                                   f"{target.mention} received **{readable_currency(amount)}** "
                                    f"as compensation.")
         else:
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
-                                   f"and got **{amount}{Resources.emotes.currency}** in return.")
+                                   f"and got **{readable_currency(amount)}** in return.")
 
     @commands.command()
     async def waifutransfer(self, ctx: MidoContext, ex_waifu: MidoMemberConverter(), new_owner: MidoMemberConverter()):
@@ -302,7 +300,7 @@ class Waifu(commands.Cog):
 
         await ctx.send_success(f'{ctx.author.mention} successfully transferred the ownership '
                                f'of {ex_waifu.mention} to {new_owner.mention} '
-                               f'using **{cost}{Resources.emotes.currency}**.')
+                               f'using **{readable_currency(cost)}**.')
 
 
 def setup(bot):

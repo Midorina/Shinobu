@@ -115,8 +115,8 @@ class Waifu:
 
     @property
     def price_readable(self) -> str:
-        from services.converters import readable_bigint
-        return readable_bigint(self.price)
+        from services.converters import readable_currency
+        return readable_currency(self.price)
 
     def get_price_to_reset(self):
         return math.floor(self.price * 1.25 + (self.affinity_changes + self.divorce_count + 2) * 150)
