@@ -133,6 +133,12 @@ class Shitposting(commands.Cog):
                 comment=comment)
         )
 
+    @commands.command()
+    async def say(self, ctx: MidoContext, *, message: str):
+        """Make me say something."""
+        # commands.clean_content is not used, because the message will be shown in an embed.
+        await ctx.send_success(message)
+
 
 def setup(bot):
     bot.add_cog(Shitposting(bot))

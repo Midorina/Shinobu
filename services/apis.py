@@ -226,6 +226,8 @@ class NSFW_DAPIs(CachedImageAPI):
         'loli',
         'shota',
         'child',
+        'kid',
+        'underage',
         'guro',
         'blood',
         'gore',
@@ -280,7 +282,7 @@ class NSFW_DAPIs(CachedImageAPI):
         for dapi in self.DAPI_LINKS.keys():
             try:
                 urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
-            except (NotFoundError, TooManyArguments):
+            except (NotFoundError, TooManyArguments, APIError):
                 pass
 
         try:
