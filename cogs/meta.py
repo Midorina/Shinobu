@@ -53,12 +53,14 @@ class MidoHelp(commands.HelpCommand):
                                   f' if you need additional help.',
                       default_footer=True)
 
-        cogs = sorted(cogs_and_commands.keys(), key=lambda x: str(x))
+        cogs = filter(lambda y: y is not None, sorted(cogs_and_commands.keys(), key=lambda x: str(x)))
 
         cmd_counter = 0
         for cog in cogs:
-            if cog and len(cog.get_commands()) > 0:
-                cmd_counter_cog = len(cog.get_commands())
+            _commands = await self.filter_commands(cog.get_commands(), sort=True)
+
+            if len(_commands) > 0:
+                cmd_counter_cog = len(_commands)
                 cmd_counter += cmd_counter_cog
 
                 e.add_field(name=f'__{cog.qualified_name}__', value=f'{cmd_counter_cog} Commands')
@@ -75,6 +77,8 @@ class MidoHelp(commands.HelpCommand):
                 yield lst[j:j + n]
 
         _commands = await self.filter_commands(cog.get_commands(), sort=True)
+        if len(_commands) == 0:
+            raise commands.CheckFailure("That is a hidden module. Sorry.")
 
         e = MidoEmbed(self.context.bot,
                       title=f'Shinobu {cog.qualified_name} Commands',
@@ -112,7 +116,7 @@ class MidoHelp(commands.HelpCommand):
         await self.context.send(content=content, embed=embed)
 
 
-class Misc(commands.Cog):
+class Meta(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -350,12 +354,6 @@ class Misc(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command()
-    async def say(self, ctx: MidoContext, *, message: str):
-        """Make me say something."""
-        # commands.clean_content is not used, because the message will be shown in an embed.
-        await ctx.send_success(message)
-
     @commands.command(aliases=['erasedata'])
     async def deletedata(self, ctx: MidoContext):
         """Delete all of your data from me."""
@@ -375,4 +373,4 @@ class Misc(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Misc(bot))
+    bot.add_cog(Meta(bot))
