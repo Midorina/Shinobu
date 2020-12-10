@@ -60,6 +60,8 @@ class MidoBot(commands.AutoShardedBot):
 
         self.active_races = list()
 
+        self.before_invoke(self.attach_db_objects_to_ctx)
+
     async def close(self):
         await self.http_session.close()
         await self.db.close()
@@ -101,8 +103,6 @@ class MidoBot(commands.AutoShardedBot):
 
     async def process_commands(self, message):
         ctx = await self.get_context(message, cls=MidoContext)
-
-        await ctx.attach_db_objects()
         await self.invoke(ctx)
 
     async def on_message(self, message):
@@ -166,6 +166,14 @@ class MidoBot(commands.AutoShardedBot):
     async def get_user_name(self, _id: int) -> str:
         user_db = await UserDB.get_or_create(bot=self, user_id=_id)
         return user_db.discord_name
+
+    @staticmethod
+    async def attach_db_objects_to_ctx(ctx: MidoContext):
+        """
+        This func is used as a before_invoke function
+        which attaches db objects when a command is about to be called.
+        """
+        await ctx.attach_db_objects()
 
     def run(self):
         super().run(self.config["token"])
