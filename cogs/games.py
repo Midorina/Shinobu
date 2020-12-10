@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import random
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 from discord.ext import commands
 
 from models.db import MemberDB
 from services.context import MidoContext
-from services.converters import readable_bigint, readable_currency
+from services.converters import ensure_not_broke_and_parse_bet, readable_bigint, readable_currency
 from services.embed import MidoEmbed
 from services.exceptions import RaceError, TimedOut
 from services.resources import Resources
@@ -75,6 +75,7 @@ class Race:
     class Participant:
         def __init__(self, member_db: MemberDB, emoji: str, bet_amount: int = 0):
             self.member_db = member_db
+
             self.id = self.member_db.id
 
             self.emoji = emoji
@@ -102,19 +103,25 @@ class Race:
         self.channel_id = self.ctx.channel.id
 
         self.has_started = False
-        self._event = asyncio.Event()
 
         self.participants = list()
         self.message_counter = 0
 
-        self.ctx.bot.loop.create_task(self.race_loop())
+        self.race_loop_task = self.ctx.bot.loop.create_task(self.race_loop())
+
+    async def give_participants_money_back(self, reason='Race cancelled.'):
+        for participant in self.participants:
+            if participant.bet_amount:
+                await participant.member_db.user.add_cash(amount=participant.bet_amount, reason=reason)
+                participant.bet_amount = 0
 
     async def race_loop(self):
         await asyncio.sleep(self.STARTS_IN)
 
         if len(self.participants) < 2:
             await self.ctx.send_error("Race could not start because there weren't enough participants.")
-            return self.end()
+            await self.give_participants_money_back()
+            return
 
         # start
         self.has_started = True
@@ -171,10 +178,7 @@ class Race:
         else:
             e.description += f"but they didn't get any donuts because the prize pool is empty :("
 
-        await self.ctx.send(embed=e)
-
-        # finish
-        self.end()
+        await self.ctx.send(embed=e)  # finish
 
     async def count_messages(self):
         while not self.has_ended:
@@ -203,14 +207,11 @@ class Race:
         self.participants.append(p)
         return p
 
-    def get_participant(self, user_id: int) -> Participant:
+    def get_participant(self, user_id: int) -> Optional[Participant]:
         try:
             return next(p for p in self.participants if p.id == user_id)
         except StopIteration:
             return None
-
-    def end(self):
-        return self._event.set()
 
     @property
     def prize_pool(self) -> int:
@@ -218,10 +219,10 @@ class Race:
 
     @property
     def has_ended(self):
-        return self._event.is_set()
+        return self.race_loop_task.done()
 
     async def wait_until_race_finishes(self):
-        await self._event.wait()
+        await self.race_loop_task
 
 
 class Games(commands.Cog):
@@ -381,10 +382,15 @@ class Games(commands.Cog):
         You can bet donuts (optional) which will be added to the prize pool. The winner will get everything!
         """
         if bet_amount:
-            await ctx.bot.get_cog('Gambling').ensure_not_broke_and_parse_bet_amount(ctx)
+            bet_amount = await ensure_not_broke_and_parse_bet(ctx, bet_amount)
 
         race, just_created = self.get_or_create_race(ctx)
-        participant_obj = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
+        try:
+            participant_obj = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
+        except RaceError as e:
+            if bet_amount:  # if errored and they put a bet, give it back
+                await ctx.user_db.add_cash(bet_amount, reason=f"Race errored: {e}")
+            raise e
 
         e = MidoEmbed(bot=ctx.bot, title="Race")
         if just_created:
