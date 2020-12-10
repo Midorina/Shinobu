@@ -113,6 +113,7 @@ class Shitposting(commands.Cog):
         image = await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme')
         await ctx.send_simple_image(image.url)
 
+    @commands.guild_only()
     @commands.command(aliases=['youtubecomment'])
     async def ytcomment(self, ctx: MidoContext, target: MidoMemberConverter = None, *, comment: str = ''):
         """Generate a YouTube comment."""
@@ -129,7 +130,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(
             url=await self.get_random_api().youtube_comment(
                 avatar_url=str(user.avatar_url_as(static_format='png')),
-                username=str(user),
+                username=user.display_name,
                 comment=comment)
         )
 

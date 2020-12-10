@@ -18,7 +18,7 @@ class Type(Enum):
 
 class HearthstoneCard:
     def __init__(self, data: dict):
-        from services.parsers import html_to_discord
+        from services.converters import html_to_discord
 
         self.id: int = data.pop('id')
 
