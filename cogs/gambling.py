@@ -10,13 +10,12 @@ from midobot import MidoBot
 from models.db import DonutEvent, ReminderDB, TransactionLog, UserDB
 from services import checks
 from services.context import MidoContext
-from services.converters import MidoMemberConverter, readable_currency
+from services.converters import MidoMemberConverter, ensure_not_broke_and_parse_bet, readable_currency
 from services.embed import MidoEmbed
-from services.exceptions import APIError, DidntVoteError, InsufficientCash, OnCooldownError
+from services.exceptions import APIError, DidntVoteError, OnCooldownError
 from services.resources import Resources
 from services.time_stuff import MidoTime
 
-# todo: br description
 DIGIT_TO_EMOJI = {
     0: ":zero:",
     1: ":one:",
@@ -116,6 +115,20 @@ class Gambling(commands.Cog):
         self.votes.add(int(data['user']))
         self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
+    async def cog_command_error(self, ctx: MidoContext, error):
+        """This function handles the removed money taken in the ensure_not_broke_and_parse_bet_amount function."""
+        list_of_commands_that_removes_cash = [
+            'give',
+            'wheel',
+            'betroll',
+            'slots',
+            'coinflip'
+        ]
+        cmds = [ctx.bot.get_command(x) for x in list_of_commands_that_removes_cash]
+
+        if isinstance(error, (commands.UserInputError, commands.BadArgument)) and ctx.command in cmds:
+            await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
+
     @commands.command(aliases=['$', 'money'])
     async def cash(self, ctx: MidoContext, *, user: MidoMemberConverter() = None):
         """Check how many donuts you have or someone else has."""
@@ -125,7 +138,7 @@ class Gambling(commands.Cog):
             user = ctx.author
             user_db = ctx.user_db
 
-        await ctx.send_success(f"**{user.mention}** has **{user_db.cash_str_without_emoji}**!")
+        await ctx.send_success(f"**{user.mention}** has **{user_db.cash_str}**!")
 
     @commands.command()
     async def daily(self, ctx: MidoContext):
@@ -181,7 +194,7 @@ class Gambling(commands.Cog):
 
     @commands.command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
     async def coin_flip(self, ctx: MidoContext, amount: Union[int, str], guessed_side: str):
-        """A coin flip game. You'll earn the double amount of what you bet if you predict correctly.
+        """A coin flip game. You'll earn x1.95 of what you bet if you predict correctly.
 
         Sides and Aliases:
         **Heads**: `heads`, `head`, `h`
@@ -219,7 +232,9 @@ class Gambling(commands.Cog):
 
     @commands.command()
     async def wheel(self, ctx: MidoContext, amount: Union[int, str]):
-        """Turn the wheel!"""
+        """Turn the wheel!
+
+        What you bet will be multiplied by what you hit and get back to you."""
         possibilities_and_arrows = {
             1.5: '↖️',
             1.7: '⬆️',
@@ -326,7 +341,13 @@ class Gambling(commands.Cog):
 
     @commands.command(aliases=['br'])
     async def betroll(self, ctx: MidoContext, amount: Union[int, str]):
-        """Roll a random number between 1 and 100."""
+        """Roll a random number between 1 and 100.
+
+        You get;
+        - **x10** -> If you get 100
+        - **x4** -> If you get >90
+        - **x2** -> If you get >66
+        """
         rolled = random.randint(1, 100)
         win_multip = 0
 
@@ -364,7 +385,7 @@ class Gambling(commands.Cog):
 
     @commands.command(aliases=['lb'])
     async def leaderboard(self, ctx: MidoContext):
-        """See the donut leaderboard!"""
+        """See the global donut leaderboard!"""
         rich_people = await UserDB.get_rich_people(bot=ctx.bot, limit=100)
 
         e = MidoEmbed(bot=self.bot,
@@ -469,25 +490,11 @@ class Gambling(commands.Cog):
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke_and_parse_bet_amount(self, ctx: MidoContext):
-        bet_amount = ctx.args[2]  # arg after the context is the amount.
+        # for some reason this func is called before the global before_invoke
+        # so we have to attach db objects here as well
+        await ctx.attach_db_objects()
 
-        if isinstance(bet_amount, str):
-            if bet_amount == 'all':
-                bet_amount = int(ctx.user_db.cash)
-            elif bet_amount == 'half':
-                bet_amount = int(ctx.user_db.cash / 2)
-            else:
-                raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
-
-        if bet_amount > ctx.user_db.cash:
-            raise InsufficientCash
-
-        elif bet_amount <= 0:
-            raise commands.BadArgument("The amount can not be less than or equal to 0!")
-
-        await ctx.user_db.remove_cash(bet_amount, reason=f"Used for {ctx.command.name}")
-
-        ctx.args[2] = bet_amount  # change the arg to int
+        ctx.args[2] = await ensure_not_broke_and_parse_bet(ctx, ctx.args[2])  # arg after the context is the amount.
 
 
 def setup(bot):
