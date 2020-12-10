@@ -5,8 +5,10 @@ from midobot import MidoBot
 from services import context, embed
 from services.apis import BlizzardAPI, Google, SomeRandomAPI
 from services.embed import MidoEmbed
-# TODO: pokemon
 from services.resources import Resources
+
+
+# TODO: pokemon
 
 
 class Searches(commands.Cog):

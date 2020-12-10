@@ -4,8 +4,8 @@ from discord.ext import commands
 from midobot import MidoBot
 from models.db import CustomReaction
 from services.context import MidoContext
+from services.converters import parse_text_with_context
 from services.embed import MidoEmbed
-from services.parsers import parse_text_with_context
 
 
 def toggle_message(option_name: str, cr: CustomReaction, option_status: bool) -> str:

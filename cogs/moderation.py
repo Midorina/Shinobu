@@ -8,10 +8,11 @@ from midobot import MidoBot
 from models.db import GuildDB, ModLog
 from services.checks import ensure_role_hierarchy
 from services.context import MidoContext
-from services.converters import MidoMemberConverter, MidoRoleConverter
+from services.converters import MidoMemberConverter, MidoRoleConverter, parse_text_with_context
 from services.embed import MidoEmbed
-from services.parsers import parse_text_with_context
 from services.time_stuff import MidoTime
+
+# TODO: logging
 
 action_emotes = {
     'kick': '👢',
@@ -626,7 +627,7 @@ class Moderation(commands.Cog):
         # then delete the rest
         deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
 
-        await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.")
+        await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
     @commands.command(name="serverinfo", aliases=['sinfo'])
     async def server_info(self, ctx: MidoContext, server_id: int = None):
