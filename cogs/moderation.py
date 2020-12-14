@@ -41,20 +41,20 @@ class Moderation(commands.Cog):
             # if its the time
             if modlog.time_status.end_date_has_passed:
                 guild = self.bot.get_guild(modlog.guild_id)
+                if guild:
+                    if modlog.type == ModLog.Type.BAN:
+                        member = discord.Object(id=modlog.user_id)
+                        try:
+                            await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
+                        except discord.NotFound:
+                            pass
 
-                if modlog.type == ModLog.Type.BAN:
-                    member = discord.Object(id=modlog.user_id)
-                    try:
-                        await guild.unban(member, reason='ModLog time has expired. (Auto-Unban)')
-                    except discord.NotFound:
-                        pass
-
-                elif modlog.type == ModLog.Type.MUTE:
-                    member = guild.get_member(modlog.user_id)
-                    if member:
-                        mute_role = await self.get_or_create_muted_role(guild)
-                        if mute_role in member.roles:
-                            await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unmute)')
+                    elif modlog.type == ModLog.Type.MUTE:
+                        member = guild.get_member(modlog.user_id)
+                        if member:
+                            mute_role = await self.get_or_create_muted_role(guild)
+                            if mute_role in member.roles:
+                                await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unmute)')
 
                 await modlog.complete()
 
@@ -535,7 +535,7 @@ class Moderation(commands.Cog):
         if role in member.roles:
             raise commands.UserInputError(f"Member {member.mention} already has the {role.mention} role.")
 
-        await member.add_roles(role, reason=f'Role has been added by {ctx.author}.')
+        await member.add_roles(role, reason=f'Added by {ctx.author}.')
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to {member.mention}.")
 
@@ -554,7 +554,7 @@ class Moderation(commands.Cog):
         if role not in member.roles:
             raise commands.UserInputError(f"Member {member.mention} don't have the {role.mention} role.")
 
-        await member.remove_roles(role, reason=f'Role has been removed by {ctx.author}.')
+        await member.remove_roles(role, reason=f'Removed by {ctx.author}.')
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
@@ -568,7 +568,7 @@ class Moderation(commands.Cog):
         You need the **Manage Roles** permissions to use this command.
         """
         role = await ctx.guild.create_role(name=role_name,
-                                           reason=f'Role was created using {ctx.prefix}createrole')
+                                           reason=f'Created by {ctx.author}.')
 
         await ctx.send_success(f"Role {role.mention} has been successfully created!")
 
@@ -582,7 +582,7 @@ class Moderation(commands.Cog):
         You need the **Manage Roles** permissions to use this command.
         """
 
-        await role.delete(reason=f'Role got deleted by {ctx.author}.')
+        await role.delete(reason=f'Deleted by {ctx.author}.')
 
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
