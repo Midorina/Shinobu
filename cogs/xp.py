@@ -5,9 +5,13 @@ import discord
 from discord.ext import commands
 
 from midobot import MidoBot
-from models.db import MemberDB, UserDB, XpAnnouncement
+from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
 from services import checks, context
-from services.converters import MidoMemberConverter
+from services.converters import MidoMemberConverter, MidoRoleConverter
+from services.embed import MidoEmbed
+
+
+# todo: xp exclude channel
 
 
 class XP(commands.Cog):
@@ -56,8 +60,8 @@ class XP(commands.Cog):
 
         return e
 
-    @staticmethod
-    async def check_for_level_up(message: discord.Message,
+    async def check_for_level_up(self,
+                                 message: discord.Message,
                                  member_db: MemberDB,
                                  guild_name: str,
                                  added=0,
@@ -72,10 +76,9 @@ class XP(commands.Cog):
             return
 
         msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
+
         if lvld_up_in_guild:
             msg += f"You just have leveled up to **{member_db.level}** in {guild_name}!\n"
-
-        # this is to prevent bugs
         if lvld_up_globally and added_globally:
             msg += f"You just have leveled up to **{member_db.user.level}** globally!"
 
@@ -89,31 +92,52 @@ class XP(commands.Cog):
         except discord.Forbidden:
             pass
 
+        if lvld_up_in_guild:
+            await self.check_member_xp_role_reward(message.author, member_db=member_db)
+
+    async def check_guild_xp_role_rewards(self, guild_id: int = None):
+        guild_discord: discord.Guild = self.bot.get_guild(guild_id)
+        for member in guild_discord.members:
+            await self.check_member_xp_role_reward(member)
+
+    async def check_member_xp_role_reward(self, member: discord.Member, member_db: MemberDB = None):
+        member_db = member_db or await MemberDB.get_or_create(self.bot, member.guild.id, member.id)
+
+        role_rewards = await XpRoleReward.get_all(bot=self.bot, guild_id=member_db.guild.id)
+        eligible_role_rewards = [reward for reward in role_rewards if reward.level <= member_db.level]
+
+        for reward in eligible_role_rewards:
+            role = member.guild.get_role(reward.role_id)
+            if not role:
+                return await reward.delete()
+
+            if role not in member.roles:
+                await member.add_roles(role, reason=f"XP Level {reward.level} reward.")
+
     @commands.Cog.listener()
     async def on_message(self, message):
-        if not self.bot.is_ready() or message.author.bot:
-            return False
+        if not self.bot.is_ready() or message.author.bot or not message.guild:
+            return
 
-        if message.guild is not None:
-            member_db = await MemberDB.get_or_create(bot=self.bot,
-                                                     guild_id=message.guild.id,
-                                                     member_id=message.author.id)
+        member_db = await MemberDB.get_or_create(bot=self.bot,
+                                                 guild_id=message.guild.id,
+                                                 member_id=message.author.id)
 
-            can_gain_xp = member_db.xp_date_status.end_date_has_passed
-            can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
+        can_gain_xp = member_db.xp_date_status.end_date_has_passed
+        can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
 
-            # if on cooldown
-            if not can_gain_xp and not can_gain_xp_global:
-                return
+        # if on cooldown
+        if not can_gain_xp and not can_gain_xp_global:
+            return
 
-            if can_gain_xp:
-                await member_db.add_xp(amount=3)
+        if can_gain_xp:
+            await member_db.add_xp(amount=3)
 
-            if can_gain_xp_global:
-                await member_db.user.add_xp(amount=3)
+        if can_gain_xp_global:
+            await member_db.user.add_xp(amount=3)
 
-            await self.check_for_level_up(message, member_db, str(message.guild), added=3,
-                                          added_globally=can_gain_xp_global)
+        await self.check_for_level_up(message, member_db, str(message.guild), added=3,
+                                      added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
     async def show_rank(self, ctx: context.MidoContext, member: MidoMemberConverter() = None):
@@ -173,6 +197,75 @@ class XP(commands.Cog):
 
         await ctx.user_db.change_level_up_preference(new_preference)
         await ctx.send(f"You've successfully changed your level up preference: `{new_preference.name.title()}`")
+
+    @commands.command(name='xprolereward', aliases=['xprr'])
+    @commands.has_permissions(manage_roles=True)
+    @commands.guild_only()
+    async def set_xp_role_reward(self, ctx: context.MidoContext, level: int, role: MidoRoleConverter() = None):
+        """Set a role reward for a specified level.
+
+        Provide no role name in order to remove the role reward for that level."""
+        already_existing_reward = await XpRoleReward.get_level_reward(bot=ctx.bot,
+                                                                      guild_id=ctx.guild.id,
+                                                                      level=level)
+        if not role:
+            if not already_existing_reward:
+                raise commands.BadArgument("There is already not a reward for this level.")
+            else:
+                await already_existing_reward.delete()
+                await ctx.send_success(f"I've successfully reset the role reward for level **{level}**.")
+
+        else:
+            if already_existing_reward:
+                old_role_id = already_existing_reward.role_id
+                await already_existing_reward.set_role_reward(role_id=role.id)
+                await ctx.send_success(
+                    f"I've successfully changed the role reward of level **{already_existing_reward.level}** "
+                    f"from <@&{old_role_id}> to {role.mention}.\n"
+                    f"\n"
+                    f"I will go ahead and give this new role to those who have already reached level {level}, "
+                    f"however, I will not remove their old role reward. This might take a while."
+                )
+
+            else:
+                await XpRoleReward.create(bot=ctx.bot,
+                                          guild_id=ctx.guild.id,
+                                          level=level,
+                                          role_id=role.id)
+                await ctx.send_success(
+                    f"I've successfully created a new role reward for level **{level}**!\n"
+                    f"\n"
+                    f"They'll get the {role.mention} role when they reach level **{level}**.\n"
+                    f"I will go ahead and give this role to those who have already reached level {level}. "
+                    f"This might take a while."
+                )
+
+            await self.check_guild_xp_role_rewards(guild_id=ctx.guild.id)
+
+    @commands.command(name='xprolerewards', aliases=['xprewards', 'xprrs'])
+    @commands.guild_only()
+    async def list_xp_role_rewards(self, ctx: context.MidoContext):
+        """See a list of XP role rewards of this server."""
+        rewards = await XpRoleReward.get_all(bot=ctx.bot, guild_id=ctx.guild.id)
+        if not rewards:
+            raise commands.UserInputError(f"This server does not have any XP role rewards.\n\n"
+                                          f"You can add/set XP role rewards using `{ctx.prefix}xprolereward <level> <role_reward>`")
+
+        e = MidoEmbed(bot=ctx.bot)
+        e.set_author(icon_url=ctx.guild.icon_url, name=f"XP Role Rewards of {ctx.guild}")
+
+        blocks = []
+        for reward in rewards:
+            role = ctx.guild.get_role(reward.role_id)
+            if not role:
+                await reward.delete()
+                continue
+
+            blocks.append(f"Level **{reward.level}** -> {role.mention} Role")
+
+        await e.paginate(ctx=ctx,
+                         blocks=blocks,
+                         item_per_page=10)
 
     @commands.command(name="silenceserverxp")
     @commands.guild_only()

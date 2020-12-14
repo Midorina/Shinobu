@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Set, Union
+from typing import List, Optional, Set, Union
 
 import asyncpg
 import discord
@@ -30,6 +30,8 @@ class BaseDBModel:
         self.data = data
 
         self.id = data.get('id')
+
+        self.date_added = data.get('date_added')
 
     def __eq__(self, other):
         raise NotImplemented
@@ -887,3 +889,42 @@ class BlacklistDB(BaseDBModel):
             "DELETE FROM blacklist WHERE user_or_guild_id=$1 AND type=$2;",
             user_or_guild_id, type
         )
+
+
+class XpRoleReward(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.guild_id = data.get('guild_id')
+        self.level = data.get('level')
+        self.role_id = data.get('role_id')
+
+    @classmethod
+    async def create(cls, bot, guild_id: int, level: int, role_id: int) -> XpRoleReward:
+        ret = await bot.db.fetchrow(
+            """INSERT INTO guilds_xp_role_rewards(guild_id, level, role_id) 
+            VALUES($1, $2, $3) RETURNING *;""", guild_id, level, role_id)
+        return cls(ret, bot)
+
+    @classmethod
+    async def get_level_reward(cls, bot, guild_id: int, level: int) -> Optional[XpRoleReward]:
+        ret = await bot.db.fetchrow("SELECT * FROM guilds_xp_role_rewards WHERE guild_id=$1 AND level=$2;",
+                                    guild_id, level)
+        if ret:
+            return cls(ret, bot)
+        else:
+            return None
+
+    @classmethod
+    async def get_all(cls, bot, guild_id) -> List[XpRoleReward]:
+        ret = await bot.db.fetch("SELECT * FROM guilds_xp_role_rewards WHERE guild_id=$1;", guild_id)
+        return [cls(reward, bot) for reward in ret]
+
+    async def set_role_reward(self, role_id):
+        self.role_id = role_id
+        await self.db.execute("UPDATE guilds_xp_role_rewards SET role_id=$1 WHERE guild_id=$2 AND level=$3;",
+                              self.role_id, self.guild_id, self.level)
+
+    async def delete(self):
+        await self.db.execute("DELETE FROM guilds_xp_role_rewards WHERE guild_id=$1 AND level=$2;",
+                              self.guild_id, self.level)
