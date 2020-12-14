@@ -8,8 +8,8 @@ from typing import Optional, Tuple, Union
 from discord.ext import commands
 
 from models.db import MemberDB
+from services import converters as cv
 from services.context import MidoContext
-from services.converters import ensure_not_broke_and_parse_bet, readable_bigint, readable_currency
 from services.embed import MidoEmbed
 from services.exceptions import RaceError, TimedOut
 from services.resources import Resources
@@ -174,7 +174,7 @@ class Race:
         if self.prize_pool > 0:
             await winner.member_db.user.add_cash(self.prize_pool, reason="Won a race.")
 
-            e.description += f"and they've won **{readable_currency(self.prize_pool)}**!!"
+            e.description += f"and they've won **{cv.readable_currency(self.prize_pool)}**!!"
         else:
             e.description += f"but they didn't get any donuts because the prize pool is empty :("
 
@@ -190,7 +190,7 @@ class Race:
         p = self.get_participant(member_db.id)
         if p:
             raise RaceError(f"**You've already joined the race** as {p.emoji} "
-                            f"and bet **{readable_currency(p.bet_amount)}**.")
+                            f"and bet **{cv.readable_currency(p.bet_amount)}**.")
 
         if self.has_started:
             raise RaceError("You can't join the race as it has already started.")
@@ -382,7 +382,7 @@ class Games(commands.Cog):
         You can bet donuts (optional) which will be added to the prize pool. The winner will get everything!
         """
         if bet_amount:
-            bet_amount = await ensure_not_broke_and_parse_bet(ctx, bet_amount)
+            bet_amount = await cv.ensure_not_broke_and_parse_bet(ctx, bet_amount)
 
         race, just_created = self.get_or_create_race(ctx)
         try:
@@ -402,16 +402,33 @@ class Games(commands.Cog):
 
         if bet_amount:
             e.description += f"\n\n" \
-                             f"And they've bet **{readable_currency(bet_amount)}**!"
+                             f"And they've bet **{cv.readable_currency(bet_amount)}**!"
 
         if just_created:
             e.description += f"\n\n" \
                              f"Race starts in **{Race.STARTS_IN}** seconds."
 
-        e.set_footer(text=f"Prize Pool: {readable_bigint(race.prize_pool)} Donuts")
+        e.set_footer(text=f"Prize Pool: {cv.readable_bigint(race.prize_pool)} Donuts")
 
         await ctx.send(embed=e)
 
+    @commands.command()
+    async def raffle(self, ctx: MidoContext, *, role: cv.MidoRoleConverter() = None):
+        """Prints a random online user from the server, or from the online user in the specified role."""
+        role = role or ctx.guild.default_role
+        role_mention = role.mention if role != ctx.guild.default_role else '@everyone'  # discord.py bug
+
+        people = [member for member in ctx.guild.members if role in member.roles]
+        random_user = random.choice(people)
+
+        e = MidoEmbed(bot=ctx.bot,
+                      title=f"🎟️ Raffle")
+        e.description = f"Raffled user among {role_mention}:\n" \
+                        f"\n" \
+                        f"{random_user.mention}"
+        e.set_footer(text=f"User's ID: {random_user.id}")
+
+        await ctx.send(embed=e)
 
 def setup(bot):
     bot.add_cog(Games(bot))

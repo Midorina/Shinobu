@@ -261,7 +261,8 @@ class XP(commands.Cog):
                 await reward.delete()
                 continue
 
-            blocks.append(f"Level **{reward.level}** -> {role.mention} Role")
+            people_in_this_role = len([member for member in ctx.guild.members if role in member.roles])
+            blocks.append(f"Level **{reward.level}** -> {role.mention} Role **[{people_in_this_role} people]**")
 
         await e.paginate(ctx=ctx,
                          blocks=blocks,
