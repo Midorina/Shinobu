@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 import asyncpg
@@ -13,20 +14,11 @@ from services.apis import MidoBotAPI
 from services.context import MidoContext
 
 
-async def _get_prefix(_bot, msg: discord.Message):
-    # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
-    try:
-        return commands.when_mentioned_or(_bot.prefix_cache.get(msg.guild.id, _bot.config["default_prefix"]))(_bot, msg)
-    # if in guild
-    except AttributeError:
-        return commands.when_mentioned_or(_bot.config["default_prefix"])(_bot, msg)
-
-
 class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
     def __init__(self, bot_name: str = "midobot"):
         super().__init__(
-            command_prefix=_get_prefix,
+            command_prefix=self.get_prefix,
             case_insensitive=True,
             intents=discord.Intents.all()
         )
@@ -145,7 +137,7 @@ class MidoBot(commands.AutoShardedBot):
                    f"{tab}Command\t: {ctx.message.content}"
         if error:
             error_msg = str(error).split('\n')[0] or error.__class__.__name__
-            log_msg += f"\n{tab}Error: {error_msg}"
+            log_msg += f"\n{tab}Error\t: {error_msg}"
 
         self.logger.info(log_msg)
         self.command_counter += 1
@@ -162,6 +154,25 @@ class MidoBot(commands.AutoShardedBot):
 
     async def on_command_error(self, ctx: MidoContext, exception):
         self.log_command(ctx, error=exception)
+
+    async def get_prefix(self, message):
+        default = self.config["default_prefix"]
+
+        # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
+        try:
+            prefixes = commands.when_mentioned_or(self.prefix_cache.get(message.guild.id, default))(self, message)
+        except AttributeError:  # if in guild
+            prefixes = commands.when_mentioned_or(default)(self, message)
+
+        # case insensitive prefix search
+        for prefix in prefixes:
+            escaped_prefix = re.escape(prefix)
+            m = re.compile(f'^({escaped_prefix}).*', flags=re.I).match(message.content)
+            if m:
+                return m.group(1)
+
+        # if there is not a match, return a random string
+        return os.urandom(8).hex()
 
     async def get_user_name(self, _id: int) -> str:
         user_db = await UserDB.get_or_create(bot=self, user_id=_id)

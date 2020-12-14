@@ -466,12 +466,12 @@ class GuildDB(BaseDBModel):
                                  "OR auto_porn_channel_id IS NOT NULL;")
         return [cls(guild, bot) for guild in ret]
 
-    async def change_prefix(self, new_prefix: str) -> str:
+    async def change_prefix(self, new_prefix: str):
+        self.prefix = new_prefix
+        self.bot.prefix_cache[self.id] = new_prefix  # update cache
+
         await self.db.execute(
             """UPDATE guilds SET prefix=$1 WHERE id=$2;""", new_prefix, self.id)
-
-        self.prefix = new_prefix
-        return self.prefix
 
     async def change_volume(self, new_volume: int):
         await self.db.execute("""UPDATE guilds SET volume=$1 WHERE id=$2;""", new_volume, self.id)

@@ -218,12 +218,11 @@ class Meta(commands.Cog):
 
             await ctx.guild_db.change_prefix(prefix)
 
-            # update cache
-            self.bot.prefix_cache[ctx.guild.id] = prefix
-
-            await ctx.send_success(f"The prefix has been successfully changed to `{prefix}`")
+            await ctx.send_success(f"The prefix has been successfully changed to: `{prefix}`\n\n"
+                                   f"*You can call me without paying attention to the letter case.*")
         else:
-            await ctx.send_success(f"Current prefix for this server: `{ctx.prefix}`")
+            await ctx.send_success(f"Current prefix for this server: `{ctx.prefix}`\n\n"
+                                   f"*You can call me without paying attention to the letter case.*")
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
