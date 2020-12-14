@@ -629,6 +629,20 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
+    @commands.command(name='inrole')
+    async def in_role(self, ctx: MidoContext, role: MidoRoleConverter()):
+        """See the people in a specific role."""
+        ppl = [member for member in ctx.guild.members if role in member.roles]
+
+        e = MidoEmbed(bot=ctx.bot, title=f"List of people in the role: {role}")
+        e.set_footer(text=f"{len(ppl)} People")
+
+        blocks = []
+        for member in ppl:
+            blocks.append(f"· {member.mention}")
+
+        await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
+
     @commands.command(name="serverinfo", aliases=['sinfo'])
     async def server_info(self, ctx: MidoContext, server_id: int = None):
         """Shows the information of the server."""
