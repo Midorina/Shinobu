@@ -707,6 +707,53 @@ class Moderation(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.command(name="userinfo", aliases=['uinfo'])
+    @commands.guild_only()
+    async def user_info(self, ctx: mido_utils.Context,
+                        user: typing.Union[mido_utils.MemberConverter, mido_utils.UserConverter] = None):
+        """Shows the information of a user."""
+        user = user or ctx.author
+
+        # if its a user obj but author is not an owner
+        if isinstance(user, discord.User):
+            if not await ctx.bot.is_owner(ctx.author):
+                user = ctx.author
+
+        embed = mido_utils.Embed(bot=ctx.bot)
+        embed.set_thumbnail(url=user.avatar_url)
+
+        # name
+        embed.add_field(name='Name', value=str(user))
+
+        # nick
+        if isinstance(user, discord.Member):
+            embed.add_field(name='Nickname', value=user.display_name)
+
+        # id
+        embed.add_field(name='ID', value=f'`{user.id}`')
+
+        # account creation date
+        account_creation_date = mido_utils.Time(start_date=user.created_at, offset_naive=True)
+        embed.add_field(name="Joined Discord at",
+                        value=f"{account_creation_date.start_date_string}\n"
+                              f"({account_creation_date.remaining_days} days ago)",
+                        inline=True)
+
+        if isinstance(user, discord.Member):
+            # server join date
+            server_join_date = mido_utils.Time(start_date=user.joined_at, offset_naive=True)
+            embed.add_field(name="Joined Server at",
+                            value=f"{server_join_date.start_date_string}\n"
+                                  f"({server_join_date.remaining_days} days ago)",
+                            inline=True)
+
+            # roles
+            embed.add_field(name=f'Roles ({len(user.roles)})',
+                            value=',\n'.join(role.mention for role in user.roles),
+                            inline=False)
+
+        await ctx.send(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(Moderation(bot))
