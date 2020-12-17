@@ -5,13 +5,10 @@ from discord.ext import commands
 from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
 
+import mido_utils
 from midobot import MidoBot
 from models.db import UserDB
 from models.waifu import Item
-from services.context import MidoContext
-from services.converters import MidoMemberConverter, readable_bigint, readable_currency
-from services.embed import MidoEmbed
-from services.exceptions import NotFoundError
 
 
 class Waifu(commands.Cog):
@@ -19,11 +16,11 @@ class Waifu(commands.Cog):
         self.bot = bot
 
     @commands.command(aliases=['waifulb'])
-    async def waifuleaderboard(self, ctx: MidoContext):
+    async def waifuleaderboard(self, ctx: mido_utils.Context):
         """See the global top 5 waifu list."""
         top_5 = await UserDB.get_top_expensive_waifus(limit=5, bot=ctx.bot)
 
-        e = MidoEmbed(self.bot)
+        e = mido_utils.Embed(self.bot)
         e.title = "Waifu Leaderboard"
 
         e.description = ""
@@ -61,7 +58,7 @@ class Waifu(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command()
-    async def waifureset(self, ctx: MidoContext):
+    async def waifureset(self, ctx: mido_utils.Context):
         """
         Reset your waifu stats by spending some money.
         You'll get a prompt with how much you need to spend.
@@ -70,10 +67,10 @@ class Waifu(commands.Cog):
         price_to_reset = ctx.user_db.waifu.get_price_to_reset()
 
         msg = await ctx.send_success(f"Are you sure you'd like to reset your waifu stats?\n"
-                                     f"This will cost you **{readable_currency(price_to_reset)}**.\n\n"
+                                     f"This will cost you **{mido_utils.readable_currency(price_to_reset)}**.\n\n"
                                      f"*This action will reset everything **except your waifus**.*")
 
-        yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
+        yes = await mido_utils.Embed.yes_no(self.bot, ctx.author.id, msg)
         if yes:
             await ctx.user_db.remove_cash(price_to_reset, reason="Used to reset their waifu stats.")
 
@@ -85,7 +82,7 @@ class Waifu(commands.Cog):
             await ctx.edit_custom(msg, "Request declined.")
 
     @commands.command(aliases=['waifugift'])
-    async def gift(self, ctx: MidoContext, item_name: str = None, target: MidoMemberConverter() = None):
+    async def gift(self, ctx: mido_utils.Context, item_name: str = None, target: mido_utils.MemberConverter() = None):
         """
         Use this command without any parameters to see the item shop.
         Specify the item name and a waifu to send a gift to them.
@@ -93,12 +90,12 @@ class Waifu(commands.Cog):
         Sending a gift increases the target waifu's price by half of the item's value.
         """
         if not item_name and not target:
-            e = MidoEmbed(ctx.bot)
+            e = mido_utils.Embed(ctx.bot)
 
             item_blocks = []
             for item in Item.get_all():
                 item_blocks.append(
-                    f'**{item.emote_n_name}** -> {readable_currency(item.price)}')
+                    f'**{item.emote_n_name}** -> {mido_utils.readable_currency(item.price)}')
 
             await e.paginate(ctx, item_blocks, item_per_page=9)
         else:
@@ -109,7 +106,7 @@ class Waifu(commands.Cog):
 
             item_obj = Item.find(item_name)
             if not item_obj:
-                raise NotFoundError(f"Could not find a waifu item called **\"{item_name}\"**.")
+                raise mido_utils.NotFoundError(f"Could not find a waifu item called **\"{item_name}\"**.")
 
             await ctx.user_db.remove_cash(item_obj.price, reason=f"Bought {item_obj.name} for {target.id}.")
 
@@ -120,7 +117,7 @@ class Waifu(commands.Cog):
                                    f"**{item_obj.name_n_emote}** to {target.mention}!")
 
     @commands.command(aliases=['waifuinfo'])
-    async def waifustats(self, ctx: MidoContext, target: MidoMemberConverter() = None):
+    async def waifustats(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter() = None):
         """
         See the waifu stats of yourself or any other waifu.
         """
@@ -135,10 +132,10 @@ class Waifu(commands.Cog):
         affinity_name = (await UserDB.get_or_create(bot=ctx.bot, user_id=target_db.waifu.affinity_id)).discord_name \
             if target_db.waifu.affinity_id else 'Nobody'
 
-        e = MidoEmbed(ctx.bot)
+        e = mido_utils.Embed(ctx.bot)
         e.set_author(icon_url=target.avatar_url, name=f"Waifu {target}")
 
-        e.add_field(name="Price", value=f'{readable_currency(target_db.waifu.price)} ', inline=True)
+        e.add_field(name="Price", value=f'{mido_utils.readable_currency(target_db.waifu.price)} ', inline=True)
         e.add_field(name="Claimed by",
                     value=claimer_name,
                     inline=True)
@@ -172,7 +169,7 @@ class Waifu(commands.Cog):
 
     @commands.cooldown(rate=1, per=1800, type=BucketType.user)  # 30 minutes
     @commands.command()
-    async def affinity(self, ctx: MidoContext, target: MidoMemberConverter() = None):
+    async def affinity(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter() = None):
         """
         Sets your affinity towards someone you want to be claimed by.
 
@@ -184,7 +181,8 @@ class Waifu(commands.Cog):
             if target:
                 if ctx.user_db.waifu.affinity_id == target.id:
                     raise UserInputError(f"You already have affinity towards {target.mention}.\n\n"
-                                         f"Use `{ctx.prefix}affinity` without any parameters if you want to clear your affinity.")
+                                         f"Use `{ctx.prefix}affinity` without any parameters "
+                                         f"if you want to clear your affinity.")
                 elif ctx.author.id == target.id:
                     raise UserInputError("You can not set affinity towards yourself.")
 
@@ -206,7 +204,8 @@ class Waifu(commands.Cog):
                                    f"*Sometimes you just can't oppose your heart.*")
 
     @commands.command(name='claim', aliases=['claimwaifu'])
-    async def claim_waifu(self, ctx: MidoContext, price: int, target: MidoMemberConverter()):
+    async def claim_waifu(self, ctx: mido_utils.Context, price: mido_utils.Int64(),
+                          target: mido_utils.MemberConverter()):
         """
         Claim a waifu for yourself by spending money.
         You must spend at least 10% more than their current value, unless they set `{0.prefix}affinity` towards you.
@@ -223,14 +222,14 @@ class Waifu(commands.Cog):
 
         if price < required_amount:
             raise commands.UserInputError(
-                f"You must pay at least **{readable_bigint(required_amount)}** to claim {target.mention}.")
+                f"You must pay at least **{mido_utils.readable_bigint(required_amount)}** to claim {target.mention}.")
 
         await ctx.user_db.remove_cash(required_amount, reason=f"Claimed waifu {target.id}.")
 
         await target_db.waifu.get_claimed(ctx.author.id, price)
 
         base_msg = f"{ctx.author.mention} claimed {target.mention} as their waifu " \
-                   f"for **{readable_currency(price)}**!\n"
+                   f"for **{mido_utils.readable_currency(price)}**!\n"
 
         if target_db.waifu.affinity_id == ctx.author.id:
             await ctx.send_success(base_msg +
@@ -243,7 +242,7 @@ class Waifu(commands.Cog):
             await ctx.send_success(base_msg)
 
     @commands.command(rate=1, per=21600, type=BucketType.user)  # 6 hours
-    async def divorce(self, ctx: MidoContext, target: MidoMemberConverter()):
+    async def divorce(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter()):
         """
         Divorce a waifu.
         - You will get half of the money you've spent back if the waifu's affinity isn't towards you.
@@ -273,14 +272,15 @@ class Waifu(commands.Cog):
                                    f"Guess it was a "
                                    f"[1 sided love](https://open.spotify.com/track/39bs2V8huzcmWoeSlHKZeP).\n"
                                    f"\n"
-                                   f"{target.mention} received **{readable_currency(amount)}** "
+                                   f"{target.mention} received **{mido_utils.readable_currency(amount)}** "
                                    f"as compensation.")
         else:
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
-                                   f"and got **{readable_currency(amount)}** in return.")
+                                   f"and got **{mido_utils.readable_currency(amount)}** in return.")
 
     @commands.command()
-    async def waifutransfer(self, ctx: MidoContext, ex_waifu: MidoMemberConverter(), new_owner: MidoMemberConverter()):
+    async def waifutransfer(self, ctx: mido_utils.Context, ex_waifu: mido_utils.MemberConverter(),
+                            new_owner: mido_utils.MemberConverter()):
         """
         Transfer the ownership of a waifu you own to another user.
         You must pay 10% of your waifu's value for this action.
@@ -300,7 +300,7 @@ class Waifu(commands.Cog):
 
         await ctx.send_success(f'{ctx.author.mention} successfully transferred the ownership '
                                f'of {ex_waifu.mention} to {new_owner.mention} '
-                               f'using **{readable_currency(cost)}**.')
+                               f'using **{mido_utils.readable_currency(cost)}**.')
 
 
 def setup(bot):

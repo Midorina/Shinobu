@@ -1,11 +1,8 @@
 import asyncurban
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
-from services import context, embed
-from services.apis import BlizzardAPI, Google, SomeRandomAPI
-from services.embed import MidoEmbed
-from services.resources import Resources
 
 
 # TODO: pokemon
@@ -15,13 +12,13 @@ class Searches(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        self.google: Google = Google(self.bot.http_session)
+        self.google: mido_utils.Google = mido_utils.Google(self.bot.http_session)
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
-        self.some_random_api = SomeRandomAPI(self.bot.http_session)
-        self.blizzard_api = BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
+        self.some_random_api = mido_utils.SomeRandomAPI(self.bot.http_session)
+        self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
 
     @commands.command()
-    async def color(self, ctx: context.MidoContext, *, color: str):
+    async def color(self, ctx: mido_utils.Context, *, color: str):
         """Get a color image from specified hex."""
         color_str = color.replace('#', '')
         try:
@@ -30,18 +27,18 @@ class Searches(commands.Cog):
             raise commands.BadArgument("You need to input a hex code.")
 
         image = await self.some_random_api.view_color(color_str)
-        e = MidoEmbed(ctx.bot, image_url=image, colour=color)
+        e = mido_utils.Embed(ctx.bot, image_url=image, colour=color)
 
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     @commands.command(aliases=['g'], enabled=False)  # todo: fix google
-    async def google(self, ctx: context.MidoContext, *, search: str):
+    async def google(self, ctx: mido_utils.Context, *, search: str):
         """Makes a Google search."""
 
         results = await self.google.search(query=search)
-        e = embed.MidoEmbed(self.bot)
-        e.set_author(icon_url=Resources.images.google,
+        e = mido_utils.Embed(self.bot)
+        e.set_author(icon_url=mido_utils.Resources.images.google,
                      name=f"Google: {search}")
 
         e.description = ""
@@ -55,7 +52,7 @@ class Searches(commands.Cog):
 
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
     @commands.command(aliases=['u', 'urbandictionary', 'ud'])
-    async def urban(self, ctx: context.MidoContext, *, search: str):
+    async def urban(self, ctx: mido_utils.Context, *, search: str):
         """Searches the definition of a word on UrbanDictionary."""
 
         try:
@@ -65,7 +62,7 @@ class Searches(commands.Cog):
 
         blocks = list()
 
-        e = embed.MidoEmbed(self.bot)
+        e = mido_utils.Embed(self.bot)
         for word in word_list:
             base = f"**[{word.word}]({word.permalink})**\n\n{word.definition.replace('[', '**').replace(']', '**')}"
 
@@ -78,42 +75,42 @@ class Searches(commands.Cog):
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(aliases=['dog', 'woof'])
-    async def doggo(self, ctx: context.MidoContext):
+    async def doggo(self, ctx: mido_utils.Context):
         """Get a random doggo picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("dog"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(aliases=['cat', 'meow'])
-    async def catto(self, ctx: context.MidoContext):
+    async def catto(self, ctx: mido_utils.Context):
         """Get a random catto picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("cat"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command()
-    async def panda(self, ctx: context.MidoContext):
+    async def panda(self, ctx: mido_utils.Context):
         """Get a random panda picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("panda"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command()
-    async def fox(self, ctx: context.MidoContext):
+    async def fox(self, ctx: mido_utils.Context):
         """Get a random fox picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("fox"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(aliases=['birb'])
-    async def bird(self, ctx: context.MidoContext):
+    async def bird(self, ctx: mido_utils.Context):
         """Get a random bird picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
     @commands.command(aliases=['hs'])
-    async def hearthstone(self, ctx: context.MidoContext, *, keyword: str = None):
+    async def hearthstone(self, ctx: mido_utils.Context, *, keyword: str = None):
         """Search or get a random Hearthstone card!"""
         card = await self.blizzard_api.get_hearthstone_card(keyword)
-        e = MidoEmbed(bot=ctx.bot,
-                      title=card.name,
-                      image_url=card.image,
-                      colour=card.rarity_color)
+        e = mido_utils.Embed(bot=ctx.bot,
+                             title=card.name,
+                             image_url=card.image,
+                             colour=card.rarity_color)
 
         if card.thumb:
             e.set_thumbnail(url=card.thumb)
@@ -130,6 +127,7 @@ class Searches(commands.Cog):
 
         e.set_footer(text=card.type.name)
         await ctx.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Searches(bot))

@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 from typing import Optional, Tuple, Union
 
 from discord.ext import commands
 
-from models.db import MemberDB
-from services import converters as cv
-from services.context import MidoContext
-from services.embed import MidoEmbed
-from services.exceptions import RaceError, TimedOut
-from services.resources import Resources
+import mido_utils
+from models.db import HangmanWord, MemberDB
 
 HANGMAN_STAGES = [
     """. ┌─────┐
@@ -84,7 +79,7 @@ class Race:
             self.progress = 0
 
         def add_random_progress(self):
-            self.progress += random.randint(1, 10)
+            self.progress += random.randint(3, 10)
             if self.progress > 100:
                 self.progress = 100
 
@@ -98,7 +93,7 @@ class Race:
         def __eq__(self, other):
             return self.id == other.id
 
-    def __init__(self, ctx: MidoContext):
+    def __init__(self, ctx: mido_utils.Context):
         self.ctx = ctx
         self.channel_id = self.ctx.channel.id
 
@@ -128,7 +123,7 @@ class Race:
         self.ctx.bot.loop.create_task(self.count_messages())
 
         finished_participants = []
-        e = MidoEmbed(bot=self.ctx.bot, title="Race", description='')
+        e = mido_utils.Embed(bot=self.ctx.bot, title="Race", description='')
         msg = None
         while not self.has_ended:
             e.description = '**|**' + '🏁' * 18 + '🔚' + '**|**\n'
@@ -174,7 +169,7 @@ class Race:
         if self.prize_pool > 0:
             await winner.member_db.user.add_cash(self.prize_pool, reason="Won a race.")
 
-            e.description += f"and they've won **{cv.readable_currency(self.prize_pool)}**!!"
+            e.description += f"and they've won **{mido_utils.readable_currency(self.prize_pool)}**!!"
         else:
             e.description += f"but they didn't get any donuts because the prize pool is empty :("
 
@@ -182,24 +177,24 @@ class Race:
 
     async def count_messages(self):
         while not self.has_ended:
-            m = await MidoEmbed.get_msg(bot=self.ctx.bot, ctx=self.ctx)
+            m = await mido_utils.Embed.get_msg(bot=self.ctx.bot, ctx=self.ctx)
             if m:
                 self.message_counter += 1
 
     def add_participant(self, member_db: MemberDB, bet_amount: int):
         p = self.get_participant(member_db.id)
         if p:
-            raise RaceError(f"**You've already joined the race** as {p.emoji} "
-                            f"and bet **{cv.readable_currency(p.bet_amount)}**.")
+            raise mido_utils.RaceError(f"**You've already joined the race** as {p.emoji} "
+                                       f"and bet **{mido_utils.readable_currency(p.bet_amount)}**.")
 
         if self.has_started:
-            raise RaceError("You can't join the race as it has already started.")
+            raise mido_utils.RaceError("You can't join the race as it has already started.")
 
         # set emoji
         used_emojis = [x.emoji for x in self.participants]
-        remaining_emojis = [x for x in Resources.emotes.race_emotes if x not in used_emojis]
+        remaining_emojis = [x for x in mido_utils.Resources.emotes.race_emotes if x not in used_emojis]
         if not remaining_emojis:
-            raise RaceError("Race is full.")
+            raise mido_utils.RaceError("Race is full.")
 
         emoji = random.choice(remaining_emojis)
 
@@ -229,14 +224,9 @@ class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-        self.success_color = 0x15a34a
-        self.fail_color = 0xee281f
+        self.hangman_categories_and_word_counts = None
 
-        # todo: move this to db cuz its too large and might cause memory issues
-        with open("resources/hangman.json") as f:
-            self.hangman_dict = json.load(f)
-
-    def get_or_create_race(self, ctx: MidoContext) -> Tuple[Race, bool]:
+    def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:
         """Returns a race and whether it is just created or not"""
         for race in self.bot.active_races:
             if race.has_ended:
@@ -251,7 +241,7 @@ class Games(commands.Cog):
 
     @commands.max_concurrency(number=1, per=commands.BucketType.channel)
     @commands.command()
-    async def hangman(self, ctx: MidoContext, category: str = None):
+    async def hangman(self, ctx: mido_utils.Context, category: str = None):
         """Play a game of hangman!
 
         If you use this command without categories, a list of available categories will be shown."""
@@ -262,14 +252,16 @@ class Games(commands.Cog):
         # music (songs or albums)
         # Celebrities
 
-        e = MidoEmbed(bot=ctx.bot)
+        e = mido_utils.Embed(bot=ctx.bot)
 
         if not category:
-            e.title = "Hangman Categories"
+            if not self.hangman_categories_and_word_counts:
+                self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(ctx.bot)
 
+            e.title = "Hangman Categories"
             e.description = ""
-            for category, words in self.hangman_dict.items():
-                e.description += f"- **{category.title()}** (**{len(words)}** Words)\n"
+            for category, word_count in self.hangman_categories_and_word_counts.items():
+                e.description += f"- **{category.title()}** (**{word_count}** Words)\n"
 
             e.description += f"\nType `{ctx.prefix}hangman <category_name>` to start a Hangman game.\n" \
                              f"Type `{ctx.prefix}hangman random` to start a Hangman game with a random category."
@@ -277,13 +269,13 @@ class Games(commands.Cog):
             return await ctx.send(embed=e)
 
         category = category.lower()
-        if category not in self.hangman_dict.keys() and category != 'random':
+        if category not in self.hangman_categories_and_word_counts.keys() and category != 'random':
             raise commands.BadArgument("Invalid Hangman category!")
 
         if category == 'random':
-            category = random.choice(list(self.hangman_dict.keys()))
+            category = random.choice(list(self.hangman_categories_and_word_counts.keys()))
 
-        word: str = random.choice(self.hangman_dict[category]).lower()
+        word: str = (await HangmanWord.get_random_word(bot=ctx.bot, category=category)).word
 
         e.title = f"Hangman Game ({category.title()})"
 
@@ -305,14 +297,14 @@ class Games(commands.Cog):
         while True:
             if wrong_guess >= 6:  # if the man is hung
                 extra_msg = f"Game over. You lost. It was: **{word.title()}**"
-                e.colour = self.fail_color
+                e.colour = mido_utils.Color.fail()
                 update = True
                 end = True
             else:
                 if end is True:  # if not hung but end is requested = won
                     extra_msg = f"Congratulations!! You found the word: **{word.title()}**"
                     word_censored = word
-                    e.colour = self.success_color
+                    e.colour = mido_utils.Color.success()
                     update = True
 
             if update is True:
@@ -328,13 +320,13 @@ class Games(commands.Cog):
                 if end is True:
                     return
 
-            user_input = await MidoEmbed.get_msg(bot=ctx.bot,
-                                                 ctx=ctx,
-                                                 author_id=None,  # everyone
-                                                 timeout=180)
+            user_input = await mido_utils.Embed.get_msg(bot=ctx.bot,
+                                                        ctx=ctx,
+                                                        author_id=None,  # everyone
+                                                        timeout=180)
             if not user_input:
-                raise TimedOut(f"No one tried to solve the last Hangman game, so its shut down."
-                               f"You can start a new game by typing `{ctx.prefix}hangman`.")
+                raise mido_utils.TimedOut(f"No one tried to solve the last Hangman game, so its shut down."
+                                          f"You can start a new game by typing `{ctx.prefix}hangman`.")
 
             user_guess: str = user_input.content
 
@@ -353,7 +345,7 @@ class Games(commands.Cog):
                 if user_guess in guessed_letters:  # already guessed
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` has already been used. " \
                                 f"Try a different letter."
-                    e.colour = self.fail_color
+                    e.colour = mido_utils.Color.fail()
                     update = True
                     continue
 
@@ -364,35 +356,35 @@ class Games(commands.Cog):
                         if c == user_guess:
                             word_censored = word_censored[:i] + c + word_censored[i + 1:]
 
-                    e.colour = self.success_color
+                    e.colour = mido_utils.Color.success()
                     extra_msg = f"{user_input.author.mention} found a letter: **{user_guess}**"
 
                     if '_' not in word_censored:  # all solved
                         end = True
                 else:
                     wrong_guess += 1
-                    e.colour = self.fail_color
+                    e.colour = mido_utils.Color.fail()
 
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
 
     @commands.command()
-    async def race(self, ctx: MidoContext, bet_amount: Union[int, str] = 0):
+    async def race(self, ctx: mido_utils.Context, bet_amount: Union[mido_utils.Int64, str] = 0):
         """Start or join a race!
 
         You can bet donuts (optional) which will be added to the prize pool. The winner will get everything!
         """
         if bet_amount:
-            bet_amount = await cv.ensure_not_broke_and_parse_bet(ctx, bet_amount)
+            bet_amount = await mido_utils.ensure_not_broke_and_parse_bet(ctx, bet_amount)
 
         race, just_created = self.get_or_create_race(ctx)
         try:
             participant_obj = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
-        except RaceError as e:
+        except mido_utils.RaceError as e:
             if bet_amount:  # if errored and they put a bet, give it back
                 await ctx.user_db.add_cash(bet_amount, reason=f"Race errored: {e}")
             raise e
 
-        e = MidoEmbed(bot=ctx.bot, title="Race")
+        e = mido_utils.Embed(bot=ctx.bot, title="Race")
         if just_created:
             e.description = f"**{ctx.author}** has successfully created a new race and joined it" \
                             f" as {participant_obj.emoji}!"
@@ -402,18 +394,18 @@ class Games(commands.Cog):
 
         if bet_amount:
             e.description += f"\n\n" \
-                             f"And they've bet **{cv.readable_currency(bet_amount)}**!"
+                             f"And they've bet **{mido_utils.readable_currency(bet_amount)}**!"
 
         if just_created:
             e.description += f"\n\n" \
                              f"Race starts in **{Race.STARTS_IN}** seconds."
 
-        e.set_footer(text=f"Prize Pool: {cv.readable_bigint(race.prize_pool)} Donuts")
+        e.set_footer(text=f"Prize Pool: {mido_utils.readable_bigint(race.prize_pool)} Donuts")
 
         await ctx.send(embed=e)
 
     @commands.command()
-    async def raffle(self, ctx: MidoContext, *, role: cv.MidoRoleConverter() = None):
+    async def raffle(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter() = None):
         """Prints a random online user from the server, or from the online user in the specified role."""
         role = role or ctx.guild.default_role
         role_mention = role.mention if role != ctx.guild.default_role else '@everyone'  # discord.py bug
@@ -421,14 +413,15 @@ class Games(commands.Cog):
         people = [member for member in ctx.guild.members if role in member.roles]
         random_user = random.choice(people)
 
-        e = MidoEmbed(bot=ctx.bot,
-                      title=f"🎟️ Raffle")
+        e = mido_utils.Embed(bot=ctx.bot,
+                             title=f"🎟️ Raffle")
         e.description = f"Raffled user among {role_mention}:\n" \
                         f"\n" \
                         f"{random_user.mention}"
         e.set_footer(text=f"User's ID: {random_user.id}")
 
         await ctx.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Games(bot))

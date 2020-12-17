@@ -1,15 +1,11 @@
 import discord
 from discord.ext import commands
 
-from services.context import MidoContext
+from mido_utils.context import Context
 
 
-def ensure_role_hierarchy(ctx: MidoContext):
-    role = None
-    for arg in ctx.args:
-        if isinstance(arg, discord.Role):
-            role = arg
-            break
+def ensure_role_hierarchy(ctx: Context):
+    role = next(arg for arg in ctx.args if isinstance(arg, discord.Role))
 
     # author top role check
     top_member_role = ctx.author.top_role
@@ -25,7 +21,9 @@ def ensure_role_hierarchy(ctx: MidoContext):
 
 
 def is_owner():
-    """This replaces the base `commands.is_owner()` to get rid of the error message."""
+    """This replaces the base `commands.is_owner()` to get rid of the weird error message:
+    'You do not own this bot'
+    """
 
     async def predicate(ctx):
         if not await ctx.bot.is_owner(ctx.author):

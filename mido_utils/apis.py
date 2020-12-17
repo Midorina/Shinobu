@@ -15,12 +15,14 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 from discord.ext.commands import TooManyArguments
 
+from mido_utils.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
+from mido_utils.resources import Resources
+from mido_utils.time_stuff import Time
 from models.db import CachedImage
 from models.hearthstone import HearthstoneCard
 from models.subreddits import LocalSubreddit
-from services.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
-from services.resources import Resources
-from services.time_stuff import MidoTime
+
+__all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI', 'BlizzardAPI']
 
 
 class MidoBotAPI:
@@ -609,7 +611,7 @@ class OAuthAPI(MidoBotAPI):
 
         self.token: str = None
         self.token_type: str = None
-        self.expire_date: MidoTime = None
+        self.expire_date: Time = None
 
     @property
     def auth_header(self):
@@ -635,7 +637,7 @@ class OAuthAPI(MidoBotAPI):
 
             self.token = token_dict['access_token']
             self.token_type = token_dict['token_type']
-            self.expire_date = MidoTime.add_to_current_date_and_get(token_dict['expires_in'])
+            self.expire_date = Time.add_to_current_date_and_get(token_dict['expires_in'])
 
 
 class SpotifyAPI(OAuthAPI):

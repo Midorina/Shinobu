@@ -4,13 +4,13 @@ import discord
 from asyncpg.pool import Pool
 from discord.ext import commands
 
+from mido_utils.embed import Embed
+from mido_utils.resources import Resources
+from mido_utils.time_stuff import Time
 from models.db import GuildDB, MemberDB, UserDB
-from services.embed import MidoEmbed
-from services.resources import Resources
-from services.time_stuff import MidoTime
 
 
-class MidoContext(commands.Context):
+class Context(commands.Context):
     # noinspection PyTypeChecker
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -18,7 +18,7 @@ class MidoContext(commands.Context):
         self.resources = Resources()
 
         from midobot import MidoBot
-        from services.music import VoicePlayer
+        from mido_utils.music import VoicePlayer
 
         # FOR TYPE HINTING
         self.bot: MidoBot = self.bot
@@ -30,7 +30,7 @@ class MidoContext(commands.Context):
 
         self.voice_player: VoicePlayer = None
 
-        self.time_created: MidoTime = MidoTime()
+        self.time_created: Time = Time()
 
     async def attach_db_objects(self):
         await self.bot.wait_until_ready()
@@ -51,16 +51,16 @@ class MidoContext(commands.Context):
                          message_to_show_if_no_msg_is_included: str = 'Error!') -> discord.Message:
         msg = str(error_obj) or message_to_show_if_no_msg_is_included
 
-        embed = MidoEmbed(bot=self.bot,
-                          color=discord.Colour.red(),
-                          description=msg)
+        embed = Embed(bot=self.bot,
+                      color=discord.Colour.red(),
+                      description=msg)
 
         return await self.send(embed=embed)
 
     async def send_success(self, message: str = 'Success!', **kwargs) -> discord.Message:
-        embed = MidoEmbed(bot=self.bot,
-                          description=message,
-                          **kwargs)
+        embed = Embed(bot=self.bot,
+                      description=message,
+                      **kwargs)
 
         return await self.send(embed=embed)
 
@@ -71,7 +71,7 @@ class MidoContext(commands.Context):
         await message_object.edit(embed=embed)
 
     async def send_simple_image(self, url: str):
-        e = MidoEmbed(bot=self.bot, image_url=url)
+        e = Embed(bot=self.bot, image_url=url)
         await self.send(embed=e)
 
     async def send_help(self, entity=None, content=''):

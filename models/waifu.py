@@ -115,7 +115,7 @@ class Waifu:
 
     @property
     def price_readable(self) -> str:
-        from services.converters import readable_currency
+        from mido_utils.converters import readable_currency
         return readable_currency(self.price)
 
     def get_price_to_reset(self):

@@ -6,20 +6,19 @@ from datetime import datetime, timezone
 
 import asyncpg
 import discord
-import wavelink
 from discord.ext import commands
 
-from models.db import MidoTime, UserDB
-from services.apis import MidoBotAPI
-from services.context import MidoContext
+import mido_utils
+from models.db import GuildDB, UserDB
 
 
 class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
-    def __init__(self, bot_name: str = "midobot"):
+    def __init__(self, bot_name: str = 'midobot'):
         super().__init__(
             command_prefix=self.get_prefix,
             case_insensitive=True,
+            chunk_guilds_at_startup=False,
             intents=discord.Intents.all()
         )
 
@@ -41,14 +40,11 @@ class MidoBot(commands.AutoShardedBot):
 
         self.message_counter = 0
         self.command_counter = 0
-        self.uptime: MidoTime = None
+        self.uptime: mido_utils.Time = None
 
         self.prefix_cache = {}
-        self.main_color = 0x15a34a
 
-        self.http_session = MidoBotAPI.get_aiohttp_session()
-
-        self.wavelink: wavelink.Client = None
+        self.http_session = mido_utils.MidoBotAPI.get_aiohttp_session()
 
         self.active_races = list()
 
@@ -85,24 +81,54 @@ class MidoBot(commands.AutoShardedBot):
             self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
             self.load_cogs()
-            self.uptime = MidoTime(start_date=datetime.now(timezone.utc))
-            self.log_channel = self.get_channel(self.config['log_channel_id'])
-            self.logger.info(f"{self.user} is ready.")
+
+            self.uptime = mido_utils.Time(start_date=datetime.now(timezone.utc))
+
+            await self.chunk_active_guilds()
+
             self.first_time = False
+            self.logger.info(f"{self.user} is ready.")
+
+            self.log_channel = self.get_channel(self.config['log_channel_id'])
             await self.log_channel.send("I'm ready!")
 
         await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
-    async def process_commands(self, message):
-        ctx = await self.get_context(message, cls=MidoContext)
-        await self.invoke(ctx)
+    async def chunk_active_guilds(self):
+        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, 24)
 
-    async def on_message(self, message):
+        i = 0
+        for guild in active_guilds:
+            result = await self.chunk_guild_if_not_chunked(guild.id)
+            if result is True:
+                i += 1
+        self.logger.info(f'Chunked {i} active guilds.')
+
+    async def on_message(self, message: discord.Message):
         if not self.is_ready() or message.author.bot:
             return
 
         self.message_counter += 1
+        if message.guild:
+            await GuildDB.just_messaged(self, message.guild.id)
+
         await self.process_commands(message)
+
+    async def process_commands(self, message):
+        ctx: mido_utils.Context = await self.get_context(message, cls=mido_utils.Context)
+        if ctx.command and ctx.guild:
+            await self.chunk_guild_if_not_chunked(ctx.guild.id)
+
+        await self.invoke(ctx)
+
+    async def chunk_guild_if_not_chunked(self, guild_id: int) -> bool:
+        """Chunks the guild if not chunked and returns True if chunk happened."""
+        guild: discord.Guild = self.get_guild(guild_id)
+        if guild and not guild.chunked:
+            self.logger.info(f'Chunking {guild.member_count} members of guild: {guild.name}')
+            await guild.chunk(cache=True)
+            return True
+        return False
 
     async def on_guild_join(self, guild):
         await self.log_channel.send(
@@ -112,7 +138,7 @@ class MidoBot(commands.AutoShardedBot):
         await self.log_channel.send(
             f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
 
-    def log_command(self, ctx: MidoContext, error: Exception = None):
+    def log_command(self, ctx: mido_utils.Context, error: Exception = None):
         if isinstance(error, commands.CommandNotFound):
             return
 
@@ -142,7 +168,7 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(log_msg)
         self.command_counter += 1
 
-    async def on_command_completion(self, ctx: MidoContext):
+    async def on_command_completion(self, ctx: mido_utils.Context):
         if ctx.guild is not None:
             if ctx.guild_db.delete_commands is True:
                 try:
@@ -152,7 +178,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.log_command(ctx)
 
-    async def on_command_error(self, ctx: MidoContext, exception):
+    async def on_command_error(self, ctx: mido_utils.Context, exception):
         self.log_command(ctx, error=exception)
 
     async def get_prefix(self, message):
@@ -179,7 +205,7 @@ class MidoBot(commands.AutoShardedBot):
         return user_db.discord_name
 
     @staticmethod
-    async def attach_db_objects_to_ctx(ctx: MidoContext):
+    async def attach_db_objects_to_ctx(ctx: mido_utils.Context):
         """
         This func is used as a before_invoke function
         which attaches db objects when a command is about to be called.

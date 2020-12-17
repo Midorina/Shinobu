@@ -1,26 +1,22 @@
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
-from services.checks import ensure_role_hierarchy
-from services.context import MidoContext
-from services.converters import MidoRoleConverter
-from services.embed import MidoEmbed
 
 
 class AssignableRoles(commands.Cog, name='Assignable Roles'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-    @commands.command(aliases=['aar'])
+    @commands.command(name='addassignablerole', aliases=['aar'])
     @commands.has_permissions(manage_roles=True)
-    async def addassignablerole(self,
-                                ctx: MidoContext,
-                                role: MidoRoleConverter()):
+    async def add_assignable_role(self,
+                                  ctx: mido_utils.Context,
+                                  role: mido_utils.RoleConverter()):
         """Add an assignable role.
 
         You need the **Manage Roles** permissions to use this command.
         """
-
         if role.id in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is already in your assignable role list.")
 
@@ -28,16 +24,15 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.")
 
-    @commands.command(aliases=['rar'])
+    @commands.command(name='removeassignablerole', aliases=['rar'])
     @commands.has_permissions(manage_roles=True)
-    async def removeassignablerole(self,
-                                   ctx: MidoContext,
-                                   role: MidoRoleConverter()):
+    async def remove_assignable_role(self,
+                                     ctx: mido_utils.Context,
+                                     role: mido_utils.RoleConverter()):
         """Remove a role from the assignable role list.
 
         You need the **Manage Roles** permissions to use this command.
         """
-
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is not in your assignable role list.")
 
@@ -45,10 +40,10 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.")
 
-    @commands.command(aliases=['ear'])
+    @commands.command(name='exclusiveassignablerole', aliases=['ear'])
     @commands.has_permissions(manage_roles=True)
-    async def exclusiveassignablerole(self,
-                                      ctx: MidoContext):
+    async def exclusive_assignable_role(self,
+                                        ctx: mido_utils.Context):
         """Toggle exclusive assignable roles. If enabled, users can only have 1 assignable role.
 
         You need the **Manage Roles** permissions to use this command.
@@ -60,14 +55,14 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         else:
             await ctx.send_success("Assignable roles are no longer exclusive.")
 
-    @commands.command(aliases=['lsar', 'lar'])
-    async def listassignableroles(self,
-                                  ctx: MidoContext):
+    @commands.command(name='listassignableroles', aliases=['lsar', 'lar'])
+    async def list_assignable_roles(self,
+                                    ctx: mido_utils.Context):
         """List all assignable roles available.
 
         You need the **Manage Roles** permissions to use this command.
         """
-        e = MidoEmbed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
+        e = mido_utils.Embed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
         e.set_footer(text=f"Assignable Roles Are Exclusive: {ctx.guild_db.assignable_roles_are_exclusive}")
 
         if ctx.guild_db.assignable_role_ids:
@@ -85,10 +80,10 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['iam'])
-    async def join(self,
-                   ctx: MidoContext,
-                   role: MidoRoleConverter()):
+    @commands.command(name='iam', aliases=['join'])
+    async def join_role(self,
+                        ctx: mido_utils.Context,
+                        role: mido_utils.RoleConverter()):
         """Join an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
@@ -111,10 +106,10 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
 
-    @commands.command(aliases=['iamn'])
-    async def leave(self,
-                    ctx: MidoContext,
-                    role: MidoRoleConverter()):
+    @commands.command(name='iamnot', aliases=['iamn', 'leave'])
+    async def leave_role(self,
+                         ctx: mido_utils.Context,
+                         role: mido_utils.RoleConverter()):
         """Leave an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
@@ -127,10 +122,10 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from you!")
 
-    @addassignablerole.before_invoke
-    @removeassignablerole.before_invoke
+    @add_assignable_role.before_invoke
+    @remove_assignable_role.before_invoke
     async def _ensure_role_hierarchy(self, ctx):
-        ensure_role_hierarchy(ctx)
+        mido_utils.ensure_role_hierarchy(ctx)
 
 
 def setup(bot):

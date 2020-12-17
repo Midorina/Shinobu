@@ -14,7 +14,10 @@ time_multipliers = {
 }
 
 
-class MidoTime:
+# todo: rewrite this
+
+
+class Time:
     def __init__(self,
                  start_date: datetime = None,
                  end_date: datetime = None,
@@ -77,6 +80,10 @@ class MidoTime:
             return math.ceil(remaining_in_float)
 
     @property
+    def remaining_days(self):
+        return math.floor(self.remaining_seconds / (60 * 60 * 24))
+
+    @property
     def remaining_string(self):
         return self.parse_seconds_to_str(self.remaining_seconds)
 
@@ -88,24 +95,24 @@ class MidoTime:
     def add_to_current_date_and_get(cls, seconds: int):
         now = datetime.now(timezone.utc)
         end_date = now + timedelta(seconds=seconds)
-        return MidoTime(start_date=now,
-                        end_date=end_date,
-                        initial_seconds=seconds)
+        return Time(start_date=now,
+                    end_date=end_date,
+                    initial_seconds=seconds)
 
     @classmethod
     def add_to_previous_date_and_get(cls, previous_date: datetime, seconds: int):
         if not previous_date:
             really_old_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
-            return MidoTime(start_date=really_old_date,
-                            end_date=really_old_date,
-                            initial_seconds=seconds)
+            return Time(start_date=really_old_date,
+                        end_date=really_old_date,
+                        initial_seconds=seconds)
         if not seconds:
-            return MidoTime(start_date=previous_date)
+            return Time(start_date=previous_date)
         else:
             end_date = previous_date + timedelta(seconds=seconds)
-            return MidoTime(start_date=previous_date,
-                            end_date=end_date,
-                            initial_seconds=seconds)
+            return Time(start_date=previous_date,
+                        end_date=end_date,
+                        initial_seconds=seconds)
 
     @staticmethod
     def parse_seconds_to_str(total_seconds: float = 0, short: bool = False, sep=' ') -> str:

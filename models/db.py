@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 import asyncpg
 import discord
 from asyncpg import Record
 from discord.ext.commands import BadArgument
 
+import mido_utils
 from models.waifu import Waifu
-from services.embed import MidoEmbed
-from services.exceptions import InsufficientCash, NotFoundError, OnCooldownError
-from services.time_stuff import MidoTime
 
 
 class XpAnnouncement(Enum):
@@ -55,8 +53,8 @@ class ModLog(BaseDBModel):
         self.reason = modlog_db.get('reason')
         self.executor_id = modlog_db.get('executor_id')
 
-        self.length_string = MidoTime.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
-        self.time_status = MidoTime.add_to_previous_date_and_get(
+        self.length_string = mido_utils.Time.parse_seconds_to_str(modlog_db.get('length_in_seconds'))
+        self.time_status = mido_utils.Time.add_to_previous_date_and_get(
             modlog_db.get('date'), modlog_db.get('length_in_seconds')
         )
 
@@ -99,7 +97,7 @@ class ModLog(BaseDBModel):
                          _type: Type,
                          executor_id: int,
                          reason: str = None,
-                         length: MidoTime = None,
+                         length: mido_utils.Time = None,
                          ):
         new_modlog_db = await bot.db.fetchrow(
             """INSERT INTO 
@@ -164,12 +162,12 @@ class UserDB(BaseDBModel):
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-        self.xp_status = MidoTime.add_to_previous_date_and_get(
+        self.xp_status = mido_utils.Time.add_to_previous_date_and_get(
             user_db.get('last_xp_gain'), bot.config['cooldowns']['xp']
         )
 
-        self.daily_date_status = MidoTime.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
-                                                                       bot.config['cooldowns']['daily'])
+        self.daily_date_status = mido_utils.Time.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
+                                                                              bot.config['cooldowns']['daily'])
 
         self.waifu: Waifu = Waifu(self)
 
@@ -211,12 +209,12 @@ class UserDB(BaseDBModel):
 
     @property
     def cash_str_without_emoji(self) -> str:
-        from services.converters import readable_bigint
+        from mido_utils.converters import readable_bigint
         return readable_bigint(self.cash)
 
     @property
     def cash_str(self) -> str:
-        from services.converters import readable_currency
+        from mido_utils.converters import readable_currency
         return readable_currency(self.cash)
 
     async def update_name(self, new_name: str):
@@ -248,14 +246,14 @@ class UserDB(BaseDBModel):
 
     async def remove_cash(self, amount: int, reason: str, force=False):
         if force is False and self.cash < amount:
-            raise InsufficientCash
+            raise mido_utils.InsufficientCash
 
         await self.add_cash(amount=0 - amount, reason=reason)
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_status.end_date_has_passed and not owner:
-            raise OnCooldownError(f"You're still on cooldown! "
-                                  f"Try again after **{self.xp_status.remaining_string}**.")
+            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
+                                             f"Try again after **{self.xp_status.remaining_string}**.")
         else:
             await self.db.execute(
                 """UPDATE users SET xp = xp + $1, last_xp_gain = $2 WHERE id=$3""",
@@ -330,7 +328,7 @@ class MemberDB(BaseDBModel):
         self.total_xp: int = member_db.get('xp')
 
         self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-        self.xp_date_status = MidoTime.add_to_previous_date_and_get(
+        self.xp_date_status = mido_utils.Time.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), bot.config['cooldowns']['xp'])
 
     @property
@@ -362,8 +360,8 @@ class MemberDB(BaseDBModel):
 
     async def add_xp(self, amount: int, owner=False) -> int:
         if not self.xp_date_status.end_date_has_passed and not owner:
-            raise OnCooldownError(f"You're still on cooldown! "
-                                  f"Try again after **{self.xp_date_status.remaining_string}**.")
+            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
+                                             f"Try again after **{self.xp_date_status.remaining_string}**.")
         else:
             await self.db.execute(
                 """UPDATE members SET xp = xp + $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",
@@ -416,6 +414,7 @@ class GuildDB(BaseDBModel):
 
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
+        self.last_message_date: mido_utils.Time = mido_utils.Time(guild_db.get('last_message_date'))
 
         # welcome
         self.welcome_channel_id: int = guild_db.get('welcome_channel_id')
@@ -442,6 +441,17 @@ class GuildDB(BaseDBModel):
         self.auto_porn_channel_id: int = guild_db.get('auto_porn_channel_id')
         self.auto_porn_tags: List[str] = guild_db.get('auto_porn_tags')
         self.auto_porn_interval: int = guild_db.get('auto_porn_interval')
+
+    @classmethod
+    async def get_guilds_that_are_active_in_last_x_hours(cls, bot, hours: int = 24):
+        ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (now() - $1::interval);",
+                                 timedelta(hours=hours))
+
+        return [cls(guild, bot) for guild in ret]
+
+    @classmethod
+    async def just_messaged(cls, bot, guild_id: int):
+        await bot.db.execute("UPDATE guilds SET last_message_date=now() WHERE id=$1;", guild_id)
 
     @classmethod
     async def get_or_create(cls, bot, guild_id: int):
@@ -583,7 +593,7 @@ class ReminderDB(BaseDBModel):
 
         self.content: str = data.get('content')
 
-        self.time_obj: MidoTime = MidoTime.add_to_previous_date_and_get(
+        self.time_obj: mido_utils.Time = mido_utils.Time.add_to_previous_date_and_get(
             data.get('creation_date'), data.get('length_in_seconds')
         )
 
@@ -596,7 +606,7 @@ class ReminderDB(BaseDBModel):
                      channel_id: int,
                      channel_type: ChannelType,
                      content: str,
-                     date_obj: MidoTime):
+                     date_obj: mido_utils.Time):
         created = await bot.db.fetchrow(
             """INSERT INTO 
             reminders(channel_id, channel_type, length_in_seconds, author_id, content) 
@@ -636,7 +646,7 @@ class CustomReaction(BaseDBModel):
         self.send_in_DM: bool = data.get('send_in_DM')
         self.contains_anywhere: bool = data.get('contains_anywhere')
 
-        self.date_added: MidoTime = MidoTime(data.get('date_added'))
+        self.date_added: mido_utils.Time = mido_utils.Time(data.get('date_added'))
         self.use_count: int = data.get('use_count')
 
     @classmethod
@@ -664,7 +674,7 @@ class CustomReaction(BaseDBModel):
     async def get(cls, bot, _id: int):
         ret = await bot.db.fetchrow("SELECT * FROM custom_reactions WHERE id=$1;", _id)
         if not ret:
-            raise NotFoundError(f"No custom reaction found with ID: `{_id}`")
+            raise mido_utils.NotFoundError(f"No custom reaction found with ID: `{_id}`")
 
         return cls(ret, bot)
 
@@ -764,7 +774,7 @@ class DonutEvent(BaseDBModel):
 
         self.reward: int = data.get('reward')
 
-        self.end_date: MidoTime = MidoTime(end_date=data.get('end_date'))
+        self.end_date: mido_utils.Time = mido_utils.Time(end_date=data.get('end_date'))
         self.attenders: Set[int] = set(data.get('attenders'))
 
     @classmethod
@@ -793,7 +803,7 @@ class DonutEvent(BaseDBModel):
                      guild_id: int,
                      channel_id: int,
                      message_id: int,
-                     length: MidoTime):
+                     length: mido_utils.Time):
         ret = await bot.db.fetchrow(
             """INSERT INTO donut_events(reward, guild_id, channel_id, message_id, end_date) 
             VALUES ($1, $2, $3, $4, $5) RETURNING  *;""",
@@ -819,10 +829,10 @@ class DonutEvent(BaseDBModel):
             f"User {user_db.discord_name} has been awarded {self.reward} donuts for reacting to the donut event."
         )
 
-        from services.converters import readable_currency
-        e = MidoEmbed(bot=self.bot,
-                      description=f"You have been awarded **{readable_currency(self.reward)}** "
-                                  f"for attending the donut event!")
+        from mido_utils.converters import readable_currency
+        e = mido_utils.Embed(bot=self.bot,
+                             description=f"You have been awarded **{readable_currency(self.reward)}** "
+                                         f"for attending the donut event!")
         try:
             await user_db.discord_obj.send(embed=e)
         except discord.Forbidden:
@@ -840,7 +850,7 @@ class TransactionLog(BaseDBModel):
         self.user_id: int = data.get('user_id')
         self.amount: int = data.get('amount')
         self.reason: str = data.get('reason')
-        self.date: MidoTime = MidoTime(start_date=data.get('date'))
+        self.date: mido_utils.Time = mido_utils.Time(start_date=data.get('date'))
 
     @classmethod
     async def get_users_logs(cls, bot, user_id: int) -> List[TransactionLog]:
@@ -855,7 +865,7 @@ class BlacklistDB(BaseDBModel):
 
         self.type: str = data.get('type')
         self.reason: str = data.get('reason')
-        self.date = MidoTime(data.get('date'))
+        self.date = mido_utils.Time(data.get('date'))
 
     @classmethod
     async def get(cls, bot, user_or_guild_id: int, type: str):
@@ -928,3 +938,31 @@ class XpRoleReward(BaseDBModel):
     async def delete(self):
         await self.db.execute("DELETE FROM guilds_xp_role_rewards WHERE guild_id=$1 AND level=$2;",
                               self.guild_id, self.level)
+
+
+class HangmanWord(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.word = data.get('word')
+        self.category = data.get('category')
+
+    def __repr__(self):
+        return self.word
+
+    @classmethod
+    async def get_categories_and_counts(cls, bot) -> Dict[str, int]:
+        ret = await bot.db.fetch("SELECT category, count(category) AS count FROM hangman_words GROUP BY category;")
+        return {category: count for category, count in ret}
+
+    @classmethod
+    async def add_word(cls, bot, category: str, word: str):
+        ret = await bot.db.fetchrow("INSERT INTO hangman_words(category, word) VALUES ($1, $2) RETURNING *;",
+                                    category, word)
+        return cls(ret, bot)
+
+    @classmethod
+    async def get_random_word(cls, bot, category: str):
+        ret = await bot.db.fetchrow("SELECT * FROM hangman_words WHERE category = $1 ORDER BY random() LIMIT 1;",
+                                    category)
+        return cls(ret, bot)

@@ -8,13 +8,8 @@ import discord
 import psutil
 from discord.ext import commands, commands
 
+import mido_utils
 from midobot import MidoBot
-from services import checks
-from services.context import MidoContext
-from services.embed import MidoEmbed
-from services.exceptions import InvalidURL
-from services.resources import Resources
-from services.time_stuff import MidoTime
 
 
 class MidoHelp(commands.HelpCommand):
@@ -44,14 +39,18 @@ class MidoHelp(commands.HelpCommand):
         return f'{alias} {command.signature}'
 
     async def send_bot_help(self, cogs_and_commands):
-        e = MidoEmbed(self.context.bot,
-                      title=f'{self.context.bot.name.title()} Command Modules',
-                      description=f" You can type `{self.context.prefix}invite` to invite me to your server.\n\n" \
-                                  f'You can type `{self.context.prefix}help <module>` '
-                                  f'to see the commands that are in that module.\n\n'
-                                  f'Feel free to join the [support server]({Resources.links.support_server})'
-                                  f' if you need additional help.',
-                      default_footer=True)
+        e = mido_utils.Embed(
+            self.context.bot,
+            title=f'{self.context.bot.name.title()} Command Modules',
+            description=f"You can type `{self.context.prefix}invite` to invite me to your server.\n"
+                        f"\n"
+                        f'You can type `{self.context.prefix}help <module>` '
+                        f'to see the commands that are in that module.\n'
+                        f'\n'
+                        f'Feel free to join the [support server]({mido_utils.Resources.links.support_server}) '
+                        f'if you need additional help.',
+            default_footer=True
+        )
 
         cogs = filter(lambda y: y is not None, sorted(cogs_and_commands.keys(), key=lambda x: str(x)))
 
@@ -80,11 +79,11 @@ class MidoHelp(commands.HelpCommand):
         if len(_commands) == 0:
             raise commands.CheckFailure("That is a hidden module. Sorry.")
 
-        e = MidoEmbed(self.context.bot,
-                      title=f'Shinobu {cog.qualified_name} Commands',
-                      description=f'You can type `{self.context.prefix}help <command>` '
-                                  f'to see additional info about a command.',
-                      default_footer=True)
+        e = mido_utils.Embed(self.context.bot,
+                             title=f'Shinobu {cog.qualified_name} Commands',
+                             description=f'You can type `{self.context.prefix}help <command>` '
+                                         f'to see additional info about a command.',
+                             default_footer=True)
 
         for i, chunk in enumerate(chunks(_commands, 5), 1):
             e.add_field(name=f"Command List {i}",
@@ -111,7 +110,7 @@ class MidoHelp(commands.HelpCommand):
         if command.hidden:
             raise commands.CheckFailure("That is a hidden command. Sorry.")
 
-        embed = MidoEmbed(self.context.bot, default_footer=True)
+        embed = mido_utils.Embed(self.context.bot, default_footer=True)
         self.common_command_formatting(embed, command)
         await self.context.send(content=content, embed=embed)
 
@@ -131,7 +130,7 @@ class Meta(commands.Cog):
         self.bot.help_command = self.old_help_command
 
     @commands.command(hidden=True)
-    @checks.is_owner()
+    @mido_utils.is_owner()
     async def eval(self, ctx, *, cmd):
         """A developer command that evaluates code.
 
@@ -139,7 +138,7 @@ class Meta(commands.Cog):
           - `bot`: the bot instance
           - `discord`: the discord module
           - `commands`: the discord.ext.commands module
-          - `ctx`: the invokation context
+          - `ctx`: the invocation context
           - `__import__`: the builtin `__import__` function
         """
 
@@ -183,30 +182,36 @@ class Meta(commands.Cog):
 
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 
-        result = await eval(f"{fn_name}()", env) or 'None'
+        try:
+            result = await eval(f"{fn_name}()", env) or 'None'
+        except Exception as e:
+            result = e
+
         await ctx.send(result)
 
     @commands.command()
-    async def ping(self, ctx: MidoContext):
+    async def ping(self, ctx: mido_utils.Context):
         """Ping me to check the latency!"""
-        if ctx.guild:
-            color = ctx.guild.me.top_role.color
-        else:
-            color = discord.Colour.dark_grey()
+        color = ctx.guild.me.top_role.color if ctx.guild else None
 
         before = time.monotonic()
 
-        embed_msg = discord.Embed(title="Ping!", description=f"Latency: `... ms`", color=color)
+        embed_msg = mido_utils.Embed(bot=ctx.bot,
+                                     title="Ping!",
+                                     description=f"Latency: `... ms`",
+                                     color=color)
         message = await ctx.send(embed=embed_msg)
 
         ping = (time.monotonic() - before) * 1000
-        new_embed_msg = discord.Embed(title="🏓 Pong!", description=f"Latency: `{int(ping)} ms`", color=color)
 
-        await message.edit(embed=new_embed_msg)
+        embed_msg.title = "🏓 Pong!"
+        embed_msg.description = f"Latency: `{int(ping)} ms`"
+
+        await message.edit(embed=embed_msg)
 
     @commands.guild_only()
     @commands.command()
-    async def prefix(self, ctx: MidoContext, *, prefix: str = None):
+    async def prefix(self, ctx: mido_utils.Context, *, prefix: str = None):
         """Provide no arguments to see the prefix.
         Specify one to change the server's prefix.
 
@@ -227,7 +232,7 @@ class Meta(commands.Cog):
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
     @commands.command(name="deletecommands", aliases=["delcmds"])
-    async def delete_commands(self, ctx: MidoContext):
+    async def delete_commands(self, ctx: mido_utils.Context):
         """Enable or disable the deletion of commands after completion.
 
         You need the **Administrator** permission to use this command.
@@ -241,27 +246,27 @@ class Meta(commands.Cog):
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
     @commands.command(aliases=['info', 'about'])
-    async def stats(self, ctx: MidoContext):
+    async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
         mido = self.bot.get_user(self.bot.config['owner_ids'][0])
 
         memory = self.process.memory_info().rss / 10 ** 6
 
-        embed = discord.Embed(color=self.bot.main_color)
+        embed = mido_utils.Embed(bot=ctx.bot)
 
         embed.description = f"I'm a general purpose bot that features various features! " \
                             f"Type `{ctx.prefix}help` to learn more.\n\n" \
                             f"Type `{ctx.prefix}invite` to invite me to your server.\n\n" \
                             f"**I've recently got re-written, so some features might be missing or misbehaving.**\n\n" \
-                            f"Join the [support server]({Resources.links.support_server}) " \
+                            f"Join the [support server]({mido_utils.Resources.links.support_server}) " \
                             f"if you want to provide feedback, get the latest news and join donut events."
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
-                         url=Resources.links.website)
+                         url=mido_utils.Resources.links.website)
 
         embed.add_field(name="Uptime",
-                        value=MidoTime.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
+                        value=mido_utils.Time.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
                         inline=True)
 
         embed.add_field(name="Discord Stats",
@@ -290,7 +295,7 @@ class Meta(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
-    @checks.is_owner()
+    @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
         cog_counter = 0
         for file in os.listdir("cogs"):
@@ -311,7 +316,7 @@ class Meta(commands.Cog):
         await ctx.send(f"Successfully reloaded **{cog_counter}** cog(s)!")
 
     @commands.command(hidden=True)
-    @checks.is_owner()
+    @mido_utils.is_owner()
     async def shutdown(self, ctx, *, force: str = None):
         await ctx.send("Shutting down...")
 
@@ -320,9 +325,9 @@ class Meta(commands.Cog):
 
         await self.bot.close()
 
-    @checks.is_owner()
-    @commands.command(hidden=True)
-    async def setavatar(self, ctx, new_av: str = None):
+    @mido_utils.is_owner()
+    @commands.command(name='setavatar', hidden=True)
+    async def set_avatar(self, ctx, new_av: str = None):
         if new_av:
             av_link = new_av
 
@@ -336,33 +341,37 @@ class Meta(commands.Cog):
             if r.status == 200:
                 img_bytes = await r.read()
             else:
-                raise InvalidURL("Invalid URL!")
+                raise mido_utils.InvalidURL("Invalid URL!")
 
         await self.bot.user.edit(avatar=img_bytes)
         await ctx.send("Avatar has been successfully updated.")
 
     @commands.command()
-    async def invite(self, ctx: MidoContext):
-        e = MidoEmbed(self.bot)
+    async def invite(self, ctx: mido_utils.Context):
+        e = mido_utils.Embed(self.bot)
         e.title = f"Invite {self.bot.user} to your server:"
-        e.description = f"[With Administrator Permission]({Resources.links.invite_admin.format(self.bot.user.id)}) (Suggested)\n" \
-                        f"[With Minimal Permissions]({Resources.links.invite_minimal.format(self.bot.user.id)})\n" \
-                        f"[With Selectable Permissions]({Resources.links.invite_selectable.format(self.bot.user.id)})\n" \
-                        f"[With No Permission]({Resources.links.invite_none.format(self.bot.user.id)})"
+        e.description = f"[With Administrator Permission]" \
+                        f"({mido_utils.Resources.links.invite_admin.format(self.bot.user.id)}) (Suggested)\n" \
+                        f"[With Minimal Permissions]" \
+                        f"({mido_utils.Resources.links.invite_minimal.format(self.bot.user.id)})\n" \
+                        f"[With Selectable Permissions]" \
+                        f"({mido_utils.Resources.links.invite_selectable.format(self.bot.user.id)})\n" \
+                        f"[With No Permission]" \
+                        f"({mido_utils.Resources.links.invite_none.format(self.bot.user.id)})"
         e.set_thumbnail(url=self.bot.user.avatar_url)
 
         await ctx.send(embed=e)
 
     @commands.command(aliases=['erasedata'])
-    async def deletedata(self, ctx: MidoContext):
+    async def deletedata(self, ctx: mido_utils.Context):
         """Delete all of your data from me."""
-        e = MidoEmbed(bot=self.bot,
-                      description="Are you sure you'd like to erase all of your data?\n\n"
-                                  "**This action is irreversible.**")
+        e = mido_utils.Embed(bot=self.bot,
+                             description="Are you sure you'd like to erase all of your data?\n\n"
+                                         "**This action is irreversible.**")
 
         msg = await ctx.send(embed=e)
 
-        yes = await MidoEmbed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
+        yes = await mido_utils.Embed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
         if yes:
             await ctx.user_db.delete()
 

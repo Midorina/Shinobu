@@ -4,11 +4,12 @@ from typing import Union
 import discord
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
 from models.db import ReminderDB
-from services.context import MidoContext
-from services.embed import MidoEmbed
-from services.time_stuff import MidoTime
+
+
+# todo: fix s.remind me in DMs
 
 
 class Reminder(commands.Cog):
@@ -36,9 +37,9 @@ class Reminder(commands.Cog):
         else:
             channel = self.bot.get_channel(reminder.channel_id)
 
-        e = MidoEmbed(bot=self.bot,
-                      title="A Friendly Reminder:",
-                      description=reminder.content)
+        e = mido_utils.Embed(bot=self.bot,
+                             title="A Friendly Reminder:",
+                             description=reminder.content)
         e.add_field(name="Creator",
                     value=f"**{str(author)}**")
         e.add_field(name="Creation Date",
@@ -68,9 +69,9 @@ class Reminder(commands.Cog):
 
     @commands.command()
     async def remind(self,
-                     ctx: MidoContext,
+                     ctx: mido_utils.Context,
                      channel: Union[discord.TextChannel, str],
-                     length: MidoTime,
+                     length: mido_utils.Time,
                      *, message: commands.clean_content):
         """Adds a reminder.
 
@@ -122,14 +123,14 @@ class Reminder(commands.Cog):
 
     @commands.command()
     async def remindlist(self,
-                         ctx: MidoContext):
+                         ctx: mido_utils.Context):
         """See the list of your reminders."""
         reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)
 
         if not reminders:
             raise commands.UserInputError("You don't have any reminders!")
 
-        e = MidoEmbed(self.bot)
+        e = mido_utils.Embed(self.bot)
         e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar_url)
 
         blocks = []
@@ -150,7 +151,7 @@ class Reminder(commands.Cog):
 
     @commands.command(aliases=['reminddel'])
     async def reminddelete(self,
-                           ctx: MidoContext,
+                           ctx: mido_utils.Context,
                            reminder_index: int):
         """
         Delete a reminder you have using its index.

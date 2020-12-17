@@ -1,14 +1,13 @@
 import discord
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
 from models.db import CustomReaction
-from services.context import MidoContext
-from services.converters import parse_text_with_context
-from services.embed import MidoEmbed
 
 
-def toggle_message(option_name: str, cr: CustomReaction, option_status: bool) -> str:
+# todo: cooldown to crs
+def cr_toggle_message(option_name: str, cr: CustomReaction, option_status: bool) -> str:
     def keyword(_enabled: bool):
         return 'enabled' if _enabled else 'disabled'
 
@@ -22,6 +21,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        """This on_message function is used to check whether a message triggered a custom reaction or not."""
         if not self.bot.is_ready() or message.author.bot or not message.guild:
             return False
 
@@ -32,12 +32,12 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
             channel_to_send = message.author if cr.send_in_DM else message.channel
 
-            content, embed = parse_text_with_context(text=cr.response,
-                                                     bot=self.bot,
-                                                     guild=message.guild,
-                                                     author=message.author,
-                                                     channel=channel_to_send,
-                                                     message_obj=message)
+            content, embed = mido_utils.parse_text_with_context(text=cr.response,
+                                                                bot=self.bot,
+                                                                guild=message.guild,
+                                                                author=message.author,
+                                                                channel=channel_to_send,
+                                                                message_obj=message)
 
             try:
                 await channel_to_send.send(content=content, embed=embed)
@@ -52,15 +52,15 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                                      f" in [{message.guild}].")
 
     def get_cr_embed(self, cr: CustomReaction):
-        e = MidoEmbed(bot=self.bot)
+        e = mido_utils.Embed(bot=self.bot)
         e.add_field(name="Trigger", value=cr.trigger[:1024], inline=False)
         e.add_field(name="Response", value=cr.response[:1024])
         e.set_footer(text=f'ID: {cr.id}')
 
         return e
 
-    @commands.command(aliases=['acr'])
-    async def addcustomreaction(self, ctx: MidoContext, trigger: str, *, response):
+    @commands.command(name='addcustomreaction', aliases=['acr'])
+    async def add_custom_reaction(self, ctx: mido_utils.Context, trigger: str, *, response):
         """Add a custom reaction with a trigger and a response.
         Running this command in server requires the Administration permission.
 
@@ -80,16 +80,16 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['lcr'])
-    async def listcustomreactions(self, ctx: MidoContext):
+    @commands.command(name='listcustomreactions', aliases=['lcr'])
+    async def list_custom_reactions(self, ctx: mido_utils.Context):
         """List all custom reactions of the server.
         If you use this command in DMs, it'll show you the global custom reactions."""
 
         crs = await CustomReaction.get_all(bot=ctx.bot,
                                            guild_id=ctx.guild.id if ctx.guild else None)
 
-        e = MidoEmbed(bot=self.bot,
-                      title='Custom Reactions' if ctx.guild else 'Global Custom Reactions')
+        e = mido_utils.Embed(bot=self.bot,
+                             title='Custom Reactions' if ctx.guild else 'Global Custom Reactions')
 
         if not crs:
             e.description = "No custom reaction found."
@@ -101,22 +101,22 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=15)
 
-    @commands.command(aliases=['scr'])
-    async def showcustomreaction(self, ctx: MidoContext, custom_reaction: CustomReaction):
+    @commands.command(name='showcustomreaction', aliases=['scr'])
+    async def show_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Shows a custom reaction's response on a given ID."""
 
         await ctx.send(embed=self.get_cr_embed(custom_reaction))
 
     @commands.has_permissions(administrator=True)
-    @commands.command(aliases=['crclear'])
-    async def customreactionsclear(self, ctx: MidoContext):
+    @commands.command(name='clearcustomreactions', aliases=['crclear'])
+    async def clear_custom_reactions(self, ctx: mido_utils.Context):
         """Deletes all custom reactions on this server."""
 
-        e = MidoEmbed(bot=self.bot,
-                      description="Are you sure you want to delete every custom reaction in this server?")
+        e = mido_utils.Embed(bot=self.bot,
+                             description="Are you sure you want to delete every custom reaction in this server?")
         msg = await ctx.send(embed=e)
 
-        yes = await MidoEmbed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
+        yes = await mido_utils.Embed.yes_no(bot=self.bot, author_id=ctx.author.id, msg=msg)
         if yes:
             await CustomReaction.delete_all(bot=ctx.bot, guild_id=ctx.guild.id)
 
@@ -124,8 +124,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.command(aliases=['dcr'])
-    async def deletecustomreaction(self, ctx: MidoContext, custom_reaction: CustomReaction):
+    @commands.command(name='deletecustomreaction', aliases=['dcr'])
+    async def delete_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Delete a custom reaction using it's ID.
         You can see the list of custom reactions using `{0.prefix}lcr`
 
@@ -138,42 +138,42 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         await ctx.send(embed=e)
 
-    @commands.command()
-    async def crca(self, ctx: MidoContext, custom_reaction: CustomReaction):
+    @commands.command(name='customreactioncontainsanywhere', aliases=['crca'])
+    async def toggle_custom_reaction_contains_anywhere(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the custom reaction will trigger
         if the triggering message contains the keyword (instead of only starting with it)."""
         await custom_reaction.toggle_contains_anywhere()
 
         await ctx.send_success(
-            toggle_message(option_name='Contains Anywhere',
-                           cr=custom_reaction,
-                           option_status=custom_reaction.contains_anywhere))
+            cr_toggle_message(option_name='Contains Anywhere',
+                              cr=custom_reaction,
+                              option_status=custom_reaction.contains_anywhere))
 
-    @commands.command()
-    async def crdm(self, ctx: MidoContext, custom_reaction: CustomReaction):
+    @commands.command(name='customreactiondm', aliases=['crdm'])
+    async def toggle_custom_reaction_dm(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the response message of the custom reaction will be sent as a direct message."""
         await custom_reaction.toggle_dm()
 
         await ctx.send_success(
-            toggle_message(option_name='Respond in DM',
-                           cr=custom_reaction,
-                           option_status=custom_reaction.send_in_DM))
+            cr_toggle_message(option_name='Respond in DM',
+                              cr=custom_reaction,
+                              option_status=custom_reaction.send_in_DM))
 
-    @commands.command()
-    async def crad(self, ctx: MidoContext, custom_reaction: CustomReaction):
+    @commands.command(name='customreactionautodelete', aliases=['crad'])
+    async def toggle_custom_reaction_auto_delete(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the message triggering the custom reaction will be automatically deleted."""
         await custom_reaction.toggle_delete_trigger()
 
         await ctx.send_success(
-            toggle_message(option_name='Delete the Trigger',
-                           cr=custom_reaction,
-                           option_status=custom_reaction.delete_trigger))
+            cr_toggle_message(option_name='Delete the Trigger',
+                              cr=custom_reaction,
+                              option_status=custom_reaction.delete_trigger))
 
-    @deletecustomreaction.before_invoke
-    @crca.before_invoke
-    @crad.before_invoke
-    @crdm.before_invoke
-    async def ensure_cr_ownership(self, ctx: MidoContext):
+    @delete_custom_reaction.before_invoke
+    @toggle_custom_reaction_auto_delete.before_invoke
+    @toggle_custom_reaction_contains_anywhere.before_invoke
+    @toggle_custom_reaction_dm.before_invoke
+    async def ensure_cr_ownership(self, ctx: mido_utils.Context):
         cr: CustomReaction = ctx.args[2]  # arg after the context
 
         if not cr.guild_id:  # if its global

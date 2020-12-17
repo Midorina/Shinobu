@@ -7,8 +7,7 @@ from midobot import MidoBot
 # arg stuff
 parser = argparse.ArgumentParser()
 parser.add_argument("bot", help="The name of the bot you want to launch (either 'midobot' or 'shinobu')")
-args = parser.parse_args()
-bot_name = args.bot
+bot_name = parser.parse_args().bot
 
 # logging stuff
 logger = logging.getLogger()
@@ -30,5 +29,5 @@ handler_c.setFormatter(_format)
 logger.addHandler(handler_f)
 logger.addHandler(handler_c)
 
-bot = MidoBot(args.bot)
+bot = MidoBot(bot_name)
 bot.run()

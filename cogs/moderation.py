@@ -1,16 +1,11 @@
-import math
 import typing
 
 import discord
 from discord.ext import commands, tasks
 
+import mido_utils
 from midobot import MidoBot
 from models.db import GuildDB, ModLog
-from services.checks import ensure_role_hierarchy
-from services.context import MidoContext
-from services.converters import MidoMemberConverter, MidoRoleConverter, parse_text_with_context
-from services.embed import MidoEmbed
-from services.time_stuff import MidoTime
 
 # TODO: logging
 
@@ -74,11 +69,11 @@ class Moderation(commands.Cog):
             else:
                 channel = self.bot.get_channel(guild_db.welcome_channel_id)
 
-            content, embed = parse_text_with_context(text=guild_db.welcome_message,
-                                                     bot=self.bot,
-                                                     guild=member.guild,
-                                                     author=member,
-                                                     channel=channel)
+            content, embed = mido_utils.parse_text_with_context(text=guild_db.welcome_message,
+                                                                bot=self.bot,
+                                                                guild=member.guild,
+                                                                author=member,
+                                                                channel=channel)
 
             try:
                 await channel.send(content=content,
@@ -93,11 +88,11 @@ class Moderation(commands.Cog):
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)
 
-            content, embed = parse_text_with_context(text=guild_db.bye_message,
-                                                     bot=self.bot,
-                                                     guild=member.guild,
-                                                     author=member,
-                                                     channel=channel)
+            content, embed = mido_utils.parse_text_with_context(text=guild_db.bye_message,
+                                                                bot=self.bot,
+                                                                guild=member.guild,
+                                                                author=member,
+                                                                channel=channel)
 
             try:
                 await channel.send(content=content,
@@ -110,7 +105,7 @@ class Moderation(commands.Cog):
 
     @commands.command(aliases=['greet'])
     async def welcome(self,
-                      ctx: MidoContext,
+                      ctx: mido_utils.Context,
                       channel: typing.Union[discord.TextChannel, str] = None, *,
                       message: commands.clean_content = None):
         """Setup a channel to welcome new members with a customized message.
@@ -156,7 +151,7 @@ class Moderation(commands.Cog):
 
     @commands.command(aliases=['goodbye'])
     async def bye(self,
-                  ctx: MidoContext,
+                  ctx: mido_utils.Context,
                   channel: discord.TextChannel = None, *,
                   message: commands.clean_content = None):
         """Setup a channel to say goodbye to members that leave with a customized message.
@@ -196,8 +191,8 @@ class Moderation(commands.Cog):
         return f' with reason: `{reason}`' if reason else '.'
 
     @staticmethod
-    async def get_or_create_muted_role(ctx_or_guild: typing.Union[MidoContext, discord.Guild]):
-        if isinstance(ctx_or_guild, MidoContext):
+    async def get_or_create_muted_role(ctx_or_guild: typing.Union[mido_utils.Context, discord.Guild]):
+        if isinstance(ctx_or_guild, mido_utils.Context):
             ctx = ctx_or_guild
             guild = ctx.guild
         else:
@@ -258,7 +253,8 @@ class Moderation(commands.Cog):
     @commands.command()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx: MidoContext, target: MidoMemberConverter(), *, reason: commands.clean_content = None):
+    async def kick(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter(), *,
+                   reason: commands.clean_content = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
@@ -281,9 +277,9 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
-                  ctx: MidoContext,
-                  target: discord.User,
-                  length: typing.Union[MidoTime, str] = None,
+                  ctx: mido_utils.Context,
+                  target: mido_utils.UserConverter(),
+                  length: typing.Union[mido_utils.Time, str] = None,
                   *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
 
@@ -330,8 +326,8 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
-                    ctx: MidoContext,
-                    target: discord.User,
+                    ctx: mido_utils.Context,
+                    target: mido_utils.UserConverter(),
                     *, reason: commands.clean_content = None):
         """Unbans a banned user.
 
@@ -362,9 +358,9 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
-                   ctx: MidoContext,
-                   target: MidoMemberConverter(),
-                   length: typing.Union[MidoTime, str] = None,
+                   ctx: mido_utils.Context,
+                   target: mido_utils.MemberConverter(),
+                   length: typing.Union[mido_utils.Time, str] = None,
                    *, reason: commands.clean_content = None):
         """Mutes a user for a specified period of time or indefinitely.
 
@@ -417,8 +413,8 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
-                     ctx: MidoContext,
-                     target: MidoMemberConverter(),
+                     ctx: mido_utils.Context,
+                     target: mido_utils.MemberConverter(),
                      *, reason: commands.clean_content = None):
         """Unmutes a muted user.
 
@@ -448,8 +444,8 @@ class Moderation(commands.Cog):
     @commands.command()
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def logs(self,
-                   ctx: MidoContext,
-                   target: MidoMemberConverter()):
+                   ctx: mido_utils.Context,
+                   target: mido_utils.MemberConverter()):
         """See the logs of a user.
 
         You need Kick Members and Ban Members permissions to use this command.
@@ -459,7 +455,7 @@ class Moderation(commands.Cog):
         if not logs:
             raise commands.UserInputError(f"No logs have been found for user **{target}**.")
 
-        e = MidoEmbed(self.bot)
+        e = mido_utils.Embed(self.bot)
         e.set_author(icon_url=getattr(target, 'avatar_url', None),
                      name=f"Logs of {target}")
         e.set_footer(text=f"{len(logs)} Logs")
@@ -484,14 +480,14 @@ class Moderation(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def clearlogs(self,
-                        ctx: MidoContext,
-                        target: MidoMemberConverter()):
+                        ctx: mido_utils.Context,
+                        target: mido_utils.MemberConverter()):
         """Clears the logs of a user.
 
         You need to have the Administrator permission to use this command.
         """
         msg = await ctx.send_success(f"Are you sure you'd like to reset the logs of **{target}**?")
-        yes = await MidoEmbed.yes_no(self.bot, ctx.author.id, msg)
+        yes = await mido_utils.Embed.yes_no(self.bot, ctx.author.id, msg)
 
         if yes:
             await ModLog.hide_logs(bot=ctx.bot, guild_id=ctx.guild.id, user_id=target.id)
@@ -502,8 +498,8 @@ class Moderation(commands.Cog):
 
     @commands.command(aliases=['changereason'])
     async def reason(self,
-                     ctx: MidoContext,
-                     case_id: int,
+                     ctx: mido_utils.Context,
+                     case_id: mido_utils.Int32(),
                      *, new_reason: commands.clean_content = None):
         """Update the reason of a case using its ID.
 
@@ -524,9 +520,9 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['sr', 'giverole', 'gr'])
     @commands.has_permissions(manage_roles=True)
     async def setrole(self,
-                      ctx: MidoContext,
-                      member: MidoMemberConverter(),
-                      role: MidoRoleConverter()):
+                      ctx: mido_utils.Context,
+                      member: mido_utils.MemberConverter(),
+                      role: mido_utils.RoleConverter()):
         """Give a role to a member.
 
         You need the **Manage Roles** permissions to use this command.
@@ -542,9 +538,9 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['rr'])
     @commands.has_permissions(manage_roles=True)
     async def removerole(self,
-                         ctx: MidoContext,
-                         member: MidoMemberConverter(),
-                         role: MidoRoleConverter()):
+                         ctx: mido_utils.Context,
+                         member: mido_utils.MemberConverter(),
+                         role: mido_utils.RoleConverter()):
         """Remove a role from a member.
 
         You need the **Manage Roles** permissions to use this command.
@@ -561,7 +557,7 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['cr'])
     @commands.has_permissions(manage_roles=True)
     async def createrole(self,
-                         ctx: MidoContext,
+                         ctx: mido_utils.Context,
                          role_name: str):
         """Create a role.
 
@@ -575,8 +571,8 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['dr'])
     @commands.has_permissions(manage_roles=True)
     async def deleterole(self,
-                         ctx: MidoContext,
-                         role: MidoRoleConverter()):
+                         ctx: mido_utils.Context,
+                         role: mido_utils.RoleConverter()):
         """Delete a role from the server.
 
         You need the **Manage Roles** permissions to use this command.
@@ -587,22 +583,22 @@ class Moderation(commands.Cog):
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
     @commands.command(aliases=['av'])
-    async def avatar(self, ctx: MidoContext, *, target: MidoMemberConverter() = None):
+    async def avatar(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter() = None):
         """See the avatar of someone."""
         user = target or ctx.author
-        e = MidoEmbed(bot=self.bot, image_url=user.avatar_url)
+        e = mido_utils.Embed(bot=self.bot, image_url=user.avatar_url)
         await ctx.send(embed=e)
 
     @setrole.before_invoke
     @removerole.before_invoke
     @deleterole.before_invoke
     async def _ensure_role_hierarchy(self, ctx):
-        ensure_role_hierarchy(ctx)
+        mido_utils.ensure_role_hierarchy(ctx)
 
     @commands.command(aliases=['purge', 'clear'])
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def prune(self, ctx: MidoContext, number: int, target_user: MidoMemberConverter() = None):
+    async def prune(self, ctx: mido_utils.Context, number: int, target_user: mido_utils.MemberConverter() = None):
         """Delete a number of messages in a channel.
         **Maximum amount is 100.**
         You can specify a target user to delete only their messages.
@@ -630,11 +626,11 @@ class Moderation(commands.Cog):
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
     @commands.command(name='inrole')
-    async def in_role(self, ctx: MidoContext, role: MidoRoleConverter()):
+    async def in_role(self, ctx: mido_utils.Context, role: mido_utils.RoleConverter()):
         """See the people in a specific role."""
         ppl = [member for member in ctx.guild.members if role in member.roles]
 
-        e = MidoEmbed(bot=ctx.bot, title=f"List of people in the role: {role}")
+        e = mido_utils.Embed(bot=ctx.bot, title=f"List of people in the role: {role}")
         e.set_footer(text=f"{len(ppl)} People")
 
         blocks = []
@@ -644,7 +640,7 @@ class Moderation(commands.Cog):
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
     @commands.command(name="serverinfo", aliases=['sinfo'])
-    async def server_info(self, ctx: MidoContext, server_id: int = None):
+    async def server_info(self, ctx: mido_utils.Context, server_id: mido_utils.Int64() = None):
         """Shows the information of the server."""
 
         # if user is not the owner or server id isn't specified
@@ -672,9 +668,9 @@ class Moderation(commands.Cog):
             else:
                 humans += 1
 
-        embed = MidoEmbed(bot=ctx.bot)
+        embed = mido_utils.Embed(bot=ctx.bot)
         embed.set_author(icon_url=server.icon_url, name=server.name)
-        embed.set_image(url=server.icon_url)
+        embed.set_thumbnail(url=server.icon_url)
 
         embed.add_field(name="Owner",
                         value=f"{server.owner}\n"
@@ -701,10 +697,10 @@ class Moderation(commands.Cog):
                         value=f"{len(server.roles)}/250",
                         inline=True)
 
-        creation_date = MidoTime(start_date=server.created_at, offset_naive=True)
-        embed.add_field(name="Created at",
+        creation_date = mido_utils.Time(start_date=server.created_at, offset_naive=True)
+        embed.add_field(name="Joined Discord at",
                         value=f"{creation_date.start_date_string}\n"
-                              f"({math.floor(creation_date.remaining_seconds / (60 * 60 * 24))} days ago)",
+                              f"({creation_date.remaining_days} days ago)",
                         inline=True)
 
         embed.set_footer(text=f"Server ID: {server.id}")

@@ -11,15 +11,13 @@ import discord
 from async_timeout import timeout
 from wavelink import InvalidIDProvided, Node, Player, Track
 
-from services.context import MidoContext
-from services.resources import Resources
-from services.time_stuff import MidoTime
+from mido_utils.context import Context
+from mido_utils.resources import Resources
+from mido_utils.time_stuff import Time
 
 
 class VoicePlayer(Player):
-    from midobot import MidoBot
-
-    def __init__(self, bot: MidoBot, guild_id: int, node: Node, **kwargs):
+    def __init__(self, bot, guild_id: int, node: Node, **kwargs):
         super().__init__(bot, guild_id, node, **kwargs)
 
         self.song_queue: SongQueue = SongQueue()
@@ -51,7 +49,7 @@ class VoicePlayer(Player):
 
     @property
     def position_str(self):
-        return MidoTime.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
+        return Time.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
 
     async def destroy(self) -> None:
         await self.stop()
@@ -68,7 +66,7 @@ class VoicePlayer(Player):
         except KeyError:
             pass
 
-    async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: MidoContext):
+    async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: Context):
         async def _convert_and_add(_song):
             if not isinstance(_song, Song):
                 _song = Song.convert(_song, ctx)
@@ -121,7 +119,7 @@ class Song(Track):
         self.player: VoicePlayer = player
         self.requester: discord.Member = requester
 
-        self.duration_str: str = MidoTime.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
+        self.duration_str: str = Time.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
 
     @property
     def duration_in_seconds(self) -> int:
@@ -130,7 +128,7 @@ class Song(Track):
     @classmethod
     def convert(cls,
                 track: Track,
-                ctx: MidoContext):
+                ctx: Context):
         """Converts a native wavelink track object to a local Song object."""
         return cls(track.id, track.info, ctx.voice_player, ctx.author, ctx.channel, track.query)
 

@@ -4,11 +4,9 @@ from typing import List, Union
 import discord
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
 from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
-from services import checks, context
-from services.converters import MidoMemberConverter, MidoRoleConverter
-from services.embed import MidoEmbed
 
 
 # todo: xp exclude channel
@@ -19,8 +17,7 @@ class XP(commands.Cog):
         self.bot = bot
 
     async def get_xp_embed(self, user_or_member, db) -> discord.Embed:
-        e = discord.Embed(color=self.bot.main_color,
-                          title=str(user_or_member))
+        e = mido_utils.Embed(bot=self.bot, title=str(user_or_member))
 
         # if in guild
         if isinstance(user_or_member, discord.Member):
@@ -45,8 +42,7 @@ class XP(commands.Cog):
         return e
 
     def get_leaderboard_embed(self, top_10: List[Union[UserDB, MemberDB]], title: str):
-        e = discord.Embed(color=self.bot.main_color,
-                          title=title)
+        e = mido_utils.Embed(bot=self.bot, title=title)
 
         e.timestamp = datetime.utcnow()
 
@@ -140,7 +136,7 @@ class XP(commands.Cog):
                                       added_globally=can_gain_xp_global)
 
     @commands.command(name="rank", aliases=['xp', 'level'])
-    async def show_rank(self, ctx: context.MidoContext, member: MidoMemberConverter() = None):
+    async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):
         """See your or someone else's XP rank."""
         if member:
             user = member
@@ -160,7 +156,7 @@ class XP(commands.Cog):
 
     @commands.command(name='xpleaderboard', aliases=['xplb'])
     @commands.guild_only()
-    async def show_leaderboard(self, ctx: context.MidoContext):
+    async def show_leaderboard(self, ctx: mido_utils.Context):
         """See the XP leaderboard of the server."""
         top_10 = await ctx.guild_db.get_top_10()
 
@@ -170,7 +166,7 @@ class XP(commands.Cog):
 
     @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
     @commands.guild_only()
-    async def show_global_leaderboard(self, ctx: context.MidoContext):
+    async def show_global_leaderboard(self, ctx: mido_utils.Context):
         """See the global XP leaderboard."""
         top_10 = await ctx.user_db.get_top_10(ctx.bot)
 
@@ -179,7 +175,7 @@ class XP(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command(name='xpnotifs')
-    async def change_level_up_notifications(self, ctx: context.MidoContext, new_preference: str):
+    async def change_level_up_notifications(self, ctx: mido_utils.Context, new_preference: str):
         """Configure your level up notifications. It's DM by default.
 
         `{0.prefix}xpnotifs [silence|disable]` (**disables** level up notifications)
@@ -201,10 +197,15 @@ class XP(commands.Cog):
     @commands.command(name='xprolereward', aliases=['xprr'])
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
-    async def set_xp_role_reward(self, ctx: context.MidoContext, level: int, role: MidoRoleConverter() = None):
+    async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32(),
+                                 role: mido_utils.RoleConverter() = None):
         """Set a role reward for a specified level.
 
-        Provide no role name in order to remove the role reward for that level."""
+        Provide no role name in order to remove the role reward for that level.
+
+        You need Manage Roles permission to use this command."""
+        mido_utils.ensure_role_hierarchy(ctx)
+
         already_existing_reward = await XpRoleReward.get_level_reward(bot=ctx.bot,
                                                                       guild_id=ctx.guild.id,
                                                                       level=level)
@@ -244,14 +245,15 @@ class XP(commands.Cog):
 
     @commands.command(name='xprolerewards', aliases=['xprewards', 'xprrs'])
     @commands.guild_only()
-    async def list_xp_role_rewards(self, ctx: context.MidoContext):
+    async def list_xp_role_rewards(self, ctx: mido_utils.Context):
         """See a list of XP role rewards of this server."""
         rewards = await XpRoleReward.get_all(bot=ctx.bot, guild_id=ctx.guild.id)
         if not rewards:
             raise commands.UserInputError(f"This server does not have any XP role rewards.\n\n"
-                                          f"You can add/set XP role rewards using `{ctx.prefix}xprolereward <level> <role_reward>`")
+                                          f"You can add/set XP role rewards using "
+                                          f"`{ctx.prefix}xprolereward <level> <role_reward>`")
 
-        e = MidoEmbed(bot=ctx.bot)
+        e = mido_utils.Embed(bot=ctx.bot)
         e.set_author(icon_url=ctx.guild.icon_url, name=f"XP Role Rewards of {ctx.guild}")
 
         blocks = []
@@ -271,7 +273,7 @@ class XP(commands.Cog):
     @commands.command(name="silenceserverxp")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    async def silence_level_up_notifs_for_guild(self, ctx: context.MidoContext):
+    async def silence_level_up_notifs_for_guild(self, ctx: mido_utils.Context):
         """Silence level up notifications in this server.
         **This command overwrites the notification preference of the users if silenced.**
 
@@ -285,29 +287,31 @@ class XP(commands.Cog):
             await ctx.send("You've successfully enabled level up notifications in this server!")
 
     @commands.command(name="addxp", hidden=True)
-    @checks.is_owner()
-    async def add_xp(self, ctx, member: MidoMemberConverter(), amount: int):
+    @mido_utils.is_owner()
+    async def add_xp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
-        await member_db.add_xp(amount)
+        await member_db.add_xp(amount, owner=True)
         await ctx.send("Success!")
 
     @commands.command(name="addgxp", hidden=True)
-    @checks.is_owner()
-    async def add_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
+    @mido_utils.is_owner()
+    async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
-        await member_db.add_xp(amount)
+        await member_db.add_xp(amount, owner=True)
         await ctx.send("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
-    @checks.is_owner()
-    async def remove_xp(self, ctx, member: MidoMemberConverter(), amount: int):
+    @mido_utils.is_owner()
+    async def remove_xp(self, ctx: mido_utils.Context,
+                        member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
-    @checks.is_owner()
-    async def remove_gxp(self, ctx, member: MidoMemberConverter(), amount: int):
+    @mido_utils.is_owner()
+    async def remove_gxp(self, ctx: mido_utils.Context,
+                         member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.remove_xp(amount)
         await ctx.send("Success!")

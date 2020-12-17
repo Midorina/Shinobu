@@ -3,9 +3,7 @@ import traceback
 import discord
 from discord.ext import commands
 
-from services import exceptions as local_errors
-from services.context import MidoContext
-from services.time_stuff import MidoTime
+import mido_utils
 
 
 class Errors(commands.Cog):
@@ -13,15 +11,15 @@ class Errors(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: MidoContext, error):
+    async def on_command_error(self, ctx: mido_utils.Context, error):
         if hasattr(ctx.command, 'on_error'):
             return
 
         ignored = (
             discord.NotFound,
-            local_errors.SilentError,
-            local_errors.GuildIsBlacklisted,
-            local_errors.UserIsBlacklisted
+            mido_utils.SilentError,
+            mido_utils.GuildIsBlacklisted,
+            mido_utils.UserIsBlacklisted
         )
 
         error = getattr(error, 'original', error)
@@ -34,13 +32,13 @@ class Errors(commands.Cog):
             elif isinstance(error, commands.CommandNotFound):
                 return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
-            elif isinstance(error, local_errors.RaceError):
+            elif isinstance(error, mido_utils.RaceError):
                 return await ctx.send_error(error)
 
             elif isinstance(error, commands.NSFWChannelRequired):
                 return await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
 
-            elif isinstance(error, local_errors.InsufficientCash):
+            elif isinstance(error, mido_utils.InsufficientCash):
                 return await ctx.send_error("You don't have enough money to do that!")
 
             elif isinstance(error, commands.NoPrivateMessage):
@@ -63,11 +61,9 @@ class Errors(commands.Cog):
 
             # cooldown errors
             elif isinstance(error, commands.CommandOnCooldown):
-                return await ctx.send_error("You're on cooldown! "
-                                            "Try again after **{}**."
-                                            .format(MidoTime.parse_seconds_to_str(total_seconds=error.retry_after))
-                                            )
-            elif isinstance(error, local_errors.OnCooldownError):
+                remaining = mido_utils.Time.parse_seconds_to_str(total_seconds=error.retry_after)
+                return await ctx.send_error(f"You're on cooldown! Try again after **{remaining}**.")
+            elif isinstance(error, mido_utils.OnCooldownError):
                 return await ctx.send_error(error, "You're on cooldown!")
 
             elif isinstance(error, commands.MissingRequiredArgument):
@@ -85,13 +81,13 @@ class Errors(commands.Cog):
                     return await ctx.send_error(
                         "I don't have permission to use external emojis! Please give me permission to use them.")
 
-            elif isinstance(error, local_errors.NotFoundError):
+            elif isinstance(error, mido_utils.NotFoundError):
                 return await ctx.send_error(error, "I couldn't find anything with that query.")
 
-            elif isinstance(error, local_errors.RateLimited):
+            elif isinstance(error, mido_utils.RateLimited):
                 return await ctx.send_error(error, "You are rate limited. Please try again in a few minutes.")
 
-            elif isinstance(error, local_errors.APIError):
+            elif isinstance(error, mido_utils.APIError):
                 return await ctx.send_error(error,
                                             "There was an error communicating with the API. Please try again later.")
 
@@ -102,10 +98,10 @@ class Errors(commands.Cog):
                              commands.InvalidEndOfQuotedStringError)):
                 return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
 
-            elif isinstance(error, (local_errors.MusicError,
+            elif isinstance(error, (mido_utils.MusicError,
                                     commands.UserInputError,
-                                    local_errors.TimedOut,
-                                    local_errors.DidntVoteError
+                                    mido_utils.TimedOut,
+                                    mido_utils.DidntVoteError
                                     )
                             ):
                 return await ctx.send_error(error)

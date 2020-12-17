@@ -1,27 +1,25 @@
 import json
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import discord
 from discord import ShardInfo
 from discord.ext import commands
 
-from midobot import MidoBot
-from services.context import MidoContext
-from services.exceptions import InsufficientCash
-from services.music import VoicePlayer
-from services.resources import Resources
+from mido_utils.context import Context
+from mido_utils.exceptions import InsufficientCash
+from mido_utils.music import VoicePlayer
+from mido_utils.resources import Resources
 
 
-class MidoMemberConverter(commands.MemberConverter):
-    async def convert(self, ctx: MidoContext, argument) -> discord.Member:
+# case insensitive object searches
+# and dummy discord object to unban/ban someone we don't see
+class MemberConverter(commands.MemberConverter):
+    async def convert(self, ctx: Context, argument) -> discord.Member:
         try:
             member = await super().convert(ctx, argument)
-        except commands.BadArgument:
-            if argument.isdigit():
-                member = ctx.bot.get_user(int(argument))
-            else:  # if its a string
-                member = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.members)
+        except commands.MemberNotFound:
+            member = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.members)
 
             if not member:
                 raise commands.MemberNotFound(argument)
@@ -29,11 +27,11 @@ class MidoMemberConverter(commands.MemberConverter):
         return member
 
 
-class MidoRoleConverter(commands.RoleConverter):
-    async def convert(self, ctx: MidoContext, argument) -> discord.Role:
+class RoleConverter(commands.RoleConverter):
+    async def convert(self, ctx: Context, argument) -> discord.Role:
         try:
             role = await super().convert(ctx, argument)
-        except commands.BadArgument:
+        except commands.RoleNotFound:
             role = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
 
         if not role:
@@ -42,7 +40,51 @@ class MidoRoleConverter(commands.RoleConverter):
         return role
 
 
-async def ensure_not_broke_and_parse_bet(ctx: MidoContext, bet_amount: str) -> int:
+class UserConverter(commands.UserConverter):
+    async def convert(self, ctx: Context, argument) -> Union[discord.User, discord.Object]:
+        try:
+            user = await super().convert(ctx, argument)
+        except commands.UserNotFound:
+            if argument.isdigit():
+                user = discord.Object(id=int(argument))
+            else:
+                user = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
+
+        if not user:
+            raise commands.UserNotFound(argument)
+
+        return user
+
+
+# these are implemented but not used and tested yet
+class Int32(commands.Converter):
+    async def convert(self, ctx: Context, argument) -> int:
+        try:
+            arg = int(argument)
+        except ValueError:
+            raise commands.BadArgument("Please input a proper integer.")
+        else:
+            if arg.bit_length() > 31:
+                raise commands.BadArgument("Please input an integer that is withing the 32 bit integer range.")
+
+            return arg
+
+
+class Int64(commands.Converter):
+    async def convert(self, ctx: Context, argument) -> int:
+        try:
+            arg = int(argument)
+        except ValueError:
+            raise commands.BadArgument("Please input a proper integer.")
+        else:
+            if arg.bit_length() > 63:
+                raise commands.BadArgument("Please input an integer that is withing the 64 bit integer range.")
+
+            return arg
+
+
+# todo: add 'k' support
+async def ensure_not_broke_and_parse_bet(ctx: Context, bet_amount: str) -> int:
     if isinstance(bet_amount, str):
         if bet_amount == 'all':
             bet_amount = int(ctx.user_db.cash)
@@ -68,7 +110,7 @@ def readable_currency(number: int) -> str:
     return readable_bigint(number) + Resources.emotes.currency
 
 
-def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, author: discord.Member,
+def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: discord.Guild, author: discord.Member,
                             channel: discord.TextChannel,
                             message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
     # missing or not-properly-working placeholders:

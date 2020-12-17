@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from services.exceptions import NotFoundError
+from mido_utils.exceptions import NotFoundError
 
 
 class LocalSubreddit:

@@ -1,16 +1,14 @@
 from discord.ext import commands
 
+import mido_utils
 from models.db import BlacklistDB
-from services import checks
-from services.context import MidoContext
-from services.exceptions import GuildIsBlacklisted, UserIsBlacklisted
 
 
 class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
 
-    async def bot_check(self, ctx: MidoContext):
+    async def bot_check(self, ctx: mido_utils.Context):
         user_is_blacklisted = await BlacklistDB.get(bot=ctx.bot, user_or_guild_id=ctx.author.id, type='user')
 
         guild_is_blacklisted = False
@@ -26,15 +24,16 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
                 guild_is_blacklisted = True
 
         if user_is_blacklisted:
-            raise UserIsBlacklisted("The user is blacklisted.")
+            raise mido_utils.UserIsBlacklisted("The user is blacklisted.")
         if guild_is_blacklisted:
-            raise GuildIsBlacklisted("The guild is blacklisted.")
+            raise mido_utils.GuildIsBlacklisted("The guild is blacklisted.")
 
         return True
 
-    @checks.is_owner()
+    @mido_utils.is_owner()
     @commands.command(aliases=["bl"])
-    async def blacklist(self, ctx: MidoContext, type: str, _id: int, *, reason: str = None):
+    async def blacklist(self, ctx: mido_utils.Context, type: str, _id: mido_utils.Int64(), *, reason: str = None):
+        """Blacklists a guild or a user (and every server they own)."""
         if type not in ('user', 'guild'):
             return await ctx.send_error("Invalid blacklist type. Please use `user` or `guild`.")
 
@@ -63,9 +62,10 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
         else:
             await ctx.send_success(f"Successfully blacklisted the server `{_id}`.")
 
-    @checks.is_owner()
+    @mido_utils.is_owner()
     @commands.command(aliases=["ubl"])
-    async def unblacklist(self, ctx: MidoContext, type: str, _id: int):
+    async def unblacklist(self, ctx: mido_utils.Context, type: str, _id: mido_utils.Int64()):
+        """Removes a blacklisted guild or a user (and every server they own)."""
         if type not in ('user', 'guild'):
             return await ctx.send_error("Invalid blacklist type. Please use `user` or `guild`.")
 

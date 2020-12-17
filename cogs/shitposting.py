@@ -4,34 +4,31 @@ from typing import Union
 import discord
 from discord.ext import commands
 
+import mido_utils
 from midobot import MidoBot
-from services.apis import RedditAPI, SomeRandomAPI
-from services.context import MidoContext
-from services.converters import MidoMemberConverter
-from services.embed import MidoEmbed
-from services.resources import Resources
 
 
 class Shitposting(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-    def get_random_api(self) -> SomeRandomAPI:
+    def get_random_api(self) -> mido_utils.SomeRandomAPI:
         return self.bot.get_cog('Searches').some_random_api
 
-    def get_reddit_api(self) -> RedditAPI:
+    def get_reddit_api(self) -> mido_utils.RedditAPI:
         return self.bot.get_cog('NSFW').reddit
 
     @commands.command(name='8ball')
-    async def _8ball(self, ctx: MidoContext, *, question: str):
+    async def _8ball(self, ctx: mido_utils.Context, *, question: str):
         """Ask a question to 8ball."""
         answer_index = random.randint(0, 19)
 
-        e = MidoEmbed(bot=self.bot)
+        e = mido_utils.Embed(bot=self.bot)
         e.set_author(icon_url=ctx.author.avatar_url, name=ctx.author)
 
         e.add_field(name='❓ Question', value=question, inline=False)
-        e.add_field(name='🎱 8ball', value=Resources.strings.eight_ball_responses[answer_index], inline=False)
+        e.add_field(name='🎱 8ball', value=mido_utils.Resources.strings.eight_ball_responses[answer_index],
+                    inline=False)
 
         if answer_index < 10:
             e.colour = 0x008000
@@ -43,34 +40,34 @@ class Shitposting(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command(aliases=['pp'])
-    async def penis(self, ctx, *, target: Union[MidoMemberConverter, str] = None):
+    async def penis(self, ctx, *, target: Union[mido_utils.MemberConverter, str] = None):
         """Learn the size of penis of someone."""
         user = target or ctx.author
         if isinstance(user, discord.Member):
             user = user.display_name
 
-        embed = MidoEmbed(ctx.bot,
-                          title=f"{user}'s Penis Size")
+        embed = mido_utils.Embed(ctx.bot,
+                                 title=f"{user}'s Penis Size")
 
         embed.description = "8" + "=" * random.randrange(20) + "D"
 
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def howgay(self, ctx: MidoContext, *, target: Union[MidoMemberConverter, str] = None):
+    async def howgay(self, ctx: mido_utils.Context, *, target: Union[mido_utils.MemberConverter, str] = None):
         """Learn how gay someone is."""
         user = target or ctx.author
         if isinstance(user, discord.Member):
             user = user.display_name
 
-        embed = MidoEmbed(ctx.bot)
+        embed = mido_utils.Embed(ctx.bot)
 
         embed.description = f"{user} is **{random.randrange(101)}% gay 🏳️‍🌈**"
 
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def gay(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
+    async def gay(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Place a pride flag on someone's avatar."""
         user = target or ctx.author
 
@@ -81,7 +78,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def wasted(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
+    async def wasted(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Place a wasted screen on someone's avatar."""
         user = target or ctx.author
 
@@ -92,7 +89,7 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def triggered(self, ctx: MidoContext, *, target: MidoMemberConverter = None):
+    async def triggered(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """See triggered version of someone's avatar."""
         user = target or ctx.author
 
@@ -103,19 +100,19 @@ class Shitposting(commands.Cog):
         await ctx.send_simple_image(url)
 
     @commands.command()
-    async def dadjoke(self, ctx: MidoContext):
+    async def dadjoke(self, ctx: mido_utils.Context):
         """Get a random dad joke."""
         await ctx.send_success(await self.get_random_api().get_joke())
 
     @commands.command()
-    async def meme(self, ctx: MidoContext):
+    async def meme(self, ctx: mido_utils.Context):
         """Get a random meme."""
         image = await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme')
         await ctx.send_simple_image(image.url)
 
     @commands.guild_only()
     @commands.command(aliases=['youtubecomment'])
-    async def ytcomment(self, ctx: MidoContext, target: MidoMemberConverter = None, *, comment: str = ''):
+    async def ytcomment(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter = None, *, comment: str = ''):
         """Generate a YouTube comment."""
         if not target and not comment:
             raise commands.BadArgument("You should at least provide a comment to be shown in the image.")
@@ -135,7 +132,7 @@ class Shitposting(commands.Cog):
         )
 
     @commands.command()
-    async def say(self, ctx: MidoContext, *, message: str):
+    async def say(self, ctx: mido_utils.Context, *, message: str):
         """Make me say something."""
         # commands.clean_content is not used, because the message will be shown in an embed.
         await ctx.send_success(message)
