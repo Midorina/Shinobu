@@ -46,8 +46,6 @@ class MidoBot(commands.AutoShardedBot):
 
         self.http_session = mido_utils.MidoBotAPI.get_aiohttp_session()
 
-        self.active_races = list()
-
         self.before_invoke(self.attach_db_objects_to_ctx)
 
     async def close(self):

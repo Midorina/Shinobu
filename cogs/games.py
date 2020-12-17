@@ -224,6 +224,9 @@ class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+        if not hasattr(self.bot, 'active_races'):
+            self.bot.active_races = list()
+
         self.hangman_categories_and_word_counts = None
 
     def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:

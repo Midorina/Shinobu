@@ -2,7 +2,7 @@ import asyncio
 import math
 from copy import deepcopy
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import discord
 
@@ -14,7 +14,7 @@ class Embed(discord.Embed):
         super().__init__(**kwargs)
         self.bot = bot
 
-        self.color = self.color if self.color else mido_utils.Color
+        self.color = self.color if self.color else mido_utils.Color.mido_green()
 
         # if default_footer is True and not hasattr(self, '_footer'):
         if default_footer is True:
@@ -221,7 +221,7 @@ class Embed(discord.Embed):
                       must_be_int=False,
                       must_be_letter=False,
                       delete_response_after=False,
-                      timeout: float = 120) -> discord.Message:
+                      timeout: float = 120) -> Optional[discord.Message]:
         def message_check(m: discord.Message):
             if not author_id or m.author.id == author_id:
                 if m.channel == ctx.channel:
