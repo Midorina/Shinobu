@@ -107,7 +107,7 @@ class NekoAPI(NekosLifeClient, CachedImageAPI):
             if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
                 continue
 
-            await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
+            # await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
             return ret
 
     async def get_random_neko(self, nsfw=False):
@@ -271,7 +271,7 @@ class NSFW_DAPIs(CachedImageAPI):
         if not fetched_imgs:
             raise NotFoundError
 
-        await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
+        # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
 
         try:
             return random.sample(fetched_imgs, limit)
