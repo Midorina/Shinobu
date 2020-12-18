@@ -229,6 +229,12 @@ class Games(commands.Cog):
 
         self.hangman_categories_and_word_counts = None
 
+        self.bot.loop.create_task(self.assign_hangman_variable())
+
+    async def assign_hangman_variable(self):
+        if not self.hangman_categories_and_word_counts:
+            self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(self.bot)
+
     def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:
         """Returns a race and whether it is just created or not"""
         for race in self.bot.active_races:
@@ -258,9 +264,6 @@ class Games(commands.Cog):
         e = mido_utils.Embed(bot=ctx.bot)
 
         if not category:
-            if not self.hangman_categories_and_word_counts:
-                self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(ctx.bot)
-
             e.title = "Hangman Categories"
             e.description = ""
             for category, word_count in self.hangman_categories_and_word_counts.items():
@@ -371,6 +374,7 @@ class Games(commands.Cog):
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
 
     @commands.command()
+    @commands.guild_only()
     async def race(self, ctx: mido_utils.Context, bet_amount: Union[mido_utils.Int64, str] = 0):
         """Start or join a race!
 

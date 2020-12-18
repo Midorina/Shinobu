@@ -82,7 +82,7 @@ class MidoBot(commands.AutoShardedBot):
 
             self.uptime = mido_utils.Time(start_date=datetime.now(timezone.utc))
 
-            await self.chunk_active_guilds()
+            self.loop.create_task(self.chunk_active_guilds())
 
             self.first_time = False
             self.logger.info(f"{self.user} is ready.")

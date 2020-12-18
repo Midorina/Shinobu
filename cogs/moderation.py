@@ -441,11 +441,11 @@ class Moderation(commands.Cog):
                                f"by {ctx.author.mention}"
                                f"{self.get_reason_string(reason)}")
 
-    @commands.command()
+    @commands.command(name='modlogs')
     @commands.has_permissions(ban_members=True, kick_members=True)
-    async def logs(self,
-                   ctx: mido_utils.Context,
-                   target: mido_utils.MemberConverter()):
+    async def mod_logs(self,
+                       ctx: mido_utils.Context,
+                       target: mido_utils.MemberConverter()):
         """See the logs of a user.
 
         You need Kick Members and Ban Members permissions to use this command.
@@ -477,11 +477,11 @@ class Moderation(commands.Cog):
 
         await e.paginate(ctx, blocks=log_blocks, extra_sep='\n')
 
-    @commands.command()
+    @commands.command(name='clearmodlogs', aliases=['clearlogs'])
     @commands.has_permissions(administrator=True)
-    async def clearlogs(self,
-                        ctx: mido_utils.Context,
-                        target: mido_utils.MemberConverter()):
+    async def clear_modlogs(self,
+                            ctx: mido_utils.Context,
+                            target: mido_utils.MemberConverter()):
         """Clears the logs of a user.
 
         You need to have the Administrator permission to use this command.
@@ -517,12 +517,12 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
 
-    @commands.command(aliases=['sr', 'giverole', 'gr'])
+    @commands.command(name='setrole', aliases=['sr', 'giverole', 'gr'])
     @commands.has_permissions(manage_roles=True)
-    async def setrole(self,
-                      ctx: mido_utils.Context,
-                      member: mido_utils.MemberConverter(),
-                      role: mido_utils.RoleConverter()):
+    async def set_role(self,
+                       ctx: mido_utils.Context,
+                       member: mido_utils.MemberConverter(),
+                       role: mido_utils.RoleConverter()):
         """Give a role to a member.
 
         You need the **Manage Roles** permissions to use this command.
@@ -535,12 +535,12 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to {member.mention}.")
 
-    @commands.command(aliases=['rr'])
+    @commands.command(name='removerole', aliases=['rr'])
     @commands.has_permissions(manage_roles=True)
-    async def removerole(self,
-                         ctx: mido_utils.Context,
-                         member: mido_utils.MemberConverter(),
-                         role: mido_utils.RoleConverter()):
+    async def remove_role(self,
+                          ctx: mido_utils.Context,
+                          member: mido_utils.MemberConverter(),
+                          role: mido_utils.RoleConverter()):
         """Remove a role from a member.
 
         You need the **Manage Roles** permissions to use this command.
@@ -554,11 +554,11 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
-    @commands.command(aliases=['cr'])
+    @commands.command(name='createrole', aliases=['cr'])
     @commands.has_permissions(manage_roles=True)
-    async def createrole(self,
-                         ctx: mido_utils.Context,
-                         role_name: str):
+    async def create_role(self,
+                          ctx: mido_utils.Context,
+                          role_name: str):
         """Create a role.
 
         You need the **Manage Roles** permissions to use this command.
@@ -568,11 +568,11 @@ class Moderation(commands.Cog):
 
         await ctx.send_success(f"Role {role.mention} has been successfully created!")
 
-    @commands.command(aliases=['dr'])
+    @commands.command(name='deleterole', aliases=['dr'])
     @commands.has_permissions(manage_roles=True)
-    async def deleterole(self,
-                         ctx: mido_utils.Context,
-                         role: mido_utils.RoleConverter()):
+    async def delete_role(self,
+                          ctx: mido_utils.Context,
+                          role: mido_utils.RoleConverter()):
         """Delete a role from the server.
 
         You need the **Manage Roles** permissions to use this command.
@@ -589,9 +589,9 @@ class Moderation(commands.Cog):
         e = mido_utils.Embed(bot=self.bot, image_url=user.avatar_url)
         await ctx.send(embed=e)
 
-    @setrole.before_invoke
-    @removerole.before_invoke
-    @deleterole.before_invoke
+    @set_role.before_invoke
+    @remove_role.before_invoke
+    @delete_role.before_invoke
     async def _ensure_role_hierarchy(self, ctx):
         mido_utils.ensure_role_hierarchy(ctx)
 

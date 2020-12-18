@@ -192,7 +192,7 @@ class Meta(commands.Cog):
     @commands.command()
     async def ping(self, ctx: mido_utils.Context):
         """Ping me to check the latency!"""
-        color = ctx.guild.me.top_role.color if ctx.guild else None
+        color = ctx.guild.me.top_role.color if ctx.guild else mido_utils.Color.mido_green()
 
         before = time.monotonic()
 
