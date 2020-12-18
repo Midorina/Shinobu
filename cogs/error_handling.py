@@ -30,7 +30,7 @@ class Errors(commands.Cog):
 
             # this is to observe missing commands
             elif isinstance(error, commands.CommandNotFound):
-                return self.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
+                return ctx.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
             elif isinstance(error, mido_utils.RaceError):
                 return await ctx.send_error(error)
@@ -116,7 +116,7 @@ class Errors(commands.Cog):
             pass
 
         error_msg = "\n".join(traceback.format_exception(type(error), error, error.__traceback__))
-        self.bot.logger.error(error_msg)
+        ctx.bot.logger.error(error_msg)
 
         if isinstance(ctx.channel, discord.DMChannel):
             used_in = f"DM {ctx.channel.id}"
@@ -127,7 +127,7 @@ class Errors(commands.Cog):
         # TypeError: __repr__ returned non-string (type int)
         ctx.args = list(map(lambda x: str(x), ctx.args))
         content = f"""
-***ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>
+***ERROR ALERT*** <@{ctx.bot.config['owner_ids'][0]}>
 
 An error occurred during the execution of a command:
 `{str(error)}`
@@ -150,7 +150,7 @@ An error occurred during the execution of a command:
         traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2040]}```",
                                         timestamp=ctx.message.created_at, color=discord.Colour.red())
 
-        await self.bot.log_channel.send(content=content, embed=traceback_embed)
+        await ctx.bot.log_channel.send(content=content, embed=traceback_embed)
 
 
 def setup(bot):
