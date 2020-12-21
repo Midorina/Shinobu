@@ -7,9 +7,9 @@ import random
 from typing import List, Tuple, Union
 
 import aiohttp
+import anekos
 import asyncpraw
 from aiohttp import ClientResponse, ClientSession
-from anekos import NSFWImageTags, NekosLifeClient, SFWImageTags
 from anekos.client import Tag
 from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
@@ -92,9 +92,9 @@ class CachedImageAPI(MidoBotAPI):
                 [(api_name, url, tags) for url in urls])
 
 
-class NekoAPI(NekosLifeClient, CachedImageAPI):
-    NSFW_NEKO_TAGS = [NSFWImageTags.NSFW_NEKO_GIF, NSFWImageTags.ERONEKO]
-    SFW_NEKO_TAGS = [SFWImageTags.NEKOGIF, SFWImageTags.NEKO]
+class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
+    NSFW_NEKO_TAGS = [anekos.NSFWImageTags.NSFW_NEKO_GIF, anekos.NSFWImageTags.ERONEKO]
+    SFW_NEKO_TAGS = [anekos.SFWImageTags.NEKOGIF, anekos.SFWImageTags.NEKO]
 
     def __init__(self, session: ClientSession, db: Pool):
         super().__init__(session=session)  # NekosLifeClient
@@ -103,12 +103,16 @@ class NekoAPI(NekosLifeClient, CachedImageAPI):
 
     async def image(self, tag: Tag, get_bytes: bool = False):
         while True:
-            ret = await super(NekoAPI, self).image(tag, get_bytes)
-            if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
-                continue
+            try:
+                ret = await super(NekoAPI, self).image(tag, get_bytes)
+            except (aiohttp.ContentTypeError, anekos.errors.NoResponse):
+                raise APIError
+            else:
+                if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
+                    continue
 
-            # await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
-            return ret
+                # await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
+                return ret
 
     async def get_random_neko(self, nsfw=False):
         if nsfw is True:
