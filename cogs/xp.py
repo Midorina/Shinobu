@@ -198,7 +198,7 @@ class XP(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
     async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32(),
-                                 role: mido_utils.RoleConverter() = None):
+                                 *, role: mido_utils.RoleConverter() = None):
         """Set a role reward for a specified level.
 
         Provide no role name in order to remove the role reward for that level.

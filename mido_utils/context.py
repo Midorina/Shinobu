@@ -57,12 +57,12 @@ class Context(commands.Context):
 
         return await self.send(embed=embed)
 
-    async def send_success(self, message: str = 'Success!', **kwargs) -> discord.Message:
+    async def send_success(self, message: str = 'Success!', delete_after: float = None, **kwargs) -> discord.Message:
         embed = Embed(bot=self.bot,
                       description=message,
                       **kwargs)
 
-        return await self.send(embed=embed)
+        return await self.send(embed=embed, delete_after=delete_after)
 
     @staticmethod
     async def edit_custom(message_object: discord.Message, new_message: str):

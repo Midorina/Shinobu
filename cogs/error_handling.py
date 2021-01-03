@@ -90,6 +90,8 @@ class Errors(commands.Cog):
             elif isinstance(error, mido_utils.APIError):
                 return await ctx.send_error(error,
                                             "There was an error communicating with the API. Please try again later.")
+            elif isinstance(error, mido_utils.InvalidURL):
+                return await ctx.send_error(error, "Invalid URL. Please specify a proper URL.")
 
             elif isinstance(error,
                             (commands.BadArgument,

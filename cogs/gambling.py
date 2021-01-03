@@ -109,6 +109,8 @@ class Gambling(commands.Cog):
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         """This function handles the removed money taken in the ensure_not_broke_and_parse_bet_amount function."""
+
+        # this is handled poorly. I'll overhaul this in the future. Hopefully no one finds an exploit until then.
         list_of_commands_that_removes_cash = [
             'give',
             'wheel',
@@ -118,7 +120,9 @@ class Gambling(commands.Cog):
         ]
         cmds = [ctx.bot.get_command(x) for x in list_of_commands_that_removes_cash]
 
-        if isinstance(error, (commands.UserInputError, commands.BadArgument)) and ctx.command in cmds:
+        if isinstance(error, (commands.UserInputError, commands.BadArgument)) \
+                and not isinstance(error, commands.MissingRequiredArgument) \
+                and ctx.command in cmds:
             await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
 
     @commands.command(aliases=['$', 'money'])
@@ -217,7 +221,7 @@ class Gambling(commands.Cog):
         else:
             e.title = "I'm sorry..."
             e.description = f"You flipped {random_side_name} and lost **{mido_utils.readable_currency(amount)}**."
-            e.colour = mido_utils.Color.success()
+            e.colour = mido_utils.Color.fail()
 
         e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
 

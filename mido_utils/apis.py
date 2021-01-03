@@ -55,6 +55,7 @@ class MidoBotAPI:
 
                 if return_url is True:
                     return str(response.url)
+
                 elif return_json is True:
                     try:
                         js = await response.json()
@@ -70,6 +71,7 @@ class MidoBotAPI:
                         raise RateLimited
 
                     return js
+
                 else:
                     return response
         except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError):
@@ -621,7 +623,7 @@ class OAuthAPI(MidoBotAPI):
     def auth_header(self):
         return {'Authorization': f'{self.token_type.title()} {self.token}'}
 
-    async def _request_get(self, link: str, *args, **kwargs):
+    async def _request_get(self, link: str, *args, **kwargs) -> Union[str, dict, ClientResponse]:
         """This overwrites the base method"""
         if not self.token or self.expire_date.end_date_has_passed:
             await self.get_token()
@@ -664,21 +666,41 @@ class SpotifyAPI(OAuthAPI):
         url_type = url.split('/')[3]
         _id = url.split('/')[-1]
 
-        if url_type in ('track', 'playlist', 'album'):
+        # remove the 'si' tag if its an artist
+        # because spotify api gives no tracks if si exists
+        if url_type == 'artist':
+            _id = _id.split('?')[0]
+
+        # provide a market if 'si' param does not exist in the id or its an artist
+        params = {'market': 'DE'} if '?si=' not in _id else None
+
+        if url_type in ('track', 'playlist', 'album', 'artist'):
             url_type += 's'
         else:
-            raise InvalidURL
+            raise InvalidURL("Invalid Spotify URL. Please specify a playlist, track, album or artist link.")
 
-        response = await self._request_get(f'{self.API_URL}/{url_type}/{_id}', return_json=True)
-
-        if url_type == 'tracks':
-            track_list = [response]
-        elif url_type == 'albums':
-            track_list = response['tracks']['items']
-        elif url_type == 'playlists':
-            track_list = [item['track'] for item in response['tracks']['items']]
+        if url_type == 'artists':
+            extra_query = 'top-tracks'
+        elif url_type == 'tracks':
+            extra_query = ''
         else:
-            raise InvalidURL
+            extra_query = 'tracks'
+
+        request_url = f'{self.API_URL}/{url_type}/{_id}/{extra_query}'
+        response = await self._request_get(request_url, params=params, return_json=True)
+
+        def track_or_item(item):
+            return item['track'] if 'track' in item else item
+
+        if 'tracks' in response:
+            if 'items' in response['tracks']:
+                track_list = [track_or_item(track) for track in response['tracks']['items']]
+            else:
+                track_list = [track_or_item(track) for track in response['tracks']]
+        elif 'items' in response:
+            track_list = [track_or_item(track) for track in response['items']]
+        else:
+            track_list = [response]
 
         return [self.get_search_query_from_track_obj(track) for track in track_list]
 

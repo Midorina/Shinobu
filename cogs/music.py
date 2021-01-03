@@ -1,10 +1,9 @@
 import asyncio
 import math
-from typing import List
 
 import discord
 from discord.ext import commands
-from wavelink import Client, Node, TrackPlaylist, WavelinkMixin, ZeroConnectedNodes, events
+from wavelink import Client, Node, WavelinkMixin, ZeroConnectedNodes, events
 
 import mido_utils
 from midobot import MidoBot
@@ -239,7 +238,7 @@ class Music(commands.Cog, WavelinkMixin):
         ctx.voice_player.song_queue.remove(index - 1)
         await ctx.send_success('✅ Removed the song.')
 
-    @commands.command(name='loop')
+    @commands.command(name='loop', aliases=['repeat'])
     async def _loop(self, ctx: mido_utils.Context):
         """Enable the loop feature to play the same song over and over."""
         # Inverse boolean value to loop and unloop.
@@ -261,50 +260,23 @@ class Music(commands.Cog, WavelinkMixin):
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
 
-        async with ctx.typing():
-            if query.startswith('https://open.spotify.com/'):  # spotify link
-                song_names = [f'ytsearch:{x}' for x in await self.spotify_api.get_song_names(query)]
+        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query,
+                                                                       spotify=self.spotify_api, wavelink=self.wavelink)
+        if task:
+            await task
+            task.result()
 
-            elif not query.startswith('https://'):  # single query
-                song_names = [f'ytsearch:{query}']
-            else:  # yt link
-                song_names = [query]
-
-            added_songs: List[mido_utils.Song] = []
-            for song_name in song_names:
-                song = await self.wavelink.get_tracks(query=song_name, retry_on_failure=True)
-                if not song:
-                    if len(song_names) == 1:
-                        raise mido_utils.NotFoundError(f"Couldn't find anything that matches the query:\n"
-                                                       f"`{query}`.")
-                    continue
-
-                if isinstance(song, TrackPlaylist):
-                    song_to_add = song.tracks
-                    added_songs.extend(song_to_add)
-                else:
-                    song_to_add = song[0]
-                    added_songs.append(song_to_add)
-
-                if len(ctx.voice_player.song_queue) > 500:
-                    raise mido_utils.OnCooldownError("You can't add more than 500 songs.")
-
-                await ctx.voice_player.add_songs(song_to_add, ctx)
-
-            if task:
-                await task
-                task.result()
-
-            if len(added_songs) > 1:  # if its a playlist
+        if len(added_songs) > 1:  # if its a playlist
+            await ctx.send_success(
+                f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
+                f'You can type `{ctx.prefix}queue` to see it.'
+            )
+        else:
+            if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
                 await ctx.send_success(
-                    f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
-                    f'You can type `{ctx.prefix}queue` to see it.')
-
-            else:
-                if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
-                    await ctx.send_success(
-                        f'**{added_songs[0].title}** has been successfully added to the queue.\n\n'
-                        f'You can type `{ctx.prefix}queue` to see it.')
+                    f'**{added_songs[0].title}** has been successfully added to the queue.\n\n'
+                    f'You can type `{ctx.prefix}queue` to see it.'
+                )
 
     @commands.command(name='youtube', aliases=['yt'])
     async def _find_video(self, ctx: mido_utils.Context, *, query: str):

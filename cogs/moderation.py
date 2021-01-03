@@ -68,6 +68,9 @@ class Moderation(commands.Cog):
                 channel = member
             else:
                 channel = self.bot.get_channel(guild_db.welcome_channel_id)
+                if not channel:
+                    await guild_db.set_welcome(channel_id=None)  # reset
+                    return
 
             content, embed = mido_utils.parse_text_with_context(text=guild_db.welcome_message,
                                                                 bot=self.bot,

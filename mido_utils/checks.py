@@ -5,7 +5,8 @@ from mido_utils.context import Context
 
 
 def ensure_role_hierarchy(ctx: Context):
-    role = next(arg for arg in ctx.args if isinstance(arg, discord.Role))
+    command_args = ctx.args + list(ctx.kwargs.values())
+    role = next(arg for arg in command_args if isinstance(arg, discord.Role))
 
     # author top role check
     top_member_role = ctx.author.top_role

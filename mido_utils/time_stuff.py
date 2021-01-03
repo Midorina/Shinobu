@@ -36,6 +36,13 @@ class Time:
         else:
             return datetime.now(timezone.utc)
 
+    @classmethod
+    def get_now(cls, offset_naive=False):
+        if offset_naive is True:
+            return cls(datetime.now())
+        else:
+            return cls(datetime.now(timezone.utc))
+
     @cached_property
     def start_date_string(self):
         return self.start_date.strftime('%Y-%m-%d, %H:%M:%S UTC')

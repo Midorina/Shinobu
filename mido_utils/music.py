@@ -9,9 +9,11 @@ from typing import List, Union
 
 import discord
 from async_timeout import timeout
-from wavelink import InvalidIDProvided, Node, Player, Track
+from wavelink import Client, InvalidIDProvided, Node, Player, Track, TrackPlaylist
 
+from mido_utils import SpotifyAPI
 from mido_utils.context import Context
+from mido_utils.exceptions import *
 from mido_utils.resources import Resources
 from mido_utils.time_stuff import Time
 
@@ -78,6 +80,38 @@ class VoicePlayer(Player):
                 await _convert_and_add(song)
         else:
             await _convert_and_add(song_or_songs)
+
+    # todo: get_tracks later on
+    async def parse_query_and_add_songs(self, ctx: Context, query: str,
+                                        spotify: SpotifyAPI, wavelink: Client):
+        if query.startswith('https://open.spotify.com/'):  # spotify link
+            song_names = [f'ytsearch:{x}' for x in await spotify.get_song_names(query)]
+        elif not query.startswith('https://'):  # single query
+            song_names = [f'ytsearch:{query}']
+        else:  # yt link
+            song_names = [query]
+
+        added_songs: List[Song] = []
+        for song_name in song_names:
+            song = await wavelink.get_tracks(query=song_name, retry_on_failure=True)
+            if not song:
+                if len(song_names) == 1:
+                    raise NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                        f"`{query}`.")
+                continue
+
+            if isinstance(song, TrackPlaylist):
+                song_to_add = song.tracks
+                added_songs.extend(song_to_add)
+            else:
+                song_to_add = song[0]
+                added_songs.append(song_to_add)
+
+            if len(self.song_queue) > 500:
+                raise OnCooldownError("You can't add more than 500 songs.")
+
+            await self.add_songs(song_to_add, ctx)
+        return added_songs
 
     async def skip(self):
         await self.stop()
