@@ -5,13 +5,12 @@ import collections
 import itertools
 import random
 import time
-from typing import List, Union
+from typing import List
 
 import discord
 from async_timeout import timeout
-from wavelink import Client, InvalidIDProvided, Node, Player, Track, TrackPlaylist
+from wavelink import InvalidIDProvided, Node, Player, Track, TrackPlaylist
 
-from mido_utils import SpotifyAPI
 from mido_utils.context import Context
 from mido_utils.exceptions import *
 from mido_utils.resources import Resources
@@ -28,9 +27,11 @@ class VoicePlayer(Player):
         self.loop = False
         self.skip_votes = []
 
-        self.last_song = self.current
+        self.last_song: Song = self.current
 
         self.bot.loop.create_task(self.player_loop())
+
+        self.wavelink = bot.wavelink
 
     @property
     def position(self):
@@ -68,53 +69,50 @@ class VoicePlayer(Player):
         except KeyError:
             pass
 
-    async def add_songs(self, song_or_songs: Union[Union[Song, Track], List[Union[Song, Track]]], ctx: Context):
-        async def _convert_and_add(_song):
-            if not isinstance(_song, Song):
-                _song = Song.convert(_song, ctx)
-
-            await self.song_queue.put(_song)
-
-        if isinstance(song_or_songs, list):
-            for song in song_or_songs:
-                await _convert_and_add(song)
-        else:
-            await _convert_and_add(song_or_songs)
-
-    # todo: get_tracks later on
-    async def parse_query_and_add_songs(self, ctx: Context, query: str,
-                                        spotify: SpotifyAPI, wavelink: Client):
-        if query.startswith('https://open.spotify.com/'):  # spotify link
-            song_names = [f'ytsearch:{x}' for x in await spotify.get_song_names(query)]
-        elif not query.startswith('https://'):  # single query
-            song_names = [f'ytsearch:{query}']
-        else:  # yt link
-            song_names = [query]
-
-        added_songs: List[Song] = []
-        for song_name in song_names:
-            song = await wavelink.get_tracks(query=song_name, retry_on_failure=True)
-            if not song:
-                if len(song_names) == 1:
-                    raise NotFoundError(f"Couldn't find anything that matches the query:\n"
-                                        f"`{query}`.")
-                continue
-
-            if isinstance(song, TrackPlaylist):
-                song_to_add = song.tracks
-                added_songs.extend(song_to_add)
-            else:
-                song_to_add = song[0]
-                added_songs.append(song_to_add)
-
-            if len(self.song_queue) > 500:
+    async def add_songs(self, ctx: Context, *songs: Song):
+        for i, song in enumerate(songs):
+            if len(self.song_queue) > 500 and i == 0:
                 raise OnCooldownError("You can't add more than 500 songs.")
 
-            await self.add_songs(song_to_add, ctx)
-        return added_songs
+            if isinstance(song, Track):
+                song = Song.convert(song, ctx)
+
+            await self.song_queue.put(song)
+
+    async def _get_tracks_from_query(self, ctx, query: str) -> List[Song]:
+        if not query.startswith('http'):  # if not a link
+            query = f'ytsearch:{query}'
+
+        song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
+        if not song:
+            raise NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                f"`{query}`.")
+
+        if isinstance(song, TrackPlaylist):
+            songs = song.tracks
+        else:
+            songs = [song[0]]
+
+        return list(map(lambda x: Song.convert(x, ctx), songs))
+
+    async def parse_query_and_add_songs(self, ctx: Context, query: str, spotify):
+        if query.startswith('https://open.spotify.com/'):  # spotify link
+            songs_to_add = [x for x in await spotify.get_songs(ctx, query)]
+        else:
+            songs_to_add = await self._get_tracks_from_query(ctx, query)
+
+        await self.add_songs(ctx, *songs_to_add)
+
+        return songs_to_add
 
     async def skip(self):
         await self.stop()
+
+    async def parse_and_get_the_next_song(self) -> Song:
+        song = await self.song_queue.get()
+        if not isinstance(song, Song):
+            song: Song = (await self._get_tracks_from_query(song.ctx, song.search_query))[0]
+        return song
 
     async def player_loop(self):
         while True:
@@ -124,12 +122,12 @@ class VoicePlayer(Player):
             if self.loop is False:
                 try:
                     async with timeout(180):
-                        self.current: Song = await self.song_queue.get()
+                        self.current = await self.parse_and_get_the_next_song()
                         self.last_song = self.current
                 except asyncio.TimeoutError:
                     return await self.destroy()
             else:
-                self.current: Song = self.last_song
+                self.current = self.last_song
 
             await self.play(self.current)
 
@@ -138,37 +136,74 @@ class VoicePlayer(Player):
 
             await self.next.wait()
 
+    def get_current(self):
+        return self.current or self.last_song
 
-class Song(Track):
-    def __init__(self, _id: str,
-                 info: dict,
-                 player: VoicePlayer,
-                 requester: discord.Member,
-                 text_channel:
-                 discord.TextChannel,
-                 query: str = None):
-        super().__init__(_id, info, query)
 
-        self.text_channel: discord.TextChannel = text_channel
-        self.player: VoicePlayer = player
-        self.requester: discord.Member = requester
+class BaseSong:
+    def __init__(self, ctx, title: str, duration_in_ms: int, url: str):
+        self.ctx = ctx
 
-        self.duration_str: str = Time.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
+        self.title: str = title
+        self.url: str = url
+        self.duration: int = duration_in_ms
 
     @property
     def duration_in_seconds(self) -> int:
         return int(self.duration / 1000)
+
+    @property
+    def duration_str(self) -> str:
+        return Time.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
+
+    @property
+    def requester(self) -> discord.Member:
+        return self.ctx.author
+
+    @property
+    def text_channel(self) -> discord.TextChannel:
+        return self.ctx.channel
+
+    @property
+    def search_query(self) -> str:
+        return self.title + ' Audio'
+
+    @classmethod
+    def convert_from_spotify_track(cls, ctx, track: dict):
+        title = ", ".join(artist['name'] for artist in track['artists'])
+        title += f" - {track['name']}"
+
+        url = track["external_urls"]["spotify"]
+        duration = track["duration_ms"]
+
+        return cls(ctx, title, duration, url)
+
+
+class Song(Track, BaseSong):
+    def __init__(self,
+                 _id: str,
+                 info: dict,
+                 query: str,
+                 ctx: Context):
+        super().__init__(_id, info, query)
+
+        self.ctx: Context = ctx
+        self.player: VoicePlayer = ctx.voice_player
+
+    @property
+    def url(self) -> str:
+        return self.uri
 
     @classmethod
     def convert(cls,
                 track: Track,
                 ctx: Context):
         """Converts a native wavelink track object to a local Song object."""
-        return cls(track.id, track.info, ctx.voice_player, ctx.author, ctx.channel, track.query)
+        return cls(track.id, track.info, track.query, ctx)
 
     async def send_np_embed(self):
         e = self.create_np_embed()
-        await self.text_channel.send(embed=e)
+        await self.text_channel.send(embed=e, delete_after=self.duration_in_seconds)
 
     def create_np_embed(self):
         e = discord.Embed(
@@ -178,7 +213,7 @@ class Song(Track):
         e.set_author(
             icon_url=Resources.images.now_playing,
             name="Now Playing",
-            url=self.uri)
+            url=self.url)
 
         e.add_field(name='Duration', value=f"{self.player.position_str}/{self.duration_str}")
         e.add_field(name='Requester', value=self.requester.mention)

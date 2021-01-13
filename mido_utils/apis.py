@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from discord.ext.commands import TooManyArguments
 
 from mido_utils.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
+from mido_utils.music import BaseSong
 from mido_utils.resources import Resources
 from mido_utils.time_stuff import Time
 from models.db import CachedImage
@@ -655,14 +656,20 @@ class SpotifyAPI(OAuthAPI):
 
         self.url_to_get_token = 'https://accounts.spotify.com/api/token'
 
-    @staticmethod
-    def get_search_query_from_track_obj(track: dict):
-        query = ", ".join(artist['name'] for artist in track['artists'])
-        query += f" - {track['name']}"
+    async def _pagination_get(self, url, params, **kwargs):
+        first_page = await self._request_get(url, params, **kwargs)
+        yield first_page
 
-        return query
+        next_page_url = first_page['tracks']['next']
+        while next_page_url:
+            next_page_content = await self._request_get(next_page_url, params, **kwargs)
+            yield next_page_content
+            next_page_url = next_page_content['next']
 
-    async def get_song_names(self, url: str):
+    async def get_songs(self, ctx, url: str) -> List[BaseSong]:
+        def track_or_item(item):
+            return item['track'] if 'track' in item else item
+
         url_type = url.split('/')[3]
         _id = url.split('/')[-1]
 
@@ -687,22 +694,21 @@ class SpotifyAPI(OAuthAPI):
             extra_query = 'tracks'
 
         request_url = f'{self.API_URL}/{url_type}/{_id}/{extra_query}'
-        response = await self._request_get(request_url, params=params, return_json=True)
+        responses = self._pagination_get(request_url, params=params, return_json=True)
+        track_list = []
 
-        def track_or_item(item):
-            return item['track'] if 'track' in item else item
-
-        if 'tracks' in response:
-            if 'items' in response['tracks']:
-                track_list = [track_or_item(track) for track in response['tracks']['items']]
+        async for response in responses:
+            if 'tracks' in response:
+                if 'items' in response['tracks']:
+                    track_list.extend([track_or_item(track) for track in response['tracks']['items']])
+                else:
+                    track_list.extend([track_or_item(track) for track in response['tracks']])
+            elif 'items' in response:
+                track_list.extend([track_or_item(track) for track in response['items']])
             else:
-                track_list = [track_or_item(track) for track in response['tracks']]
-        elif 'items' in response:
-            track_list = [track_or_item(track) for track in response['items']]
-        else:
-            track_list = [response]
+                track_list.extend([response])
 
-        return [self.get_search_query_from_track_obj(track) for track in track_list]
+        return [BaseSong.convert_from_spotify_track(ctx, track) for track in track_list]
 
 
 class BlizzardAPI(OAuthAPI):

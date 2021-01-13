@@ -149,7 +149,7 @@ class Music(commands.Cog, WavelinkMixin):
         else:
             required_votes = math.floor(people_in_vc * 0.8)
 
-        if (voter == ctx.voice_player.current.requester  # if its the requester
+        if (voter == ctx.voice_player.get_current().requester  # if its the requester
                 or len(ctx.voice_player.skip_votes) >= required_votes  # if it reached the required vote amount
                 or self.forcekip_by_default):  # if force-skip is enabled
             await ctx.voice_player.skip()
@@ -189,16 +189,16 @@ class Music(commands.Cog, WavelinkMixin):
             raise mido_utils.MusicError(f'The queue is empty. Try queueing songs with `{ctx.prefix}play`')
 
         blocks = []
-        current = ctx.voice_player.current
+        current = ctx.voice_player.get_current()
         queue_duration = current.duration_in_seconds
 
         # currently playing
-        blocks.append(f"🎶 **[{current.title}]({current.uri})**\n"
+        blocks.append(f"🎶 **[{current.title}]({current.url})**\n"
                       f"`{current.duration_str} | "
                       f"{current.requester}`\n")
 
         for i, song in enumerate(ctx.voice_player.song_queue, 1):
-            blocks.append(f"**{i}**. **[{song.title}]({song.uri})**\n"
+            blocks.append(f"**{i}**. **[{song.title}]({song.url})**\n"
                           f"`{song.duration_str} | "
                           f"{song.requester}`")
             queue_duration += song.duration_in_seconds
@@ -260,8 +260,7 @@ class Music(commands.Cog, WavelinkMixin):
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
 
-        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query,
-                                                                       spotify=self.spotify_api, wavelink=self.wavelink)
+        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query, spotify=self.spotify_api)
         if task:
             await task
             task.result()
