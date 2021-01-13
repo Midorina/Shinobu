@@ -660,11 +660,12 @@ class SpotifyAPI(OAuthAPI):
         first_page = await self._request_get(url, params, **kwargs)
         yield first_page
 
-        next_page_url = first_page['tracks']['next']
-        while next_page_url:
-            next_page_content = await self._request_get(next_page_url, params, **kwargs)
-            yield next_page_content
-            next_page_url = next_page_content['next']
+        if 'tracks' in first_page:
+            next_page_url = first_page['tracks']['next']
+            while next_page_url:
+                next_page_content = await self._request_get(next_page_url, params, **kwargs)
+                yield next_page_content
+                next_page_url = next_page_content['next']
 
     async def get_songs(self, ctx, url: str) -> List[BaseSong]:
         def track_or_item(item):
