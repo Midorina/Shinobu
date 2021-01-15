@@ -66,8 +66,12 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
         http://nadekobot.readthedocs.io/en/latest/custom-reactions/"""
 
-        if ctx.guild and not ctx.author.guild_permissions.administrator:
-            raise commands.MissingPermissions(['administrator'])
+        if ctx.guild:
+            if not ctx.author.guild_permissions.administrator:
+                raise commands.MissingPermissions(['administrator'])
+        else:
+            if not await ctx.bot.is_owner(ctx.author):
+                raise commands.NotOwner("You have to be in a server to add a custom reaction.")
 
         guild_id = ctx.guild.id if ctx.guild else None
         cr = await CustomReaction.add(bot=ctx.bot,

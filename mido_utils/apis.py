@@ -709,7 +709,7 @@ class SpotifyAPI(OAuthAPI):
             else:
                 track_list.extend([response])
 
-        return [BaseSong.convert_from_spotify_track(ctx, track) for track in track_list]
+        return [BaseSong.convert_from_spotify_track(ctx, track) for track in track_list if track is not None]
 
 
 class BlizzardAPI(OAuthAPI):
