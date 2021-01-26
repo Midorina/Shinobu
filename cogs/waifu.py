@@ -1,4 +1,5 @@
 import math
+import random
 from typing import List
 
 from discord.ext import commands
@@ -147,11 +148,9 @@ class Waifu(commands.Cog):
         e.add_field(name="Changes of Heart", value=str(target_db.waifu.affinity_changes), inline=True)
         e.add_field(name="Divorces", value=str(target_db.waifu.divorce_count), inline=True)
 
-        if not target_db.waifu.items:
-            gift_field_val = '-'
-        else:
+        gift_field_val = '' if target_db.waifu.items else '-'
+        if target_db.waifu.items:
             items = Item.get_emotes_and_amounts(target_db.waifu.items)
-            gift_field_val = ""
             for i, emote_and_count in enumerate(items, 1):
                 emote, count = emote_and_count
                 gift_field_val += f'{emote} x{count} '
@@ -162,8 +161,18 @@ class Waifu(commands.Cog):
         e.add_field(name="Gifts", value=gift_field_val, inline=False)
 
         waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.bot)
+        waifus_field_val = '' if waifus else '-'
+        if waifus:
+            random.shuffle(waifus)
+            for i, waifu in enumerate(waifus, 1):
+                if len(waifus_field_val) < 950:
+                    waifus_field_val += waifu.discord_name + '\n'
+                else:
+                    waifus_field_val += f"**And {len(waifus) - i} more waifu(s)...**"
+                    break
+
         e.add_field(name=f"Waifus ({len(waifus)})",
-                    value="\n".join(str(waifu.discord_name) for waifu in waifus) if waifus else '-')
+                    value=waifus_field_val)
 
         await ctx.send(embed=e)
 
