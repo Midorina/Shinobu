@@ -108,7 +108,7 @@ class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
         while True:
             try:
                 ret = await super(NekoAPI, self).image(tag, get_bytes)
-            except (aiohttp.ContentTypeError, anekos.errors.NoResponse):
+            except (aiohttp.ContentTypeError, anekos.errors.NoResponse, asyncio.TimeoutError):
                 raise APIError
             else:
                 if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
@@ -660,7 +660,7 @@ class SpotifyAPI(OAuthAPI):
         first_page = await self._request_get(url, params, **kwargs)
         yield first_page
 
-        if 'tracks' in first_page:
+        if 'tracks' in first_page and 'next' in first_page['tracks']:
             next_page_url = first_page['tracks']['next']
             while next_page_url:
                 next_page_content = await self._request_get(next_page_url, params, **kwargs)

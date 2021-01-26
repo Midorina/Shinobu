@@ -23,6 +23,8 @@ class Searches(commands.Cog):
         color_str = color.replace('#', '')
         try:
             color = int(color_str, 16)
+            if color > 16777215:
+                raise commands.UserInputError("Invalid hex color code.")
         except ValueError:
             raise commands.BadArgument("You need to input a hex code.")
 
@@ -59,6 +61,8 @@ class Searches(commands.Cog):
             word_list = await self.urban.search(search, limit=5)
         except asyncurban.WordNotFoundError:
             return await ctx.send("Could not find any definition.")
+        except asyncurban.UrbanConnectionError:
+            raise mido_utils.APIError
 
         blocks = list()
 
