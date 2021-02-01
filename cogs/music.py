@@ -266,10 +266,20 @@ class Music(commands.Cog, WavelinkMixin):
             task.result()
 
         if len(added_songs) > 1:  # if its a playlist
-            await ctx.send_success(
+            shuffle_emote = '🔀'
+            m = await ctx.send_success(
                 f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
-                f'You can type `{ctx.prefix}queue` to see it.'
+                f'You can type `{ctx.prefix}queue` to see it.\n\n'
+                f'*You can click {shuffle_emote} if you\'d like to shuffle the queue.*'
             )
+
+            await m.add_reaction(shuffle_emote)
+            r = await mido_utils.Embed.wait_for_reaction(ctx.bot, m, [shuffle_emote], author_id=ctx.author.id)
+            if r:
+                ctx.voice_player.song_queue.shuffle()
+                await ctx.edit_custom(m, f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
+                                         f'You can type `{ctx.prefix}queue` to see it.\n\n'
+                                         f'***You\'ve successfully shuffled the queue.***')
         else:
             if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
                 await ctx.send_success(

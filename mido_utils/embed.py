@@ -247,3 +247,25 @@ class Embed(discord.Embed):
                 await message.delete()
 
             return message
+
+    @staticmethod
+    async def wait_for_reaction(bot: discord.AutoShardedClient,
+                                message: discord.Message,
+                                emotes_to_wait: List[str],
+                                author_id: int = None,
+                                clear_reactions_after: bool = True) -> discord.Reaction:
+        def reaction_check(_reaction, _user):
+            if _user.id == author_id:
+                if _reaction.message.id == message.id:
+                    if str(_reaction.emoji) in emotes_to_wait:
+                        return True
+
+        try:
+            reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=30.0)
+            if clear_reactions_after:
+                await message.clear_reactions()
+        except asyncio.TimeoutError:
+            return None
+
+        else:
+            return reaction
