@@ -6,7 +6,7 @@ from discord.ext import commands
 
 import mido_utils
 from midobot import MidoBot
-from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
+from models.db import GuildDB, MemberDB, UserDB, XpAnnouncement, XpRoleReward
 
 
 # todo: xp exclude channel
@@ -115,6 +115,10 @@ class XP(commands.Cog):
         if not self.bot.is_ready() or message.author.bot or not message.guild:
             return
 
+        guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=message.guild.id)
+        if message.channel.id in guild_db.xp_excluded_channels:
+            return
+
         member_db = await MemberDB.get_or_create(bot=self.bot,
                                                  guild_id=message.guild.id,
                                                  member_id=message.author.id)
@@ -135,7 +139,7 @@ class XP(commands.Cog):
         await self.check_for_level_up(message, member_db, str(message.guild), added=3,
                                       added_globally=can_gain_xp_global)
 
-    @commands.command(name="rank", aliases=['xp', 'level'])
+    @commands.command(name="xp", aliases=['level', 'rank'])
     async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):
         """See your or someone else's XP rank."""
         if member:
@@ -270,7 +274,7 @@ class XP(commands.Cog):
                          blocks=blocks,
                          item_per_page=10)
 
-    @commands.command(name="silenceserverxp")
+    @commands.command(name="xpsilenceservernotifs")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def silence_level_up_notifs_for_guild(self, ctx: mido_utils.Context):
@@ -286,19 +290,61 @@ class XP(commands.Cog):
         else:
             await ctx.send("You've successfully enabled level up notifications in this server!")
 
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.command(name="xpchannelexclude", aliases=['xpex'])
+    async def add_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
+        """Exclude a channel to prevent people from gaining XP in that channel."""
+        if channel.id in ctx.guild_db.xp_excluded_channels:
+            raise commands.UserInputError(f"Channel {channel.mention} has already been excluded.")
+
+        await ctx.guild_db.add_xp_excluded_channel(channel.id)
+        await ctx.send_success(f"Channel {channel.mention} has been successfully added to the XP excluded channels.")
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.command(name="xpchannelinclude", aliases=['xpin'])
+    async def remove_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
+        """Remove an XP excluded channel to no longer prevent people from gaining XP in that channel."""
+        if channel.id not in ctx.guild_db.xp_excluded_channels:
+            raise commands.UserInputError(f"Channel {channel.mention} is not excluded.")
+
+        await ctx.guild_db.remove_xp_excluded_channel(channel.id)
+        await ctx.send_success(
+            f"Channel {channel.mention} has been successfully removed from the XP excluded channels.")
+
+    @commands.guild_only()
+    @commands.command(name="xpexcludedchannels", aliases=['xpexs'])
+    async def show_excluded_channels(self, ctx: mido_utils.Context):
+        """See excluded channels where people can not gain XP."""
+        if not ctx.guild_db.xp_excluded_channels:
+            return await ctx.send_success(f"**{ctx.guild}** does not have any XP excluded channels.")
+
+        e = mido_utils.Embed(bot=ctx.bot)
+        e.set_author(icon_url=ctx.guild.icon_url, name=f"XP Excluded Channels of {ctx.guild.name}")
+        blocks = []
+        for channel_id in ctx.guild_db.xp_excluded_channels:
+            channel = ctx.guild.get_channel(channel_id)
+            if not channel:
+                await ctx.guild_db.remove_xp_excluded_channel(channel_id)
+                continue
+            blocks.append(channel.mention + "\n")
+
+        await e.paginate(ctx=ctx, blocks=blocks, item_per_page=10)
+
     @commands.command(name="addxp", hidden=True)
     @mido_utils.is_owner()
     async def add_xp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount, owner=True)
-        await ctx.send("Success!")
+        await ctx.send_success("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @mido_utils.is_owner()
     async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.add_xp(amount, owner=True)
-        await ctx.send("Success!")
+        await ctx.send_success("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @mido_utils.is_owner()
@@ -306,7 +352,7 @@ class XP(commands.Cog):
                         member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
-        await ctx.send("Success!")
+        await ctx.send_success("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @mido_utils.is_owner()
@@ -314,7 +360,7 @@ class XP(commands.Cog):
                          member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.remove_xp(amount)
-        await ctx.send("Success!")
+        await ctx.send_success("Success!")
 
 
 def setup(bot):

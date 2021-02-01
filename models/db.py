@@ -415,6 +415,7 @@ class GuildDB(BaseDBModel):
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
         self.last_message_date: mido_utils.Time = mido_utils.Time(guild_db.get('last_message_date'))
+        self.xp_excluded_channels: List[int] = guild_db.get('xp_excluded_channels')
 
         # welcome
         self.welcome_channel_id: int = guild_db.get('welcome_channel_id')
@@ -526,6 +527,16 @@ class GuildDB(BaseDBModel):
         await self.db.execute(
             """UPDATE guilds SET bye_channel_id=$1, bye_message=$2 WHERE id=$3;""",
             channel_id, msg, self.id)
+
+    async def add_xp_excluded_channel(self, channel_id: int):
+        self.xp_excluded_channels.append(channel_id)
+        await self.db.execute("UPDATE guilds SET xp_excluded_channels=$1 WHERE id=$2;",
+                              self.xp_excluded_channels, self.id)
+
+    async def remove_xp_excluded_channel(self, channel_id: int):
+        self.xp_excluded_channels.remove(channel_id)
+        await self.db.execute("UPDATE guilds SET xp_excluded_channels=$1 WHERE id=$2;",
+                              self.xp_excluded_channels, self.id)
 
     async def add_assignable_role(self, role_id: int):
         self.assignable_role_ids.append(role_id)
