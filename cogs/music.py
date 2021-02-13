@@ -43,7 +43,7 @@ class Music(commands.Cog, WavelinkMixin):
             return True
 
     async def cog_before_invoke(self, ctx: mido_utils.Context):
-        ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
+        ctx.voice_player: mido_utils.VoicePlayer = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         error = getattr(error, 'original', error)
@@ -331,11 +331,19 @@ class Music(commands.Cog, WavelinkMixin):
     @_loop.before_invoke
     async def ensure_playing(self, ctx: mido_utils.Context):
         """This func ensures that the voice player is playing something."""
-        ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
+        voice_player: mido_utils.VoicePlayer = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
 
-        if not ctx.voice_player.is_playing:
-            raise mido_utils.MusicError(f'Not playing anything at the moment. '
-                                        f'Try playing something with `{ctx.prefix}play`')
+        if not voice_player.is_playing:
+            if len(voice_player.song_queue) != 0:
+                if voice_player.task.done() is True:
+                    voice_player.task = ctx.bot.loop.create_task(voice_player.player_loop(),
+                                                                 name=f"Recovered Music Player of {ctx.guild.id}")
+                else:
+                    await voice_player.destroy()
+                    raise mido_utils.MusicError("Music player seems to be stuck. Please report this.")
+            else:
+                raise mido_utils.MusicError(f'Not playing anything at the moment. '
+                                            f'Try playing something with `{ctx.prefix}play`')
 
     @_play.before_invoke
     @_join.before_invoke

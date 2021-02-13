@@ -21,6 +21,7 @@ class VoicePlayer(Player):
     def __init__(self, bot, guild_id: int, node: Node, **kwargs):
         super().__init__(bot, guild_id, node, **kwargs)
 
+        self.wavelink = bot.wavelink
         self.song_queue: SongQueue = SongQueue()
         self.next = asyncio.Event()
 
@@ -29,9 +30,7 @@ class VoicePlayer(Player):
 
         self.last_song: Song = self.current
 
-        self.bot.loop.create_task(self.player_loop())
-
-        self.wavelink = bot.wavelink
+        self.task = self.bot.loop.create_task(self.player_loop(), name=f"Music Player of {guild_id}")
 
     @property
     def position(self):
@@ -55,18 +54,9 @@ class VoicePlayer(Player):
         return Time.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
 
     async def destroy(self) -> None:
-        await self.stop()
-
         try:
-            await self.disconnect()
-        except InvalidIDProvided:
-            pass
-
-        await self.node._send(op='destroy', guildId=str(self.guild_id))
-
-        try:
-            del self.node.players[self.guild_id]
-        except KeyError:
+            await super().destroy()
+        except (InvalidIDProvided, KeyError):
             pass
 
     async def add_songs(self, ctx: Context, *songs: Song):
@@ -80,13 +70,14 @@ class VoicePlayer(Player):
             await self.song_queue.put(song)
 
     async def _get_tracks_from_query(self, ctx, query: str) -> List[Song]:
+        original_query = query
         if not query.startswith('http'):  # if not a link
             query = f'ytsearch:{query}'
 
         song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
         if not song:
             raise NotFoundError(f"Couldn't find anything that matches the query:\n"
-                                f"`{query}`.")
+                                f"`{original_query}`.")
 
         if isinstance(song, TrackPlaylist):
             songs = song.tracks
