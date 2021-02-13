@@ -127,7 +127,7 @@ class Time:
             return 's' if n > 1 else ''
 
         if not total_seconds and not short:
-            return ''
+            return 'forever'
 
         # precise result for music
         # rough result for moderation commands
