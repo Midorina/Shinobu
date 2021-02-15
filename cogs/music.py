@@ -110,7 +110,7 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now_playing(self, ctx: mido_utils.Context):
         """See what's currently playing."""
-        await ctx.send(embed=ctx.voice_player.current.create_np_embed())
+        await ctx.send(embed=ctx.voice_player.get_current().create_np_embed())
 
     @commands.command(name='pause')
     async def _pause(self, ctx: mido_utils.Context):

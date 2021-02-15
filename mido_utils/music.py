@@ -139,7 +139,7 @@ class VoicePlayer(Player):
             if not self.loop:
                 try:
                     await self.current.send_np_embed()
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.NotFound):
                     pass
 
             await self.next.wait()

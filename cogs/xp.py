@@ -208,8 +208,6 @@ class XP(commands.Cog):
         Provide no role name in order to remove the role reward for that level.
 
         You need Manage Roles permission to use this command."""
-        mido_utils.ensure_role_hierarchy(ctx)
-
         already_existing_reward = await XpRoleReward.get_level_reward(bot=ctx.bot,
                                                                       guild_id=ctx.guild.id,
                                                                       level=level)
@@ -217,6 +215,9 @@ class XP(commands.Cog):
             if not already_existing_reward:
                 raise commands.BadArgument("There is already not a reward for this level.")
             else:
+                role = ctx.guild.get_role(already_existing_reward.role_id)
+                mido_utils.ensure_role_hierarchy(ctx, role)
+
                 await already_existing_reward.delete()
                 await ctx.send_success(f"I've successfully reset the role reward for level **{level}**.")
 

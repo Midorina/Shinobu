@@ -108,7 +108,7 @@ _PORN_SUBREDDITS = (
     # general
     LocalSubreddit('nsfw', ['porn', 'nude']),
     LocalSubreddit('OnOff', ['nude']),
-    LocalSubreddit('JizzedToThis', ['hot']),
+    # LocalSubreddit('JizzedToThis', ['hot']),
     LocalSubreddit('holdthemoan', ['public']),
 )
 
@@ -125,5 +125,5 @@ _MEME_SUBREDDITS = (
     LocalSubreddit('dankmemes', ['meme', 'memes', 'dankmemes']),
     LocalSubreddit('2meirl4meirl', ['meme', 'memes', 'me_irl']),
     LocalSubreddit('MemeEconomy', ['meme', 'memes']),
-    LocalSubreddit('DeepFriedMemes', ['meme', 'memes', 'deep_fried', 'deepfried'])
+    # LocalSubreddit('DeepFriedMemes', ['meme', 'memes', 'deep_fried', 'deepfried'])
 )

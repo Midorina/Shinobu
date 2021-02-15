@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import random
 from typing import List, Tuple, Union
 
 import aiohttp
 import anekos
 import asyncpraw
+import asyncprawcore
 from aiohttp import ClientResponse, ClientSession
 from anekos.client import Tag
 from asyncpg.pool import Pool
@@ -185,8 +187,12 @@ class RedditAPI(CachedImageAPI):
             raise Exception(f"Unknown category name: {submission_category}")
 
         urls = []
-        async for submission in category(*args, **kwargs):
-            urls.append(submission.url)
+        try:
+            async for submission in category(*args, **kwargs):
+                urls.append(submission.url)
+        except (asyncprawcore.NotFound, asyncprawcore.Forbidden) as e:
+            logging.error(f"Subreddit '{subreddit_name}' caused error: {e}")
+            return
 
         urls = self.parse_gfycat_to_red_gif(urls)
 
