@@ -96,25 +96,6 @@ class NSFW(commands.Cog):
         if not nsfw_channel:  # reset
             return await guild.set_auto_nsfw(type=_type)
 
-    async def cog_check(self, ctx: mido_utils.Context):
-        bucket = self._cd.get_bucket(ctx.message)
-        retry_after = bucket.update_rate_limit()
-        if retry_after:  # if on cooldown
-            raise commands.CommandOnCooldown(bucket, retry_after)
-
-        if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
-            raise commands.NSFWChannelRequired(ctx.channel)
-
-        return True
-
-    def cog_unload(self):
-        self.fill_the_database.cancel()
-
-        for task in self.active_auto_nsfw_services:
-            task.cancel()
-
-        self.active_auto_nsfw_services = list()
-
     async def send_nsfw_embed(self, ctx_or_channel, image_url: str):
         e = mido_utils.Embed(bot=self.bot,
                              image_url=image_url,
@@ -134,6 +115,33 @@ class NSFW(commands.Cog):
         self.bot.logger.info('Checking hot posts from Reddit...')
         await self.reddit.fill_the_database()
         self.bot.logger.info('Checking hot posts from Reddit is done.')
+
+    @fill_the_database.error
+    async def task_error(self, error):
+        await self.bot.get_cog('ErrorHandling').on_error()
+
+    @fill_the_database.before_loop
+    async def before_task(self):
+        await self.bot.wait_until_ready()
+
+    async def cog_check(self, ctx: mido_utils.Context):
+        bucket = self._cd.get_bucket(ctx.message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:  # if on cooldown
+            raise commands.CommandOnCooldown(bucket, retry_after)
+
+        if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
+            raise commands.NSFWChannelRequired(ctx.channel)
+
+        return True
+
+    def cog_unload(self):
+        self.fill_the_database.cancel()
+
+        for task in self.active_auto_nsfw_services:
+            task.cancel()
+
+        self.active_auto_nsfw_services = list()
 
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx: mido_utils.Context):

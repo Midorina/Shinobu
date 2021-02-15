@@ -70,13 +70,8 @@ class Music(commands.Cog, WavelinkMixin):
         if ctx.voice_client and ctx.voice_client.channel.id == ctx.voice_player.channel_id:
             raise mido_utils.MusicError("I'm already connected to your voice channel.")
 
-        destination = ctx.author.voice.channel
-
-        if not destination.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
-            raise commands.UserInputError("I do not have permission to connect to that voice channel!")
-
         try:
-            await ctx.voice_player.connect(destination.id)
+            await ctx.voice_player.connect(ctx.author.voice.channel.id)
         except asyncio.TimeoutError:
             raise discord.HTTPException
         else:
@@ -253,9 +248,6 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.command(name='play', aliases=['p'])
     async def _play(self, ctx: mido_utils.Context, *, query: str):
         """Queue a song to play!"""
-        if len(ctx.voice_player.song_queue) > 500:
-            raise mido_utils.OnCooldownError("You can't add more than 500 songs.")
-
         task = None
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
@@ -272,14 +264,17 @@ class Music(commands.Cog, WavelinkMixin):
                 f'You can type `{ctx.prefix}queue` to see it.\n\n'
                 f'*You can click {shuffle_emote} if you\'d like to shuffle the queue.*'
             )
-
             await m.add_reaction(shuffle_emote)
+
             r = await mido_utils.Embed.wait_for_reaction(ctx.bot, m, [shuffle_emote], author_id=ctx.author.id)
             if r:
                 ctx.voice_player.song_queue.shuffle()
                 await ctx.edit_custom(m, f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
                                          f'You can type `{ctx.prefix}queue` to see it.\n\n'
                                          f'***You\'ve successfully shuffled the queue.***')
+            else:
+                await m.remove_reaction(shuffle_emote, ctx.guild.me)
+
         else:
             if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
                 await ctx.send_success(
@@ -339,9 +334,10 @@ class Music(commands.Cog, WavelinkMixin):
                 #     voice_player.task = ctx.bot.loop.create_task(voice_player.player_loop(),
                 #                                                  name=f"Recovered Music Player of {ctx.guild.id}")
                 # else:
-                await voice_player.destroy()
-                raise mido_utils.MusicError("Music player seems to be stuck. Please queue your songs again "
-                                            "and report this to help the developer fix the issue.")
+                #     await voice_player.destroy()
+                #     raise mido_utils.MusicError("Music player seems to be stuck. Please queue your songs again "
+                #                             "and report this to help the developer fix the issue.")
+                pass
             else:
                 raise mido_utils.MusicError(f'Not playing anything at the moment. '
                                             f'Try playing something with `{ctx.prefix}play`')
@@ -356,6 +352,9 @@ class Music(commands.Cog, WavelinkMixin):
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
                 raise mido_utils.MusicError('Bot is connected to a different voice channel.')
+
+        if not ctx.author.voice.channel.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
+            raise commands.UserInputError("I do not have permission to connect to that voice channel!")
 
 
 def setup(bot):

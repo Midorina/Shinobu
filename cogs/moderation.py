@@ -53,12 +53,16 @@ class Moderation(commands.Cog):
 
                 await modlog.complete()
 
-    def cog_unload(self):
-        self.check_modlogs.cancel()
+    @check_modlogs.error
+    async def task_error(self, error):
+        await self.bot.get_cog('ErrorHandling').on_error()
 
     @check_modlogs.before_loop
     async def before_modlog_checks(self):
         await self.bot.wait_until_ready()
+
+    def cog_unload(self):
+        self.check_modlogs.cancel()
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):

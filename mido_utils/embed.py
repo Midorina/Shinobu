@@ -253,7 +253,8 @@ class Embed(discord.Embed):
                                 message: discord.Message,
                                 emotes_to_wait: List[str],
                                 author_id: int = None,
-                                clear_reactions_after: bool = True) -> discord.Reaction:
+                                clear_reactions_after: bool = True,
+                                wait_for: float = 60.0) -> discord.Reaction:
         def reaction_check(_reaction, _user):
             if _user.id == author_id:
                 if _reaction.message.id == message.id:
@@ -261,7 +262,7 @@ class Embed(discord.Embed):
                         return True
 
         try:
-            reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=30.0)
+            reaction, user = await bot.wait_for('reaction_add', check=reaction_check, timeout=wait_for)
             if clear_reactions_after:
                 await message.clear_reactions()
         except asyncio.TimeoutError:

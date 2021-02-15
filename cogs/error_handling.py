@@ -1,3 +1,4 @@
+import sys
 import traceback
 
 import discord
@@ -6,9 +7,24 @@ from discord.ext import commands
 import mido_utils
 
 
-class Errors(commands.Cog):
+class ErrorHandling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_error(self, event: str = None, *args, **kwargs):
+        exception = sys.exc_info()
+
+        self.bot.logger.exception("Internal Error", exc_info=exception)
+        error_msg = "\n".join(traceback.format_exception(*exception))
+
+        content = f"***ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>"
+
+        traceback_embed = discord.Embed(title="Internal Traceback",
+                                        color=discord.Colour.red(),
+                                        description=f"```py\n{error_msg[:2040]}```")
+
+        await self.bot.log_channel.send(content=content, embed=traceback_embed)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: mido_utils.Context, error):
@@ -117,8 +133,9 @@ class Errors(commands.Cog):
         except discord.Forbidden:
             pass
 
-        error_msg = "\n".join(traceback.format_exception(type(error), error, error.__traceback__))
-        ctx.bot.logger.error(error_msg)
+        exc_info = type(error), error, error.__traceback__
+        error_msg = "\n".join(traceback.format_exception(*exc_info))
+        ctx.bot.logger.exception("Details of the last command error:", exc_info=exc_info)
 
         if isinstance(ctx.channel, discord.DMChannel):
             used_in = f"DM {ctx.channel.id}"
@@ -156,4 +173,4 @@ An error occurred during the execution of a command:
 
 
 def setup(bot):
-    bot.add_cog(Errors(bot))
+    bot.add_cog(ErrorHandling(bot))

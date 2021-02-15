@@ -74,7 +74,14 @@ class VoicePlayer(Player):
         if not query.startswith('http'):  # if not a link
             query = f'ytsearch:{query}'
 
-        song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
+        song = None
+        attempt = 0
+        while attempt < 3:
+            song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
+            if song:
+                break
+            attempt += 1
+
         if not song:
             raise NotFoundError(f"Couldn't find anything that matches the query:\n"
                                 f"`{original_query}`.")
@@ -101,6 +108,7 @@ class VoicePlayer(Player):
 
     async def parse_and_get_the_next_song(self) -> Song:
         song = await self.song_queue.get()
+
         if not isinstance(song, Song):
             song: Song = (await self._get_tracks_from_query(song.ctx, song.search_query))[0]
         return song
@@ -116,8 +124,11 @@ class VoicePlayer(Player):
                         try:
                             self.current = await self.parse_and_get_the_next_song()
                         except NotFoundError:  # might be annoying
+                            await self.bot.get_cog('ErrorHandling').on_error()
                             continue
+
                         self.last_song = self.current
+
                 except asyncio.TimeoutError:
                     return await self.destroy()
             else:
@@ -126,7 +137,10 @@ class VoicePlayer(Player):
             await self.play(self.current)
 
             if not self.loop:
-                await self.current.send_np_embed()
+                try:
+                    await self.current.send_np_embed()
+                except discord.Forbidden:
+                    pass
 
             await self.next.wait()
 
