@@ -83,7 +83,7 @@ class ModLog(BaseDBModel):
             FROM 
                 modlogs 
             WHERE 
-                length_in_seconds IS NOT NULL 
+                length_in_seconds IS NOT NULL AND length_in_seconds != 0
                 AND type = ANY($1) 
                 AND done IS NOT TRUE;""", (ModLog.Type.MUTE.value, ModLog.Type.BAN.value))
 

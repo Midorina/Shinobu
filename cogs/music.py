@@ -335,13 +335,13 @@ class Music(commands.Cog, WavelinkMixin):
 
         if not voice_player.is_playing:
             if len(voice_player.song_queue) != 0:
-                if voice_player.task.done() is True:
-                    voice_player.task = ctx.bot.loop.create_task(voice_player.player_loop(),
-                                                                 name=f"Recovered Music Player of {ctx.guild.id}")
-                else:
-                    await voice_player.destroy()
-                    raise mido_utils.MusicError("Music player seems to be stuck. Please queue your songs again "
-                                                "and report this to help the developer fix the issue.")
+                # if voice_player.task.done() is True:
+                #     voice_player.task = ctx.bot.loop.create_task(voice_player.player_loop(),
+                #                                                  name=f"Recovered Music Player of {ctx.guild.id}")
+                # else:
+                await voice_player.destroy()
+                raise mido_utils.MusicError("Music player seems to be stuck. Please queue your songs again "
+                                            "and report this to help the developer fix the issue.")
             else:
                 raise mido_utils.MusicError(f'Not playing anything at the moment. '
                                             f'Try playing something with `{ctx.prefix}play`')

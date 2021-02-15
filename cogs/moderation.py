@@ -82,7 +82,7 @@ class Moderation(commands.Cog):
                 await channel.send(content=content,
                                    embed=embed,
                                    delete_after=guild_db.welcome_delete_after)
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
 
     @commands.Cog.listener()

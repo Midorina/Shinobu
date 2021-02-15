@@ -154,7 +154,7 @@ class MidoBot(commands.AutoShardedBot):
             server = f"{ctx.guild.name} ({ctx.guild.id})"
             channel = f"{ctx.channel.name} ({ctx.channel.id})"
 
-        tab = '\t' * 8
+        tab = '\t' * 4
         log_msg += f"{tab}Server\t: {server}\n" \
                    f"{tab}Channel\t: {channel}\n" \
                    f"{tab}User\t: {str(ctx.author)} ({ctx.author.id})\n" \

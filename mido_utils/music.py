@@ -113,7 +113,10 @@ class VoicePlayer(Player):
             if self.loop is False:
                 try:
                     async with timeout(180):
-                        self.current = await self.parse_and_get_the_next_song()
+                        try:
+                            self.current = await self.parse_and_get_the_next_song()
+                        except NotFoundError:  # might be annoying
+                            continue
                         self.last_song = self.current
                 except asyncio.TimeoutError:
                     return await self.destroy()
