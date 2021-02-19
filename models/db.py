@@ -755,6 +755,8 @@ class CachedImage(BaseDBModel):
         self.url: str = data.get('url')
         self.tags: List[str] = data.get('tags')
 
+        self.report_count: int = data.get('report_count')
+
     @classmethod
     async def get_random(cls, bot, api_names: Union[str, List[str]], allow_gif=False):
         if isinstance(api_names, str):
@@ -773,6 +775,10 @@ class CachedImage(BaseDBModel):
                 api_names)
 
         return cls(ret, bot)
+
+    async def report(self):
+        self.report_count += 1
+        await self.bot.db.execute("UPDATE api_cache SET report_count = report_count + 1 WHERE id=$1;", self.id)
 
 
 class DonutEvent(BaseDBModel):

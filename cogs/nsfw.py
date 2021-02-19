@@ -7,7 +7,7 @@ from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
-from models.db import GuildDB
+from models.db import CachedImage, GuildDB
 
 
 class NSFW(commands.Cog):
@@ -29,6 +29,7 @@ class NSFW(commands.Cog):
         auto_nsfw_guilds = await GuildDB.get_auto_nsfw_guilds(bot=self.bot)
         for guild in auto_nsfw_guilds:
             self.add_auto_nsfw_tasks(guild)
+            await asyncio.sleep(0.66)
 
     def add_auto_nsfw_tasks(self, guild: GuildDB, _type=None):
         if (_type is None or _type == 'hentai') and guild.auto_hentai_channel_id:
@@ -57,13 +58,14 @@ class NSFW(commands.Cog):
         else:
             raise Exception("Invalid NSFW type!")
 
-        nsfw_channel = self.bot.get_channel(db_channel_id)
+        nsfw_channel: discord.TextChannel = self.bot.get_channel(db_channel_id)
 
         fail_counter = 0
-        while nsfw_channel and fail_counter < 10:  # if channel isn't found or set, code goes to the end
+        while nsfw_channel and fail_counter < 5:  # if channel isn't found or set, code goes to the end
             tags = random.choice(db_tags) if db_tags else None
 
             try:
+                time = mido_utils.Time()
                 if _type == 'hentai':
                     image = (await self._hentai(tags=tags, limit=1))[0]
                 elif _type == 'porn':
@@ -93,7 +95,7 @@ class NSFW(commands.Cog):
                 await nsfw_channel.send(embed=e)
 
                 fail_counter += 1
-                if fail_counter >= 10:
+                if fail_counter >= 5:
                     nsfw_channel = None
                     break
 
@@ -102,13 +104,25 @@ class NSFW(commands.Cog):
         if not nsfw_channel:  # reset
             return await guild.set_auto_nsfw(type=_type)
 
-    async def send_nsfw_embed(self, ctx_or_channel, image_url: str):
-        e = mido_utils.Embed(bot=self.bot,
-                             image_url=image_url,
-                             description=f"Image not working? [Click here.]({image_url})"
-                             )
+    async def send_nsfw_embed(self, ctx_or_channel, image_url: str, db_obj: CachedImage = None):
+        report_emoji = '📧'
+        if db_obj:
+            desc = f"Image not working? Report by clicking on {report_emoji} below."
+        else:
+            desc = f"Image not working? [Click here.]({image_url})"
+
+        e = mido_utils.Embed(bot=self.bot, image_url=image_url, description=desc)
         e.set_footer(text=f"{self.bot.name.title()} NSFW API")
-        await ctx_or_channel.send(embed=e)
+        m = await ctx_or_channel.send(embed=e)
+
+        if db_obj:
+            await m.add_reaction(report_emoji)
+
+            reaction = await e.wait_for_reaction(bot=self.bot, message=m, emotes_to_wait=[report_emoji])
+            if reaction:
+                await db_obj.report()
+                e.description = "We've got your report. Thank you."
+                await m.edit(embed=e)
 
     async def _hentai(self, tags: str, limit=1, allow_video=False) -> List[str]:
         if not tags:
@@ -124,7 +138,7 @@ class NSFW(commands.Cog):
 
     @fill_the_database.error
     async def task_error(self, error):
-        await self.bot.get_cog('ErrorHandling').on_error()
+        await self.bot.get_cog('ErrorHandling').on_error("An error occurred while filling the database.")
 
     @fill_the_database.before_loop
     async def before_task(self):
@@ -154,35 +168,35 @@ class NSFW(commands.Cog):
         """Get a random boob picture."""
 
         image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=['boobs'])
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url, image))
 
     @commands.command(aliases=['butt', 'ass'])
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
 
         image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=['butts'])
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url, image))
 
     @commands.command()
     async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
 
         image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=[tag] if tag else None)
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url, image))
 
     @commands.command()
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
 
         image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=['pussy'])
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url, image))
 
     @commands.command()
     async def asian(self, ctx: mido_utils.Context):
         """Get a random asian porn content."""
 
         image = await self.reddit.get_reddit_post_from_db(ctx.bot, category='porn', tags=['asian'])
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url, image))
 
     @commands.command()
     async def gelbooru(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -192,7 +206,7 @@ class NSFW(commands.Cog):
         `{0.prefix}hentaibomb yuri+group`"""
 
         image = await self.api.get('gelbooru', tags)
-        await self.send_nsfw_embed(ctx, image[0])
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image[0]))
 
     @commands.command()
     async def rule34(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -202,7 +216,7 @@ class NSFW(commands.Cog):
         `{0.prefix}hentaibomb yuri+group`"""
 
         image = await self.api.get('rule34', tags)
-        await self.send_nsfw_embed(ctx, image[0])
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image[0]))
 
     @commands.command()
     async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -217,14 +231,14 @@ class NSFW(commands.Cog):
         except commands.TooManyArguments:
             raise commands.TooManyArguments("Danbooru doesn't allow more than 2 tags.")
 
-        await self.send_nsfw_embed(ctx, image[0])
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image[0]))
 
     @commands.command(name='lewdneko')
     async def lewd_neko(self, ctx: mido_utils.Context):
         """Get a random lewd neko image."""
 
         image = await self.neko.get_random_neko(nsfw=True)
-        await self.send_nsfw_embed(ctx, image.url)
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image.url))
 
     @commands.command()
     async def hentai(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -233,7 +247,7 @@ class NSFW(commands.Cog):
         You must put '+' between different tags.
         `{0.prefix}hentaibomb yuri+group`"""
         image = await self._hentai(tags, limit=1)
-        await self.send_nsfw_embed(ctx, image[0])
+        ctx.bot.loop.create_task(self.send_nsfw_embed(ctx, image[0]))
 
     @commands.command(name='hentaibomb')
     async def hentai_bomb(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -250,7 +264,7 @@ class NSFW(commands.Cog):
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have hentai automatically posted!
 
-        Interval argument can be 3 seconds minimum.
+        Interval argument can be 5 seconds minimum.
 
         Put `+` between tags.
         Put `|` between tag groups. A random tag group will be chosen each time.
@@ -271,8 +285,8 @@ class NSFW(commands.Cog):
 
                 return await ctx.send_success("Autohentai service has successfully been disabled.")
 
-        if interval < 3:
-            raise commands.UserInputError("Interval can not be less than 3!")
+        if interval < 5:
+            raise commands.UserInputError("Interval can not be less than 5!")
 
         await ctx.guild_db.set_auto_nsfw(type='hentai',
                                          channel_id=ctx.channel.id,
@@ -291,7 +305,7 @@ class NSFW(commands.Cog):
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have porn automatically posted!
 
-        Interval argument can be 3 seconds minimum.
+        Interval argument can be 5 seconds minimum.
 
         Put `|` between tag groups. A random tag group will be chosen each time.
         Please provide a single tag for each tag group (unlike `autohentai`)
@@ -312,8 +326,8 @@ class NSFW(commands.Cog):
 
                 return await ctx.send_success("Autoporn service has successfully been disabled.")
 
-        if interval < 3:
-            raise commands.UserInputError("Interval can not be less than 3!")
+        if interval < 5:
+            raise commands.UserInputError("Interval can not be less than 5!")
 
         await ctx.guild_db.set_auto_nsfw(type='porn',
                                          channel_id=ctx.channel.id,
