@@ -202,6 +202,9 @@ class MidoBot(commands.AutoShardedBot):
         user_db = await UserDB.get_or_create(bot=self, user_id=_id)
         return user_db.discord_name
 
+    async def on_error(self, event_method: str, *args, **kwargs):
+        await self.get_cog('ErrorHandling').on_error(event_method, *args, **kwargs)
+
     @staticmethod
     async def attach_db_objects_to_ctx(ctx: mido_utils.Context):
         """

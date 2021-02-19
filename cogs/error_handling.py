@@ -11,16 +11,17 @@ class ErrorHandling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_error(self, event: str = None, *args, **kwargs):
+    # this doesn't fire as a listener
+    async def on_error(self, event: str, *args, **kwargs):
         exception = sys.exc_info()
 
-        self.bot.logger.exception("Internal Error", exc_info=exception)
+        self.bot.logger.exception(f"Internal Error: {event}", exc_info=exception)
         error_msg = "\n".join(traceback.format_exception(*exception))
 
-        content = f"***ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>"
+        content = f"***INTERNAL ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>\n" \
+                  f"`{event}`"
 
-        traceback_embed = discord.Embed(title="Internal Traceback",
+        traceback_embed = discord.Embed(title=f"Traceback",
                                         color=discord.Colour.red(),
                                         description=f"```py\n{error_msg[:2040]}```")
 
