@@ -55,7 +55,7 @@ class Moderation(commands.Cog):
 
     @check_modlogs.error
     async def task_error(self, error):
-        await self.bot.get_cog('ErrorHandling').on_error()
+        await self.bot.get_cog('ErrorHandling').on_error("An error occurred while checking modlogs.")
 
     @check_modlogs.before_loop
     async def before_modlog_checks(self):

@@ -412,6 +412,7 @@ class Games(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command()
+    @commands.guild_only()
     async def raffle(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter() = None):
         """Prints a random online user from the server, or from the online user in the specified role."""
         role = role or ctx.guild.default_role

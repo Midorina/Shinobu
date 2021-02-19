@@ -272,8 +272,6 @@ class Music(commands.Cog, WavelinkMixin):
                 await ctx.edit_custom(m, f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
                                          f'You can type `{ctx.prefix}queue` to see it.\n\n'
                                          f'***You\'ve successfully shuffled the queue.***')
-            else:
-                await m.remove_reaction(shuffle_emote, ctx.guild.me)
 
         else:
             if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:

@@ -123,12 +123,11 @@ class VoicePlayer(Player):
                     async with timeout(180):
                         try:
                             self.current = await self.parse_and_get_the_next_song()
-                        except NotFoundError:  # might be annoying
-                            await self.bot.get_cog('ErrorHandling').on_error()
+                        except NotFoundError as e:  # might be annoying
+                            await self.bot.get_cog('ErrorHandling').on_error(str(e))
                             continue
-
-                        self.last_song = self.current
-
+                        else:
+                            self.last_song = self.current
                 except asyncio.TimeoutError:
                     return await self.destroy()
             else:

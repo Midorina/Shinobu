@@ -106,7 +106,7 @@ class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
 
         self.db = db  # CachedImageAPI
 
-    async def image(self, tag: Tag, get_bytes: bool = False):
+    async def image(self, tag: Tag, get_bytes: bool = False) -> anekos.result.ImageResult:
         while True:
             try:
                 ret = await super(NekoAPI, self).image(tag, get_bytes)

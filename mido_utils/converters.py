@@ -12,6 +12,10 @@ from mido_utils.music import VoicePlayer
 from mido_utils.resources import Resources
 
 
+class NotDict(Exception):
+    pass
+
+
 # case insensitive object searches
 # and dummy discord object to unban/ban someone we don't see
 class MemberConverter(commands.MemberConverter):
@@ -223,14 +227,14 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
             }
         )
 
-    for ph, to_place in base_dict.items():
-        text = text.replace(ph, str(to_place))
+    for placeholder, to_place in base_dict.items():
+        text = text.replace(placeholder, str(to_place))
 
     try:
         embed: dict = json.loads(text)
         if not isinstance(embed, dict):  # avoid loads returning something else (such as int)
-            raise json.JSONDecodeError
-    except json.JSONDecodeError:
+            raise NotDict
+    except (json.JSONDecodeError, NotDict):
         return text, None
     else:
         # plainText is for legacy messages
