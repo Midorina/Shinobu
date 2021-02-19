@@ -702,18 +702,25 @@ class CustomReaction(BaseDBModel):
     async def try_get(cls, bot, msg: str, guild_id):
         msg = msg.strip().lower()
 
+        msg = msg.replace('%mention%', '')  # remove any manually typed %mention%
+        msg = msg.replace(f'<@!{bot.user.id}>', '%mention%')  # replace actual mention with %mention%
+        msg = msg.replace(f'<@{bot.user.id}>', '%mention%')  # mobile friendly
+
         # guild crs
         ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
-        WHERE ((contains_anywhere=TRUE AND ($1 LIKE concat('%', trigger, '%')) 
-        OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
-        OR trigger = $1)) AND guild_id=$2;""", msg, guild_id)
+        WHERE (trigger = $1
+        OR (contains_anywhere=TRUE AND ($1 LIKE concat('%', f_like_escape(trigger), '%')) 
+        OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%')))
+        ) AND guild_id=$2;""", msg, guild_id)
 
         if not ret:
             # global crs
             ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
-            WHERE (contains_anywhere=TRUE AND ($1 LIKE concat('%', trigger, '%')) 
+            WHERE (
+            trigger = $1 
+            OR contains_anywhere=TRUE AND ($1 LIKE concat('%', f_like_escape(trigger), '%')) 
             OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
-            OR trigger = $1) AND guild_id IS NULL;""", msg)
+            ) AND guild_id IS NULL;""", msg)
 
             if not ret:
                 return None

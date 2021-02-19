@@ -19,6 +19,23 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+        self.bot.loop.create_task(self.check_cr_db_func())
+
+    async def check_cr_db_func(self):
+        """PSQL function to escape special characters"""
+        exists = await self.bot.db.fetchval("select exists(select * from pg_proc where proname = 'f_like_escape');")
+        if not exists:
+            await self.bot.db.execute("""
+                CREATE OR REPLACE FUNCTION f_like_escape(text)
+                  RETURNS text  LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+                $func$
+                SELECT replace(replace(replace($1
+                         , '\', '\\')  -- must come 1st
+                         , '%', '\%')
+                         , '_', '\_');
+                $func$;
+                """)
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         """This on_message function is used to check whether a message triggered a custom reaction or not."""
