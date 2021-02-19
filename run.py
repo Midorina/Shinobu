@@ -13,7 +13,8 @@ bot_name = parser.parse_args().bot
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-date_format = '%Y-%m-%d %H:%M:%S'
+# todo: colored logging
+date_format = '%Y-%m-%d %H:%M:%S.%f'
 _format = logging.Formatter('[{asctime}] [{levelname:<7}] {name}: {message}', date_format, style='{')
 
 handler_f = TimedRotatingFileHandler(filename=f"logs/{bot_name}.log",

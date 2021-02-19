@@ -74,6 +74,12 @@ class NSFW(commands.Cog):
                 else:
                     raise Exception
 
+                execution_time = '{:.2f}s'.format(time.passed_seconds_in_float)
+                self.bot.logger.info(f"Sent auto-{_type} in {execution_time}:\n"
+                                     f"\t\t\tServer\t: {nsfw_channel.guild.name} ({nsfw_channel.guild.id})\n"
+                                     f"\t\t\tChannel\t: #{nsfw_channel} ({nsfw_channel.id})\n"
+                                     f"\t\t\tTags\t: {tags}")
+
                 await self.send_nsfw_embed(nsfw_channel, image)
 
             except discord.Forbidden:

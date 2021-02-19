@@ -152,9 +152,9 @@ class MidoBot(commands.AutoShardedBot):
             channel = f"{ctx.channel.id}"
         else:
             server = f"{ctx.guild.name} ({ctx.guild.id})"
-            channel = f"{ctx.channel.name} ({ctx.channel.id})"
+            channel = f"#{ctx.channel.name} ({ctx.channel.id})"
 
-        tab = '\t' * 4
+        tab = '\t' * 3
         log_msg += f"{tab}Server\t: {server}\n" \
                    f"{tab}Channel\t: {channel}\n" \
                    f"{tab}User\t: {str(ctx.author)} ({ctx.author.id})\n" \
