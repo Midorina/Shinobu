@@ -14,8 +14,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # todo: colored logging
-date_format = '%Y-%m-%d %H:%M:%S.%f'
-_format = logging.Formatter('[{asctime}] [{levelname:<7}] {name}: {message}', date_format, style='{')
+date_format = '%Y-%m-%d %H:%M:%S'
+_format = logging.Formatter('[{asctime}.{msecs:.0f}] [{levelname:<7}] {name}: {message}', date_format, style='{')
 
 handler_f = TimedRotatingFileHandler(filename=f"logs/{bot_name}.log",
                                      when="d",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import random
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -188,14 +190,12 @@ class UserDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, bot, user_id: int):
-        user_db = None
-        while not user_db:
-            user_db = await bot.db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
-            if not user_db:
-                try:
-                    user_db = await bot.db.fetchrow("""INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
-                except asyncpg.UniqueViolationError:
-                    pass
+        user_db = await bot.db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
+        if not user_db:
+            try:
+                user_db = await bot.db.fetchrow("""INSERT INTO users (id) VALUES($1) RETURNING *;""", user_id)
+            except asyncpg.UniqueViolationError:
+                return await cls.get_or_create(bot, user_id)
 
         local_obj = cls(user_db, bot)
         local_obj.discord_name  # trigger the name cache check
@@ -337,20 +337,18 @@ class MemberDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, bot, guild_id: int, member_id: int):
+        member_db = await bot.db.fetchrow(
+            """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
+
+        if not member_db:
+            try:
+                member_db = await bot.db.fetchrow(
+                    """INSERT INTO members (guild_id, user_id) VALUES($1, $2) RETURNING *;""", guild_id, member_id)
+            except asyncpg.UniqueViolationError:
+                return await cls.get_or_create(bot, guild_id, member_id)
+
         user_db = await UserDB.get_or_create(bot, member_id)
         guild_db = await GuildDB.get_or_create(bot, guild_id)
-
-        member_db = None
-        while not member_db:
-            member_db = await bot.db.fetchrow(
-                """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
-
-            if not member_db:
-                try:
-                    member_db = await bot.db.fetchrow(
-                        """INSERT INTO members (guild_id, user_id) VALUES($1, $2) RETURNING *;""", guild_id, member_id)
-                except asyncpg.UniqueViolationError:
-                    pass
 
         member_obj = cls(member_db, bot)
         member_obj.guild = guild_db
@@ -456,17 +454,14 @@ class GuildDB(BaseDBModel):
 
     @classmethod
     async def get_or_create(cls, bot, guild_id: int):
-        guild_db = None
-        while not guild_db:
-            guild_db = await bot.db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
-
-            if not guild_db:
-                try:
-                    guild_db = await bot.db.fetchrow(
-                        """INSERT INTO guilds(id, prefix) VALUES ($1, $2) RETURNING *;""",
-                        guild_id, bot.config['default_prefix'])
-                except asyncpg.UniqueViolationError:
-                    pass
+        guild_db = await bot.db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
+        if not guild_db:
+            try:
+                guild_db = await bot.db.fetchrow(
+                    """INSERT INTO guilds(id, prefix) VALUES ($1, $2) RETURNING *;""",
+                    guild_id, bot.config['default_prefix'])
+            except asyncpg.UniqueViolationError:
+                return await cls.get_or_create(bot, guild_id)
 
         return cls(guild_db, bot)
 
@@ -587,6 +582,125 @@ class GuildDB(BaseDBModel):
     def __eq__(self, other):
         if isinstance(other, GuildDB):
             return self.id == other.id
+
+
+class GuildLoggingDB(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.modlog_channel_id = data.get('modlog_channel_id')
+        self.log_channel_id = data.get('log_channel_id')
+        self.simple_mode_is_enabled = data.get('simple_mode')
+
+    @property
+    def guild(self) -> discord.Guild:
+        return self.bot.get_guild(self.id)
+
+    @property
+    def modlog_channel(self) -> discord.TextChannel:
+        if self.guild:
+            return self.guild.get_channel(self.modlog_channel_id)
+
+    @property
+    def logging_channel(self) -> discord.TextChannel:
+        if self.guild:
+            return self.guild.get_channel(self.log_channel_id)
+
+    @property
+    def modlog_is_enabled(self):
+        return self.modlog_channel is not None
+
+    @property
+    def logging_is_enabled(self):
+        return self.logging_channel is not None
+
+    @classmethod
+    async def get_or_create(cls, bot, guild_id: int):
+        logging_db = await bot.db.fetchrow("SELECT * FROM guilds_logging WHERE id=$1;", guild_id)
+
+        if not logging_db:
+            try:
+                logging_db = await bot.db.fetchrow("INSERT INTO guilds_logging(id) VALUES ($1) RETURNING *;",
+                                                   guild_id)
+            except asyncpg.UniqueViolationError:
+                return await cls.get_or_create(bot, guild_id)
+
+        return cls(logging_db, bot)
+
+    async def set_modlog_channel(self, channel_id: int):
+        self.modlog_channel_id = channel_id
+        await self.db.execute("UPDATE guilds_logging SET modlog_channel_id=$1 WHERE id=$2;",
+                              self.modlog_channel_id, self.id)
+
+    async def set_log_channel(self, channel_id: int):
+        self.log_channel_id = channel_id
+        await self.db.execute("UPDATE guilds_logging SET log_channel_id=$1 WHERE id=$2;",
+                              self.log_channel_id, self.id)
+
+    async def change_mode_to_simple(self, mode: bool):
+        self.simple_mode_is_enabled = mode
+        await self.db.execute("UPDATE guilds_logging SET simple_mode=$1 WHERE id=$2;",
+                              self.simple_mode_is_enabled, self.id)
+
+
+class LoggedMessage(BaseDBModel):
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+        self.id: int = data.get('message_id')
+        self.author_id: int = data.get('author_id')
+        self.channel_id: int = data.get('channel_id')
+        self.guild_id: int = data.get('guild_id')
+        self.content: str = data.get('message_content')
+        self.embeds: List[discord.Embed] = [discord.Embed.from_dict(json.loads(x)) for x in data.get('message_embeds')]
+
+    @property
+    def guild(self) -> discord.Guild:
+        return self.bot.get_guild(self.guild_id)
+
+    @property
+    def channel(self) -> discord.TextChannel:
+        return self.guild.get_channel(self.channel_id)
+
+    @property
+    def author(self) -> discord.User:
+        return self.bot.get_user(self.author_id)
+
+    @classmethod
+    async def get(cls, bot, message_id: int):
+        msg = await bot.db.fetchrow("SELECT * FROM message_log WHERE message_id=$1;", message_id)
+
+        return cls(msg, bot)
+
+    @classmethod
+    async def get_bulk(cls, bot, message_ids: Set[int]) -> List[LoggedMessage]:
+        msgs = await bot.db.fetch("SELECT * FROM message_log WHERE message_id=ANY($1);", message_ids)
+
+        return [cls(msg, bot) for msg in msgs]
+
+    @classmethod
+    async def insert(cls, bot, message: discord.Message):
+        await bot.db.execute(
+            """INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7);""",
+            message.id, message.author.id, message.channel.id, message.guild.id if message.guild else None,
+            message.content, (json.dumps(e.to_dict()) for e in message.embeds),
+            message.created_at)  # created_at is UTC, check if we handle this properly
+
+    @classmethod
+    async def insert_bulk(cls, bot, messages):
+        tup = (
+            (message.id, message.author.id, message.channel.id,
+             message.guild.id if message.guild else None, message.content,
+             tuple(json.dumps(e.to_dict()) for e in message.embeds), message.created_at
+             ) for message in messages)
+
+        await bot.db.executemany("""
+            INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+            """, tup)
+
+    def jump_url(self):
+        return 'https://discord.com/channels/{0}/{1.channel.id}/{1.id}'.format(self.guild_id, self)
 
 
 class ReminderDB(BaseDBModel):
@@ -765,27 +879,52 @@ class CachedImage(BaseDBModel):
         self.report_count: int = data.get('report_count')
 
     @classmethod
-    async def get_random(cls, bot, api_names: Union[str, List[str]], allow_gif=False):
+    async def get_random(cls, bot, api_names: Union[str, List[str]], limit: int = 1, allow_gif=False) -> List[
+        CachedImage]:
         if isinstance(api_names, str):
             api_names = [api_names]
 
         if not allow_gif:
-            ret = await bot.db.fetchrow("SELECT * FROM api_cache "
-                                        "WHERE api_name = ANY($1) AND url NOT LIKE '%.gif%' "
-                                        "ORDER BY random() LIMIT 1;",
-                                        api_names)
+            ret = await bot.db.fetch("SELECT * FROM api_cache "
+                                     "WHERE api_name = ANY($1) AND is_gif IS FALSE "
+                                     "ORDER BY random() LIMIT $2;",
+                                     api_names, limit)
         else:
-            ret = await bot.db.fetchrow(
+            ret = await bot.db.fetch(
                 "SELECT * FROM api_cache "
                 "WHERE api_name = ANY($1) "
-                "ORDER BY random() LIMIT 1;",
-                api_names)
+                "ORDER BY random() LIMIT $2;",
+                api_names, limit)
 
-        return cls(ret, bot)
+        return [cls(img, bot) for img in ret]
 
     async def report(self):
         self.report_count += 1
         await self.bot.db.execute("UPDATE api_cache SET report_count = report_count + 1 WHERE id=$1;", self.id)
+
+    @classmethod
+    async def get_oldest_checked_images(cls, bot, limit: int = 100) -> List[CachedImage]:
+        images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check ASC LIMIT $1;", limit)
+
+        return [cls(img, bot) for img in images]
+
+    async def delete(self):
+        await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
+
+    async def url_is_working(self):
+        async with self.bot.http_session.get(url=self.url) as response:
+            if response.status == 200:
+                return True
+            elif response.status == 429:
+                await asyncio.sleep(3.0)
+                return self.url_is_working()
+            elif response.status == 404:
+                return False
+            else:
+                raise Exception(f"Unknown status code {response.status} for link: {self.url}")
+
+    async def url_is_just_checked(self):
+        await self.bot.db.execute("UPDATE api_cache SET last_url_check=now() WHERE id=$1;", self.id)
 
 
 class DonutEvent(BaseDBModel):

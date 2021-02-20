@@ -1,6 +1,5 @@
 import math
 from datetime import datetime, timedelta, timezone
-from functools import cached_property
 
 from discord.ext.commands import BadArgument
 
@@ -14,19 +13,11 @@ time_multipliers = {
 }
 
 
-# todo: rewrite this
-
-
-class Time:
+class MidoTime:
     def __init__(self,
                  start_date: datetime = None,
-                 end_date: datetime = None,
-                 initial_seconds: int = 0,
                  offset_naive: bool = False):
-        self.start_date = start_date or datetime.now(timezone.utc)
-        self.end_date = end_date
-
-        self.initial_remaining_seconds = initial_seconds
+        self.date = start_date or datetime.now(timezone.utc)
 
         self.offset_naive = offset_naive
 
@@ -36,92 +27,67 @@ class Time:
         else:
             return datetime.now(timezone.utc)
 
-    @classmethod
-    def get_now(cls, offset_naive=False):
-        if offset_naive is True:
-            return cls(datetime.now())
-        else:
-            return cls(datetime.now(timezone.utc))
+    def __repr__(self):
+        return self.__str__()
 
-    @cached_property
-    def start_date_string(self):
-        return self.start_date.strftime('%Y-%m-%d, %H:%M:%S UTC')
+    def __str__(self):
+        return self.date.strftime('%Y-%m-%d, %H:%M:%S UTC')
 
-    @cached_property
-    def end_date_string(self):
-        if not self.end_date:
-            raise Exception("No end date!")
-        return self.end_date.strftime('%Y-%m-%d, %H:%M:%S UTC')
+    def has_passed(self, other_date):
+        """Returns whether it passed the other date."""
+        return self.date <= other_date
 
-    @property
-    def end_date_has_passed(self):
-        if not self.end_date:
-            raise Exception("No end date!")
-        return self.end_date <= self.now()
-
-    @property
-    def passed_seconds_in_float(self) -> float:
-        return (self.now() - self.start_date) / timedelta(seconds=1)
-
-    @property
-    def passed_seconds(self) -> int:
+    def _passed_seconds(self, return_float=False):
         """Returns the time that has passed since the start."""
-        return math.ceil(self.passed_seconds_in_float)
+        remaining_in_float = (self.now() - self.start_date) / timedelta(seconds=1)
+        if return_float is True:
+            return remaining_in_float
+        else:
+            return math.ceil(remaining_in_float)
 
     @property
-    def passed_seconds_in_float_formatted(self) -> str:
-        return '{:.2f}s'.format(self.passed_seconds_in_float)
+    def passed_seconds(self) -> float:
+        """Returns the time that has passed."""
+        return (self.now() - self.date) / timedelta(seconds=1)
+
+    @property
+    def passed_days(self):
+        return math.floor(self.passed_seconds / (60 * 60 * 24))
 
     @property
     def passed_string(self):
         return self.parse_seconds_to_str(self.passed_seconds)
 
-    @property
-    def remaining_seconds(self):
-        if self.end_date:
-            remaining_in_float = (self.end_date - self.now()) / timedelta(seconds=1)
-        else:
-            remaining_in_float = (self.now() - self.start_date) / timedelta(seconds=1)
+    def remaining_seconds_before(self, other_date):
+        remaining_in_float = (other_date - self.now()) / timedelta(seconds=1)
 
         if remaining_in_float < 0:
             return 0
         else:
             return math.ceil(remaining_in_float)
 
-    @property
-    def remaining_days(self):
-        return math.floor(self.remaining_seconds / (60 * 60 * 24))
-
-    @property
-    def remaining_string(self):
-        return self.parse_seconds_to_str(self.remaining_seconds)
-
-    @property
-    def initial_remaining_string(self):
-        return self.parse_seconds_to_str(self.initial_remaining_seconds)
+    def remaining_string(self, other_date):
+        return self.parse_seconds_to_str(self.remaining_seconds_before(other_date))
 
     @classmethod
     def add_to_current_date_and_get(cls, seconds: int):
-        now = datetime.now(timezone.utc)
-        end_date = now + timedelta(seconds=seconds)
-        return Time(start_date=now,
-                    end_date=end_date,
-                    initial_seconds=seconds)
+        date = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        return MidoTime(start_date=date)
 
     @classmethod
     def add_to_previous_date_and_get(cls, previous_date: datetime, seconds: int):
         if not previous_date:
             really_old_date = datetime(2000, 1, 1, tzinfo=timezone.utc)
-            return Time(start_date=really_old_date,
-                        end_date=really_old_date,
-                        initial_seconds=seconds)
+            return MidoTime(start_date=really_old_date,
+                            end_date=really_old_date,
+                            initial_seconds=seconds)
         if not seconds:
-            return Time(start_date=previous_date)
+            return MidoTime(start_date=previous_date)
         else:
             end_date = previous_date + timedelta(seconds=seconds)
-            return Time(start_date=previous_date,
-                        end_date=end_date,
-                        initial_seconds=seconds)
+            return MidoTime(start_date=previous_date,
+                            end_date=end_date,
+                            initial_seconds=seconds)
 
     @staticmethod
     def parse_seconds_to_str(total_seconds: float = 0, short: bool = False, sep=' ') -> str:
@@ -129,7 +95,7 @@ class Time:
             return 's' if n > 1 else ''
 
         if not total_seconds and not short:
-            return 'forever'
+            return ''
 
         # precise result for music
         # rough result for moderation commands
@@ -211,9 +177,3 @@ class Time:
                     raise BadArgument("Invalid time format!")
 
         return cls.add_to_current_date_and_get(length_in_seconds)
-
-    def __str__(self):
-        return self.remaining_string
-
-    def __repr__(self):
-        return self.remaining_seconds

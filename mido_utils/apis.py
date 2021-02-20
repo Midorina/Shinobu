@@ -94,7 +94,8 @@ class CachedImageAPI(MidoBotAPI):
         if urls:
             await self.db.executemany(
                 """INSERT INTO api_cache(api_name, url, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;""",
-                [(api_name, url, tags) for url in urls])
+                ((api_name, url, tags) for url in urls)
+            )
 
 
 class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
@@ -204,11 +205,13 @@ class RedditAPI(CachedImageAPI):
     async def get_reddit_post_from_db(bot,
                                       category: str,
                                       tags: List[str] = None,
-                                      allow_gif: bool = False) -> CachedImage:
+                                      limit: int = 1,
+                                      allow_gif: bool = False) -> List[CachedImage]:
         db_api_names = [sub.db_name for sub in LocalSubreddit.get_with_related_tag(category=category, tags=tags)]
         return await CachedImage.get_random(bot=bot,
                                             api_names=db_api_names,
-                                            allow_gif=allow_gif)
+                                            allow_gif=allow_gif,
+                                            limit=limit)
 
     async def fill_the_database(self):
         async def _fill(sub_name: str, go_ham=False):

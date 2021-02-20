@@ -73,15 +73,13 @@ class Moderation(commands.Cog):
             else:
                 channel = self.bot.get_channel(guild_db.welcome_channel_id)
                 if not channel:
-                    await guild_db.set_welcome(channel_id=None)  # reset
-                    return
+                    return await guild_db.set_welcome(channel_id=None)  # reset
 
             content, embed = mido_utils.parse_text_with_context(text=guild_db.welcome_message,
                                                                 bot=self.bot,
                                                                 guild=member.guild,
                                                                 author=member,
                                                                 channel=channel)
-
             try:
                 await channel.send(content=content,
                                    embed=embed,
@@ -94,13 +92,14 @@ class Moderation(commands.Cog):
         guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=member.guild.id)
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)
+            if not channel:
+                return await guild_db.set_bye()  # reset
 
             content, embed = mido_utils.parse_text_with_context(text=guild_db.bye_message,
                                                                 bot=self.bot,
                                                                 guild=member.guild,
                                                                 author=member,
                                                                 channel=channel)
-
             try:
                 await channel.send(content=content,
                                    embed=embed,

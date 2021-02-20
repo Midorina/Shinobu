@@ -111,8 +111,8 @@ class XP(commands.Cog):
                 await member.add_roles(role, reason=f"XP Level {reward.level} reward.")
 
     @commands.Cog.listener()
-    async def on_message(self, message):
-        if not self.bot.is_ready() or message.author.bot or not message.guild:
+    async def on_message(self, message: discord.Message):
+        if not self.bot.should_listen_to_msg(message, guild_only=True):
             return
 
         guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=message.guild.id)

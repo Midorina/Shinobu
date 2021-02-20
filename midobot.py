@@ -26,8 +26,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
-        with open(f'config_{self.name}.json') as f:
-            self.config = json.load(f)
+        self.config: dict = self.get_config()
 
         self.owner_ids = set(self.config['owner_ids'])
 
@@ -54,6 +53,10 @@ class MidoBot(commands.AutoShardedBot):
 
         await super().close()
 
+    def get_config(self):
+        with open(f'config_{self.name}.json') as f:
+            return json.load(f)
+
     async def prepare_db(self):
         if self.db is None:
             self.db = await asyncpg.create_pool(**self.config['db_credentials'])
@@ -69,22 +72,24 @@ class MidoBot(commands.AutoShardedBot):
                     self.logger.error(f"Failed to load cog {name}")
                     self.logger.exception(e)
 
+    def is_ready(self):
+        return super().is_ready() and self.db is not None
+
     async def on_ready(self):
         self.logger.debug("on_ready is called.")
 
         if self.first_time:
             await self.prepare_db()
 
-            # prefix cache
             self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
             self.load_cogs()
 
-            self.uptime = mido_utils.Time(start_date=datetime.now(timezone.utc))
-
             self.loop.create_task(self.chunk_active_guilds())
 
             self.first_time = False
+            self.uptime = mido_utils.Time()
+
             self.logger.info(f"{self.user} is ready.")
 
             self.log_channel = self.get_channel(self.config['log_channel_id'])
@@ -96,19 +101,24 @@ class MidoBot(commands.AutoShardedBot):
         active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, 24)
 
         i = 0
-        for guild in active_guilds:
-            result = await self.chunk_guild_if_not_chunked(guild.id)
-            if result is True:
+        for guild_db in active_guilds:
+            guild = self.get_guild(guild_db.id)
+            if guild and not guild.chunked:
+                await self.chunk_guild(guild)
                 i += 1
+
         self.logger.info(f'Chunked {i} active guilds.')
 
+    def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
+        return self.is_ready() and not msg.author.bot and not (guild_only and not msg.guild)
+
     async def on_message(self, message: discord.Message):
-        if not self.is_ready() or message.author.bot:
+        if not self.should_listen_to_msg(message):
             return
 
         self.message_counter += 1
         if message.guild:
-            await GuildDB.just_messaged(self, message.guild.id)
+            self.loop.create_task(GuildDB.just_messaged(self, message.guild.id))
 
         await self.process_commands(message)
 
@@ -119,14 +129,10 @@ class MidoBot(commands.AutoShardedBot):
 
         await self.invoke(ctx)
 
-    async def chunk_guild_if_not_chunked(self, guild_id: int) -> bool:
+    async def chunk_guild(self, guild: discord.Guild):
         """Chunks the guild if not chunked and returns True if chunk happened."""
-        guild: discord.Guild = self.get_guild(guild_id)
-        if guild and not guild.chunked:
-            self.logger.info(f'Chunking {guild.member_count} members of guild: {guild.name}')
-            await guild.chunk(cache=True)
-            return True
-        return False
+        await guild.chunk(cache=True)
+        self.logger.info(f'Chunked {guild.member_count} members of guild: {guild.name}')
 
     async def on_guild_join(self, guild):
         await self.log_channel.send(
@@ -140,7 +146,7 @@ class MidoBot(commands.AutoShardedBot):
         if isinstance(error, commands.CommandNotFound):
             return
 
-        execution_time = '{:.2f}s'.format(ctx.time_created.passed_seconds_in_float)
+        execution_time = ctx.time_created.passed_seconds_in_float_formatted
 
         if error:
             log_msg = f"Command errored in {execution_time}:\n"
@@ -185,7 +191,7 @@ class MidoBot(commands.AutoShardedBot):
         # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
         try:
             prefixes = commands.when_mentioned_or(self.prefix_cache.get(message.guild.id, default))(self, message)
-        except AttributeError:  # if in guild
+        except AttributeError:  # if not in guild
             prefixes = commands.when_mentioned_or(default)(self, message)
 
         # case insensitive prefix search
@@ -196,7 +202,7 @@ class MidoBot(commands.AutoShardedBot):
                 return m.group(1)
 
         # if there is not a match, return a random string
-        return os.urandom(8).hex()
+        return os.urandom(4).hex()
 
     async def get_user_name(self, _id: int) -> str:
         user_db = await UserDB.get_or_create(bot=self, user_id=_id)

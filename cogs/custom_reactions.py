@@ -39,7 +39,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         """This on_message function is used to check whether a message triggered a custom reaction or not."""
-        if not self.bot.is_ready() or message.author.bot or not message.guild:
+        if not self.bot.should_listen_to_msg(message, guild_only=True):
             return False
 
         cr = await CustomReaction.try_get(self.bot, msg=message.content, guild_id=message.guild.id)
