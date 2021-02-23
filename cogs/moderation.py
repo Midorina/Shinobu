@@ -30,6 +30,8 @@ class Moderation(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def check_modlogs(self):
+        await self.bot.wait_until_ready()
+
         open_modlogs = await ModLog.get_open_logs(bot=self.bot)
 
         for modlog in open_modlogs:
@@ -55,11 +57,7 @@ class Moderation(commands.Cog):
 
     @check_modlogs.error
     async def task_error(self, error):
-        await self.bot.get_cog('ErrorHandling').on_error("An error occurred while checking modlogs.")
-
-    @check_modlogs.before_loop
-    async def before_modlog_checks(self):
-        await self.bot.wait_until_ready()
+        await self.bot.get_cog('ErrorHandling').on_error(error)
 
     def cog_unload(self):
         self.check_modlogs.cancel()

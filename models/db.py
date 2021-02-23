@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Set, Union
@@ -177,7 +178,7 @@ class UserDB(BaseDBModel):
     def discord_name(self) -> str:
         user = self.bot.get_user(self.id)
         if user:
-            if user and str(user) != self._discord_name:  # name cache check
+            if str(user) != self._discord_name:  # name cache check
                 self.bot.loop.create_task(self.update_name(new_name=str(user)))
 
             return str(user)
@@ -198,7 +199,6 @@ class UserDB(BaseDBModel):
                 return await cls.get_or_create(bot, user_id)
 
         local_obj = cls(user_db, bot)
-        local_obj.discord_name  # trigger the name cache check
 
         return local_obj
 
@@ -448,9 +448,9 @@ class GuildDB(BaseDBModel):
 
         return [cls(guild, bot) for guild in ret]
 
-    @classmethod
-    async def just_messaged(cls, bot, guild_id: int):
-        await bot.db.execute("UPDATE guilds SET last_message_date=now() WHERE id=$1;", guild_id)
+    @staticmethod
+    async def update_active_guilds(bot, guild_id_list: List[int]):
+        await bot.db.execute("UPDATE guilds SET last_message_date=now() WHERE id=ANY($1);", guild_id_list)
 
     @classmethod
     async def get_or_create(cls, bot, guild_id: int):
@@ -555,7 +555,8 @@ class GuildDB(BaseDBModel):
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
 
-    async def set_auto_nsfw(self, type='hentai', channel_id: int = None, tags: List[str] = None, interval: int = None):
+    async def set_auto_nsfw(self, type: str = 'hentai', channel_id: int = None, tags: List[str] = None,
+                            interval: int = None):
         if type == 'hentai':
             self.auto_hentai_channel_id = channel_id
             self.auto_hentai_tags = tags
@@ -598,13 +599,11 @@ class GuildLoggingDB(BaseDBModel):
 
     @property
     def modlog_channel(self) -> discord.TextChannel:
-        if self.guild:
-            return self.guild.get_channel(self.modlog_channel_id)
+        return self.bot.get_channel(self.modlog_channel_id)
 
     @property
     def logging_channel(self) -> discord.TextChannel:
-        if self.guild:
-            return self.guild.get_channel(self.log_channel_id)
+        return self.bot.get_channel(self.log_channel_id)
 
     @property
     def modlog_is_enabled(self):
@@ -666,13 +665,13 @@ class LoggedMessage(BaseDBModel):
         return self.bot.get_user(self.author_id)
 
     @classmethod
-    async def get(cls, bot, message_id: int):
+    async def get(cls, bot, message_id: int) -> Optional[LoggedMessage]:
         msg = await bot.db.fetchrow("SELECT * FROM message_log WHERE message_id=$1;", message_id)
 
-        return cls(msg, bot)
+        return cls(msg, bot) if msg else None
 
     @classmethod
-    async def get_bulk(cls, bot, message_ids: Set[int]) -> List[LoggedMessage]:
+    async def get_bulk(cls, bot, message_ids: Union[Set[int], List[int]]) -> List[LoggedMessage]:
         msgs = await bot.db.fetch("SELECT * FROM message_log WHERE message_id=ANY($1);", message_ids)
 
         return [cls(msg, bot) for msg in msgs]
@@ -687,7 +686,7 @@ class LoggedMessage(BaseDBModel):
             message.created_at)  # created_at is UTC, check if we handle this properly
 
     @classmethod
-    async def insert_bulk(cls, bot, messages):
+    async def insert_bulk(cls, bot, messages: List[discord.Message]):
         tup = (
             (message.id, message.author.id, message.channel.id,
              message.guild.id if message.guild else None, message.content,
@@ -698,6 +697,10 @@ class LoggedMessage(BaseDBModel):
             INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
             """, tup)
+
+        # update active guilds with this info
+        guild_id_list = list(dict.fromkeys([x.guild.id for x in messages]))
+        await GuildDB.update_active_guilds(bot, guild_id_list)
 
     def jump_url(self):
         return 'https://discord.com/channels/{0}/{1.channel.id}/{1.id}'.format(self.guild_id, self)
@@ -814,11 +817,8 @@ class CustomReaction(BaseDBModel):
 
     @classmethod
     async def try_get(cls, bot, msg: str, guild_id):
-        msg = msg.strip().lower()
-
-        msg = msg.replace('%mention%', '')  # remove any manually typed %mention%
-        msg = msg.replace(f'<@!{bot.user.id}>', '%mention%')  # replace actual mention with %mention%
-        msg = msg.replace(f'<@{bot.user.id}>', '%mention%')  # mobile friendly
+        msg = msg.strip().lower().replace('%mention%', '')  # remove any manually typed %mention%
+        msg = re.sub('<@(!?)([0-9]*)>', '%mention%', msg)  # replace actual mention with %mention%
 
         # guild crs
         ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
@@ -879,8 +879,11 @@ class CachedImage(BaseDBModel):
         self.report_count: int = data.get('report_count')
 
     @classmethod
-    async def get_random(cls, bot, api_names: Union[str, List[str]], limit: int = 1, allow_gif=False) -> List[
-        CachedImage]:
+    async def get_random(cls,
+                         bot,
+                         api_names: Union[str, List[str]],
+                         limit: int = 1,
+                         allow_gif=False) -> List[CachedImage]:
         if isinstance(api_names, str):
             api_names = [api_names]
 
@@ -904,24 +907,31 @@ class CachedImage(BaseDBModel):
 
     @classmethod
     async def get_oldest_checked_images(cls, bot, limit: int = 100) -> List[CachedImage]:
-        images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check ASC LIMIT $1;", limit)
+        # images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY report_count DESC, last_url_check ASC LIMIT $1;", limit)
+        # images = await bot.db.fetch("SELECT * FROM api_cache WHERE last_url_check IS NULL ORDER BY report_count DESC LIMIT $1;", limit)
+        images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check DESC LIMIT $1;", limit)
 
         return [cls(img, bot) for img in images]
 
     async def delete(self):
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
-    async def url_is_working(self):
-        async with self.bot.http_session.get(url=self.url) as response:
-            if response.status == 200:
-                return True
-            elif response.status == 429:
-                await asyncio.sleep(3.0)
-                return self.url_is_working()
-            elif response.status == 404:
-                return False
-            else:
-                raise Exception(f"Unknown status code {response.status} for link: {self.url}")
+    async def url_is_working(self) -> bool:
+        try:
+            async with self.bot.http_session.get(url=self.url) as response:
+                if response.status == 200:
+                    await self.url_is_just_checked()
+                    return True
+                elif response.status == 429:
+                    await asyncio.sleep(3.0)
+                    return await self.url_is_working()
+                elif response.status == 404:
+                    return False
+                else:
+                    self.bot.logger.error(f"Unknown status code {response.status} for link: {self.url}")
+                    raise Exception(f"Unknown status code {response.status} for link: {self.url}")
+        except asyncio.TimeoutError:
+            return await self.url_is_working()
 
     async def url_is_just_checked(self):
         await self.bot.db.execute("UPDATE api_cache SET last_url_check=now() WHERE id=$1;", self.id)

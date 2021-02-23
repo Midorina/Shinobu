@@ -23,7 +23,7 @@ class ErrorHandling(commands.Cog):
 
         traceback_embed = discord.Embed(title=f"Traceback",
                                         color=discord.Colour.red(),
-                                        description=f"```py\n{error_msg[:2040]}```")
+                                        description=f"```py\n{error_msg[:2000]}```")
 
         await self.bot.log_channel.send(content=content, embed=traceback_embed)
 
@@ -167,7 +167,7 @@ An error occurred during the execution of a command:
 **Message contents:** `{ctx.message.content}`
 """
 
-        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2040]}```",
+        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2000]}```",
                                         timestamp=ctx.message.created_at, color=discord.Colour.red())
 
         await ctx.bot.log_channel.send(content=content, embed=traceback_embed)

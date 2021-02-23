@@ -6,7 +6,7 @@ from discord.ext import commands
 
 import mido_utils
 from midobot import MidoBot
-from models.db import GuildDB, MemberDB, UserDB, XpAnnouncement, XpRoleReward
+from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
 
 
 # todo: xp exclude channel
@@ -59,7 +59,6 @@ class XP(commands.Cog):
     async def check_for_level_up(self,
                                  message: discord.Message,
                                  member_db: MemberDB,
-                                 guild_name: str,
                                  added=0,
                                  added_globally=False):
         if member_db.user.level_up_notification == XpAnnouncement.SILENT:
@@ -74,7 +73,7 @@ class XP(commands.Cog):
         msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
 
         if lvld_up_in_guild:
-            msg += f"You just have leveled up to **{member_db.level}** in {guild_name}!\n"
+            msg += f"You just have leveled up to **{member_db.level}** in {str(message.guild)}!\n"
         if lvld_up_globally and added_globally:
             msg += f"You just have leveled up to **{member_db.user.level}** globally!"
 
@@ -115,13 +114,11 @@ class XP(commands.Cog):
         if not self.bot.should_listen_to_msg(message, guild_only=True):
             return
 
-        guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=message.guild.id)
-        if message.channel.id in guild_db.xp_excluded_channels:
-            return
-
         member_db = await MemberDB.get_or_create(bot=self.bot,
                                                  guild_id=message.guild.id,
                                                  member_id=message.author.id)
+        if message.channel.id in member_db.guild.xp_excluded_channels:
+            return
 
         can_gain_xp = member_db.xp_date_status.end_date_has_passed
         can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
@@ -136,8 +133,7 @@ class XP(commands.Cog):
         if can_gain_xp_global:
             await member_db.user.add_xp(amount=3)
 
-        await self.check_for_level_up(message, member_db, str(message.guild), added=3,
-                                      added_globally=can_gain_xp_global)
+        await self.check_for_level_up(message, member_db, added=3, added_globally=can_gain_xp_global)
 
     @commands.command(name="xp", aliases=['level', 'rank'])
     async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):

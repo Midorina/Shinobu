@@ -18,7 +18,7 @@ class Reminder(commands.Cog):
 
         self.active_reminders = list()
 
-        self.bot.loop.create_task(self.check_db_reminders())
+        self.check_db_reminders_task = self.bot.loop.create_task(self.check_db_reminders())
 
     async def check_db_reminders(self):
         reminders = await ReminderDB.get_uncompleted_reminders(bot=self.bot)
@@ -62,6 +62,8 @@ class Reminder(commands.Cog):
                 self.active_reminders.remove(task)
 
     def cog_unload(self):
+        self.check_db_reminders_task.cancel()
+
         for task in self.active_reminders:
             task.cancel()
 

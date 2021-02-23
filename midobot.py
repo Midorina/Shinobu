@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from typing import Optional
 
 import asyncpg
 import discord
@@ -34,7 +35,6 @@ class MidoBot(commands.AutoShardedBot):
 
         self.db: asyncpg.pool.Pool = None
 
-        self.log_channel = None
         self.logger = logging.getLogger(self.name.title())
 
         self.message_counter = 0
@@ -47,58 +47,51 @@ class MidoBot(commands.AutoShardedBot):
 
         self.before_invoke(self.attach_db_objects_to_ctx)
 
+        self.loop.create_task(self.prepare_bot())
+
+    async def prepare_bot(self):
+        self.uptime = mido_utils.Time()
+        # get db
+        self.db = await asyncpg.create_pool(**self.config['db_credentials'])
+
+        self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
+
+        # self.loop.create_task(self.chunk_active_guilds())
+
     async def close(self):
         await self.http_session.close()
         await self.db.close()
-
         await super().close()
 
     def get_config(self):
         with open(f'config_{self.name}.json') as f:
             return json.load(f)
 
-    async def prepare_db(self):
-        if self.db is None:
-            self.db = await asyncpg.create_pool(**self.config['db_credentials'])
-
-    def load_cogs(self):
-        for file in os.listdir("cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
-                try:
-                    self.load_extension(f"cogs.{name}")
-                    self.logger.info(f"Loaded cogs.{name}")
-                except Exception as e:
-                    self.logger.error(f"Failed to load cog {name}")
-                    self.logger.exception(e)
-
-    def is_ready(self):
-        return super().is_ready() and self.db is not None
+    @property
+    def log_channel(self) -> Optional[discord.TextChannel]:
+        return self.get_channel(self.config['log_channel_id'])
 
     async def on_ready(self):
         self.logger.debug("on_ready is called.")
-
         if self.first_time:
-            await self.prepare_db()
-
-            self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
-
-            self.load_cogs()
-
-            self.loop.create_task(self.chunk_active_guilds())
-
             self.first_time = False
-            self.uptime = mido_utils.Time()
+            # load cogs
+            for file in os.listdir("cogs"):
+                if file.endswith(".py"):
+                    name = file[:-3]
+                    try:
+                        self.load_extension(f"cogs.{name}")
+                        self.logger.info(f"Loaded cogs.{name}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to load cog {name}")
+                        self.logger.exception(e)
 
-            self.logger.info(f"{self.user} is ready.")
-
-            self.log_channel = self.get_channel(self.config['log_channel_id'])
-            await self.log_channel.send("I'm ready!")
-
-        await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
+        await self.change_presence(status=discord.Status.dnd, activity=discord.Game(name=self.config["playing"]))
 
     async def chunk_active_guilds(self):
-        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, 24)
+        await self.wait_until_ready()
+
+        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, 6)
 
         i = 0
         for guild_db in active_guilds:
@@ -106,26 +99,26 @@ class MidoBot(commands.AutoShardedBot):
             if guild and not guild.chunked:
                 await self.chunk_guild(guild)
                 i += 1
+                await asyncio.sleep(1.5)
 
         self.logger.info(f'Chunked {i} active guilds.')
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
-        return self.is_ready() and not msg.author.bot and not (guild_only and not msg.guild)
+        return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
 
     async def on_message(self, message: discord.Message):
         if not self.should_listen_to_msg(message):
             return
 
         self.message_counter += 1
-        if message.guild:
-            self.loop.create_task(GuildDB.just_messaged(self, message.guild.id))
 
         await self.process_commands(message)
 
-    async def process_commands(self, message):
+    async def process_commands(self, message: discord.Message):
         ctx: mido_utils.Context = await self.get_context(message, cls=mido_utils.Context)
-        if ctx.command and ctx.guild:
-            await self.chunk_guild_if_not_chunked(ctx.guild.id)
+
+        if ctx.command and ctx.guild and not ctx.guild.chunked:
+            await self.chunk_guild(ctx.guild)
 
         await self.invoke(ctx)
 

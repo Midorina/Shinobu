@@ -107,7 +107,7 @@ class Shitposting(commands.Cog):
     @commands.command()
     async def meme(self, ctx: mido_utils.Context):
         """Get a random meme."""
-        image = await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme')
+        image = (await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme'))[0]
         await ctx.send_simple_image(image.url)
 
     @commands.guild_only()

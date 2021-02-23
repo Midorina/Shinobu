@@ -51,7 +51,7 @@ class Gambling(commands.Cog):
 
         # donut event stuff
         self.active_donut_events: List[DonutEvent] = list()
-        self.bot.loop.create_task(self.get_active_donut_events())
+        self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
     async def get_active_donut_events(self):
         self.active_donut_events = await DonutEvent.get_active_ones(self.bot)
@@ -80,6 +80,7 @@ class Gambling(commands.Cog):
                         await donut_event.reward_attender(attender_id=user.id)
 
     def cog_unload(self):
+        self.active_donut_task.cancel()
         self.bot.loop.create_task(self.dblpy.close())
 
     @commands.Cog.listener()
@@ -122,7 +123,8 @@ class Gambling(commands.Cog):
 
         if isinstance(error, (commands.UserInputError, commands.BadArgument)) \
                 and not isinstance(error, commands.MissingRequiredArgument) \
-                and ctx.command in cmds:
+                and ctx.command in cmds \
+                and isinstance(ctx.args[2], int):  # if amount is parsed
             await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
 
     @commands.command(aliases=['$', 'money'])

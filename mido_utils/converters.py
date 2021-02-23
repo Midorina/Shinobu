@@ -187,7 +187,7 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
             "%user.id%"          : author.id,
             "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
             "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
-            "%user.joined_time%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
+            "%user.joined_time%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None',
             "%user.joined_date%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC')
         }
     )

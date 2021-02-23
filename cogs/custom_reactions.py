@@ -45,8 +45,6 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         cr = await CustomReaction.try_get(self.bot, msg=message.content, guild_id=message.guild.id)
 
         if cr and cr.response != '-':
-            self.bot.loop.create_task(cr.increase_use_count())
-
             channel_to_send = message.author if cr.send_in_DM else message.channel
 
             content, embed = mido_utils.parse_text_with_context(text=cr.response,
@@ -60,6 +58,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                 await channel_to_send.send(content=content, embed=embed)
             except discord.Forbidden:
                 pass
+            except discord.HTTPException:
+                await self.bot.get_cog('ErrorHandling').on_error(f"Error happened in custom reaction with ID: {cr.id}")
             else:
                 if cr.delete_trigger:
                     await message.delete()
@@ -67,6 +67,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                 self.bot.logger.info(f"User [{message.author}] "
                                      f"executed custom reaction [{cr.trigger}]"
                                      f" in [{message.guild}].")
+                await cr.increase_use_count()
 
     def get_cr_embed(self, cr: CustomReaction):
         e = mido_utils.Embed(bot=self.bot)

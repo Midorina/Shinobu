@@ -33,8 +33,7 @@ class Context(commands.Context):
         self.time_created: Time = Time()
 
     async def attach_db_objects(self):
-        await self.bot.wait_until_ready()
-
+        time = Time()
         try:
             self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
 
@@ -45,6 +44,8 @@ class Context(commands.Context):
             self.user_db = self.member_db.user
         except AttributeError:  # not in guild
             self.user_db = await UserDB.get_or_create(self.bot, self.author.id)
+
+        self.bot.logger.info('Attaching db objects took: ' + time.passed_seconds_in_float_formatted)
 
     async def send_error(self,
                          error_obj: Union[Exception, str],

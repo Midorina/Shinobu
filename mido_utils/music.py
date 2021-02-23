@@ -58,6 +58,8 @@ class VoicePlayer(Player):
             await super().destroy()
         except (InvalidIDProvided, KeyError):
             pass
+        finally:
+            self.task.cancel()
 
     async def add_songs(self, ctx: Context, *songs: Song):
         for i, song in enumerate(songs):
@@ -124,7 +126,7 @@ class VoicePlayer(Player):
                         try:
                             self.current = await self.parse_and_get_the_next_song()
                         except NotFoundError as e:  # might be annoying
-                            await self.bot.get_cog('ErrorHandling').on_error(str(e))
+                            await self.bot.get_cog('ErrorHandling').on_error(e)
                             continue
                         else:
                             self.last_song = self.current
