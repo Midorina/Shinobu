@@ -86,7 +86,7 @@ class MidoBot(commands.AutoShardedBot):
                         self.logger.error(f"Failed to load cog {name}")
                         self.logger.exception(e)
 
-        await self.change_presence(status=discord.Status.dnd, activity=discord.Game(name=self.config["playing"]))
+        await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
     async def chunk_active_guilds(self):
         await self.wait_until_ready()
