@@ -907,8 +907,6 @@ class CachedImage(BaseDBModel):
 
     @classmethod
     async def get_oldest_checked_images(cls, bot, limit: int = 100) -> List[CachedImage]:
-        # images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY report_count DESC, last_url_check ASC LIMIT $1;", limit)
-        # images = await bot.db.fetch("SELECT * FROM api_cache WHERE last_url_check IS NULL ORDER BY report_count DESC LIMIT $1;", limit)
         images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check DESC LIMIT $1;", limit)
 
         return [cls(img, bot) for img in images]
@@ -925,10 +923,9 @@ class CachedImage(BaseDBModel):
                 elif response.status == 429:
                     await asyncio.sleep(3.0)
                     return await self.url_is_working()
-                elif response.status == 404:
+                elif response.status in (404, 403):
                     return False
                 else:
-                    self.bot.logger.error(f"Unknown status code {response.status} for link: {self.url}")
                     raise Exception(f"Unknown status code {response.status} for link: {self.url}")
         except asyncio.TimeoutError:
             return await self.url_is_working()
