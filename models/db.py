@@ -818,7 +818,7 @@ class CustomReaction(BaseDBModel):
     @classmethod
     async def try_get(cls, bot, msg: str, guild_id):
         msg = msg.strip().lower().replace('%mention%', '')  # remove any manually typed %mention%
-        msg = re.sub('<@(!?)([0-9]*)>', '%mention%', msg)  # replace actual mention with %mention%
+        msg = re.sub(f'<@(!?){bot.user.id}>', '%mention%', msg)  # replace actual mention with %mention%
 
         # guild crs
         ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
