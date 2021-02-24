@@ -82,7 +82,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         """Add a custom reaction with a trigger and a response.
         Running this command in server requires the Administration permission.
 
-        http://nadekobot.readthedocs.io/en/latest/custom-reactions/"""
+        http://nadekobot.readthedocs.io/en/latest/custom-reactions/
+        You can use an embed as well. https://leovoel.github.io/embed-visualizer/"""
 
         if ctx.guild:
             if not ctx.author.guild_permissions.administrator:
