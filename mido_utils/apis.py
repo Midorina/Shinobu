@@ -17,11 +17,8 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 from discord.ext.commands import TooManyArguments
 
-from mido_utils.exceptions import APIError, InvalidURL, NotFoundError, RateLimited
-from mido_utils.music import BaseSong
-from mido_utils.resources import Resources
-from mido_utils.time_stuff import Time
-from models.db import CachedImage
+import mido_utils
+from models.db import CachedImage, NSFWImage
 from models.hearthstone import HearthstoneCard
 from models.subreddits import LocalSubreddit
 
@@ -29,9 +26,9 @@ __all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 
 
 
 class MidoBotAPI:
-    USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) " \
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
-                 "Chrome/ 58.0.3029.81 Safari/537.36"
+                 "Chrome/88.0.4324.190 Safari/537.36"
 
     DEFAULT_HEADERS = {
         'User-Agent'     : USER_AGENT,
@@ -54,7 +51,7 @@ class MidoBotAPI:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
                 if not response.status == 200:
-                    raise APIError
+                    raise mido_utils.APIError(f"{response.status} for URL: {response.url}")
 
                 if return_url is True:
                     return str(response.url)
@@ -69,16 +66,16 @@ class MidoBotAPI:
                             js = None
 
                     if not js:
-                        raise NotFoundError
+                        raise mido_utils.NotFoundError
                     elif 'error' in js:
-                        raise RateLimited
+                        raise mido_utils.RateLimited
 
                     return js
 
                 else:
                     return response
         except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError):
-            raise APIError
+            raise mido_utils.APIError
 
 
 class CachedImageAPI(MidoBotAPI):
@@ -112,7 +109,7 @@ class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
             try:
                 ret = await super(NekoAPI, self).image(tag, get_bytes)
             except (aiohttp.ContentTypeError, anekos.errors.NoResponse, asyncio.TimeoutError):
-                raise APIError
+                raise mido_utils.APIError
             else:
                 if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
                     continue
@@ -157,7 +154,7 @@ class RedditAPI(CachedImageAPI):
                 _id = url.split('/')[-1].split('-')[0].split('?')[0]
 
                 if not any(x.isupper() for x in _id):  # if capital letters are missing
-                    for word_type, word_list in Resources.strings.gfycat_words.items():
+                    for word_type, word_list in mido_utils.Resources.strings.gfycat_words.items():
                         word_list = sorted(word_list, key=lambda x: len(x), reverse=True)
                         for word in word_list:
                             if word in _id:
@@ -207,9 +204,9 @@ class RedditAPI(CachedImageAPI):
                                       tags: List[str] = None,
                                       limit: int = 1,
                                       allow_gif: bool = False) -> List[CachedImage]:
-        db_api_names = [sub.db_name for sub in LocalSubreddit.get_with_related_tag(category=category, tags=tags)]
+        subreddits = LocalSubreddit.get_with_related_tag(category=category, tags=tags)
         return await CachedImage.get_random(bot=bot,
-                                            api_names=db_api_names,
+                                            subreddits=subreddits,
                                             allow_gif=allow_gif,
                                             limit=limit)
 
@@ -225,14 +222,14 @@ class RedditAPI(CachedImageAPI):
             # day
             # hour
 
+            await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
+            await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
+
             if go_ham is True:
                 await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
                 await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
                 await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
                 await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
-
-            await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
-            await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
 
         for sub in LocalSubreddit.get_all():
             await _fill(sub.subreddit_name)
@@ -253,28 +250,37 @@ class NSFW_DAPIs(CachedImageAPI):
     ]
 
     DAPI_LINKS = {
-        'danbooru': 'https://danbooru.donmai.us/posts.json',
-        'gelbooru': 'https://gelbooru.com/index.php',
-        'rule34'  : 'https://rule34.xxx/index.php'
+        'danbooru'       : 'https://danbooru.donmai.us/posts.json',
+        'gelbooru'       : 'https://gelbooru.com/index.php',
+        'rule34'         : 'https://rule34.xxx/index.php',
+        'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
     }
 
     def __init__(self, session: ClientSession, db: Pool):
         super(NSFW_DAPIs, self).__init__(session, db)
 
-    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[str]:
+    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[NSFWImage]:
+        base_tags = tags
         tags = self._parse_tags(tags)
 
         if nsfw_type in ('rule34', 'gelbooru'):
-            tags.extend(('rating:explicit', 'sort:random', f'score:>={10}'))
+            tags.extend(('rating:explicit', 'sort:random', 'score:>=50'))
+
+            func = self._get_nsfw_dapi
+            args = [nsfw_type, tags, allow_video]
+
+        elif nsfw_type == 'sankaku_complex':
+            # max 2 args
+            tags = tags[:2]
+            tags.extend(('rating:explicit', 'order:random', 'score:>=50'))
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video]
 
         elif nsfw_type == 'danbooru':
+            # max 2 args
+            tags = tags[:2]
             tags.append('rating:explicit')
-
-            if len(tags) > 3:
-                raise TooManyArguments
 
             func = self._get_danbooru
             args = [tags, allow_video]
@@ -285,33 +291,35 @@ class NSFW_DAPIs(CachedImageAPI):
         fetched_imgs = await func(*args)
 
         if not fetched_imgs:
-            raise NotFoundError
+            raise mido_utils.NotFoundError
 
         # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
+
+        fetched_imgs = [NSFWImage(x, tags=base_tags, api_name=nsfw_type) for x in fetched_imgs]
 
         try:
             return random.sample(fetched_imgs, limit)
         except ValueError:
             return fetched_imgs
 
-    async def get_bomb(self, tags, limit=3, allow_video=False) -> List[str]:
+    async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[NSFWImage]:
         urls = []
 
-        for dapi in self.DAPI_LINKS.keys():
+        for dapi in random.sample(self.DAPI_LINKS.keys(), len(self.DAPI_LINKS.keys())):
             try:
                 urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
-            except (NotFoundError, TooManyArguments, APIError):
+            except (mido_utils.NotFoundError, TooManyArguments, mido_utils.APIError):
                 pass
 
         try:
             return random.sample(urls, limit)
         except ValueError:
             if not urls:
-                raise NotFoundError
+                raise mido_utils.NotFoundError
             else:
                 return urls
 
-    def _parse_tags(self, tags: str):
+    def _parse_tags(self, tags: str) -> List[str]:
         if tags is None:
             return []
 
@@ -351,21 +359,32 @@ class NSFW_DAPIs(CachedImageAPI):
                     'limit': 100,
                     'json' : 1
                 }, return_json=True)
-            except NotFoundError:
+            except mido_utils.NotFoundError:
                 if score > 1:
-                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 1)
+                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 5)
                 else:
-                    raise NotFoundError
+                    raise mido_utils.NotFoundError
 
             for data in response_jsond:
-                if dapi_name == 'gelbooru':
+                if dapi_name in ('gelbooru', 'sankaku_complex'):
                     image_url = data.get('file_url')
+                    # sankaku can sometimes give null for file urls
+                    if not image_url:
+                        continue
+
+                # elif dapi_name == 'sankaku_complex':
+                #     image_url = data.get('sample_url')
+
                 elif dapi_name == 'rule34':
                     image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
                 else:
                     raise Exception(f"Unknown DAPI name: {dapi_name}")
 
-                image_tags = data.get('tags').split(' ')
+                if dapi_name == 'sankaku_complex':
+                    image_tags = [x['name'] for x in data.get('tags')]
+                else:
+                    image_tags = data.get('tags').split(' ')
+
                 if self.is_blacklisted(image_tags) or (not allow_video and self.is_video(image_url)):
                     continue
                 else:
@@ -383,7 +402,7 @@ class NSFW_DAPIs(CachedImageAPI):
         }, return_json=True)
 
         if 'success' in response and response['success'] is False:
-            raise NotFoundError
+            raise mido_utils.NotFoundError
 
         for data in response:
             if ('file_url' not in data
@@ -394,7 +413,7 @@ class NSFW_DAPIs(CachedImageAPI):
             images.append(data.get('large_file_url', data['file_url']))
 
         if not images:
-            raise NotFoundError
+            raise mido_utils.NotFoundError
         else:
             return images
 
@@ -568,7 +587,7 @@ class Google(MidoBotAPI):
                 return self.parse_results(soup.find_all("div", {'class': ['r', 's']}))
 
             else:
-                raise APIError
+                raise mido_utils.APIError
 
     def parse_results(self, results):
         actual_results = []
@@ -627,7 +646,7 @@ class OAuthAPI(MidoBotAPI):
 
         self.token: str = None
         self.token_type: str = None
-        self.expire_date: Time = None
+        self.expire_date: mido_utils.Time = None
 
     @property
     def auth_header(self):
@@ -653,7 +672,7 @@ class OAuthAPI(MidoBotAPI):
 
             self.token = token_dict['access_token']
             self.token_type = token_dict['token_type']
-            self.expire_date = Time.add_to_current_date_and_get(token_dict['expires_in'])
+            self.expire_date = mido_utils.Time.add_to_current_date_and_get(token_dict['expires_in'])
 
 
 class SpotifyAPI(OAuthAPI):
@@ -676,7 +695,7 @@ class SpotifyAPI(OAuthAPI):
                 yield next_page_content
                 next_page_url = next_page_content['next']
 
-    async def get_songs(self, ctx, url: str) -> List[BaseSong]:
+    async def get_songs(self, ctx, url: str) -> List[mido_utils.BaseSong]:
         def track_or_item(item):
             return item['track'] if 'track' in item else item
 
@@ -694,7 +713,7 @@ class SpotifyAPI(OAuthAPI):
         if url_type in ('track', 'playlist', 'album', 'artist'):
             url_type += 's'
         else:
-            raise InvalidURL("Invalid Spotify URL. Please specify a playlist, track, album or artist link.")
+            raise mido_utils.InvalidURL("Invalid Spotify URL. Please specify a playlist, track, album or artist link.")
 
         if url_type == 'artists':
             extra_query = 'top-tracks'
@@ -718,7 +737,7 @@ class SpotifyAPI(OAuthAPI):
             else:
                 track_list.extend([response])
 
-        return [BaseSong.convert_from_spotify_track(ctx, track) for track in track_list if track is not None]
+        return [mido_utils.BaseSong.convert_from_spotify_track(ctx, track) for track in track_list if track is not None]
 
 
 class BlizzardAPI(OAuthAPI):
@@ -752,6 +771,6 @@ class BlizzardAPI(OAuthAPI):
 
         cards = r['cards']
         if not cards:
-            raise NotFoundError
+            raise mido_utils.NotFoundError
 
         return HearthstoneCard(cards[0])  # get the first result

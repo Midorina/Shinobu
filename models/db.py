@@ -5,8 +5,8 @@ import json
 import random
 import re
 from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Dict, List, Optional, Set, Union
+from enum import Enum, auto
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import asyncpg
 import discord
@@ -14,6 +14,7 @@ from asyncpg import Record
 from discord.ext.commands import BadArgument
 
 import mido_utils
+from models.subreddits import LocalSubreddit
 from models.waifu import Waifu
 
 
@@ -441,6 +442,14 @@ class GuildDB(BaseDBModel):
         self.auto_porn_tags: List[str] = guild_db.get('auto_porn_tags')
         self.auto_porn_interval: int = guild_db.get('auto_porn_interval')
 
+    def get_auto_nsfw_properties(self, nsfw_type: NSFWImage.Type) -> Tuple[int, List[str], int]:
+        if nsfw_type is NSFWImage.Type.hentai:
+            return self.auto_hentai_channel_id, self.auto_hentai_tags, self.auto_hentai_interval
+        elif nsfw_type is NSFWImage.Type.porn:
+            return self.auto_porn_channel_id, self.auto_porn_tags, self.auto_porn_interval
+        else:
+            raise mido_utils.UnknownNSFWType(nsfw_type)
+
     @classmethod
     async def get_guilds_that_are_active_in_last_x_hours(cls, bot, hours: int = 24):
         ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (now() - $1::interval);",
@@ -555,9 +564,9 @@ class GuildDB(BaseDBModel):
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
 
-    async def set_auto_nsfw(self, type: str = 'hentai', channel_id: int = None, tags: List[str] = None,
+    async def set_auto_nsfw(self, nsfw_type: NSFWImage.Type, channel_id: int = None, tags: List[str] = None,
                             interval: int = None):
-        if type == 'hentai':
+        if nsfw_type is NSFWImage.Type.hentai:
             self.auto_hentai_channel_id = channel_id
             self.auto_hentai_tags = tags
             self.auto_hentai_interval = interval
@@ -567,7 +576,7 @@ class GuildDB(BaseDBModel):
                 auto_hentai_tags=$2,
                 auto_hentai_interval=$3 
                 WHERE id=$4;""", channel_id, tags, interval, self.id)
-        elif type == 'porn':
+        elif nsfw_type is NSFWImage.Type.porn:
             self.auto_porn_channel_id = channel_id
             self.auto_porn_tags = tags
             self.auto_porn_interval = interval
@@ -578,7 +587,7 @@ class GuildDB(BaseDBModel):
                 auto_porn_interval=$3 
                 WHERE id=$4;""", channel_id, tags, interval, self.id)
         else:
-            raise Exception("Unknown NSFW type!")
+            raise mido_utils.UnknownNSFWType(nsfw_type)
 
     def __eq__(self, other):
         if isinstance(other, GuildDB):
@@ -679,8 +688,9 @@ class LoggedMessage(BaseDBModel):
     @classmethod
     async def insert(cls, bot, message: discord.Message):
         await bot.db.execute(
-            """INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7);""",
+            """INSERT 
+            INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING;""",
             message.id, message.author.id, message.channel.id, message.guild.id if message.guild else None,
             message.content, (json.dumps(e.to_dict()) for e in message.embeds),
             message.created_at)  # created_at is UTC, check if we handle this properly
@@ -699,7 +709,7 @@ class LoggedMessage(BaseDBModel):
             """, tup)
 
         # update active guilds with this info
-        guild_id_list = list(dict.fromkeys([x.guild.id for x in messages]))
+        guild_id_list = list(dict.fromkeys([x.guild.id for x in messages if x.guild]))
         await GuildDB.update_active_guilds(bot, guild_id_list)
 
     def jump_url(self):
@@ -868,36 +878,61 @@ class CustomReaction(BaseDBModel):
             return self.id == other.id
 
 
-class CachedImage(BaseDBModel):
+class NSFWImage:
+    class Type(Enum):
+        porn = auto()
+        hentai = auto()
+
+    def __init__(self, url: str, tags: str = None, api_name: str = None):
+        self.url = url
+        self.tags = tags
+        self.api_name = api_name
+
+    def get_embed(self, bot) -> mido_utils.Embed:
+        e = mido_utils.Embed(bot=bot,
+                             description=f"Image not working? [Click here.]({self.url})",
+                             image_url=self.url)
+
+        stuff_to_add_to_footer = []
+        if self.api_name:
+            stuff_to_add_to_footer.append(f"API: {self.api_name}")
+        if self.tags:
+            stuff_to_add_to_footer.append(f"Tags: {self.tags}")
+
+        if stuff_to_add_to_footer:
+            e.set_footer(text=' | '.join(stuff_to_add_to_footer))
+
+        return e
+
+
+class CachedImage(BaseDBModel, NSFWImage):
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
-        self.api_name: str = data.get('api_name')
         self.url: str = data.get('url')
-        self.tags: List[str] = data.get('tags')
+        self.tags: str = "+".join(data.get('tags'))
+        # self.api_name: str = data.get('api_name')
+        self.api_name: str = 'Shinobu NSFW API'
 
         self.report_count: int = data.get('report_count')
 
     @classmethod
     async def get_random(cls,
                          bot,
-                         api_names: Union[str, List[str]],
+                         subreddits: List[LocalSubreddit],
                          limit: int = 1,
                          allow_gif=False) -> List[CachedImage]:
-        if isinstance(api_names, str):
-            api_names = [api_names]
-
         if not allow_gif:
             ret = await bot.db.fetch("SELECT * FROM api_cache "
                                      "WHERE api_name = ANY($1) AND is_gif IS FALSE "
                                      "ORDER BY random() LIMIT $2;",
-                                     api_names, limit)
+                                     [x.db_name for x in subreddits], limit)
         else:
             ret = await bot.db.fetch(
                 "SELECT * FROM api_cache "
                 "WHERE api_name = ANY($1) "
                 "ORDER BY random() LIMIT $2;",
-                api_names, limit)
+                [x.db_name for x in subreddits], limit)
 
         return [cls(img, bot) for img in ret]
 
@@ -920,7 +955,7 @@ class CachedImage(BaseDBModel):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status == 429:
+                elif response.status in (429, 503):
                     await asyncio.sleep(3.0)
                     return await self.url_is_working()
                 elif response.status in (404, 403):

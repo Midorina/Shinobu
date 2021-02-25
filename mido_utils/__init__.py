@@ -5,6 +5,6 @@ from .context import Context
 from .converters import *
 from .embed import Embed
 from .exceptions import *
-from .music import Song, VoicePlayer
+from .music import BaseSong, Song, VoicePlayer
 from .resources import Resources
 from .time_stuff import Time

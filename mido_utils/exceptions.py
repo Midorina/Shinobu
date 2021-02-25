@@ -53,3 +53,11 @@ class GuildIsBlacklisted(CommandError):
 
 class RaceError(CommandError):
     pass
+
+
+# backend exceptions
+
+class UnknownNSFWType(Exception):
+    def __init__(self, nsfw_type):
+        self.nsfw_type = nsfw_type
+        super().__init__(f'Unsupported NSFW type: {nsfw_type.name}')

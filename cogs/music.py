@@ -78,7 +78,7 @@ class Music(commands.Cog, WavelinkMixin):
             await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
 
-    @commands.command(name='stop', aliases=['disconnect', 'destroy', 'd'])
+    @commands.command(name='stop', aliases=['disconnect', 'destroy', 'd', 'dc'])
     async def _leave(self, ctx: mido_utils.Context):
         """Make me disconnect from your voice channel."""
         if ctx.voice_player.channel_id:

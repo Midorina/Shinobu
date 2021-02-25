@@ -20,7 +20,10 @@ class MidoBot(commands.AutoShardedBot):
             command_prefix=self.get_prefix,
             case_insensitive=True,
             chunk_guilds_at_startup=False,
-            intents=discord.Intents.all()
+            intents=discord.Intents.all(),
+
+            status=discord.Status.dnd,
+            activity=discord.Game("Getting ready...")
         )
 
         self.name = bot_name
@@ -56,7 +59,18 @@ class MidoBot(commands.AutoShardedBot):
 
         self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
-        # self.loop.create_task(self.chunk_active_guilds())
+        # load cogs
+        for file in os.listdir("cogs"):
+            if file.endswith(".py"):
+                name = file[:-3]
+                try:
+                    self.load_extension(f"cogs.{name}")
+                    self.logger.info(f"Loaded cogs.{name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to load cog {name}")
+                    self.logger.exception(e)
+
+        self.loop.create_task(self.chunk_active_guilds())
 
     async def close(self):
         await self.http_session.close()
@@ -71,27 +85,10 @@ class MidoBot(commands.AutoShardedBot):
     def log_channel(self) -> Optional[discord.TextChannel]:
         return self.get_channel(self.config['log_channel_id'])
 
-    async def on_ready(self):
-        self.logger.debug("on_ready is called.")
-        if self.first_time:
-            self.first_time = False
-            # load cogs
-            for file in os.listdir("cogs"):
-                if file.endswith(".py"):
-                    name = file[:-3]
-                    try:
-                        self.load_extension(f"cogs.{name}")
-                        self.logger.info(f"Loaded cogs.{name}")
-                    except Exception as e:
-                        self.logger.error(f"Failed to load cog {name}")
-                        self.logger.exception(e)
-
-        await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
-
     async def chunk_active_guilds(self):
         await self.wait_until_ready()
 
-        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, 6)
+        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, hours=6)
 
         i = 0
         for guild_db in active_guilds:
@@ -102,6 +99,11 @@ class MidoBot(commands.AutoShardedBot):
                 await asyncio.sleep(1.5)
 
         self.logger.info(f'Chunked {i} active guilds.')
+
+    async def on_ready(self):
+        self.logger.info(f"{self.user} is ready.")
+
+        await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
         return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
