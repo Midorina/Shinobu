@@ -6,15 +6,13 @@ from typing import List, Optional
 
 import discord
 
-import mido_utils
-
 
 class Embed(discord.Embed):
     def __init__(self, bot, default_footer=False, image_url=None, **kwargs):
         super().__init__(**kwargs)
         self.bot = bot
 
-        self.color = self.color if self.color else mido_utils.Color.mido_green()
+        self.color = self.color if self.color else self.bot.color
 
         # if default_footer is True and not hasattr(self, '_footer'):
         if default_footer is True:

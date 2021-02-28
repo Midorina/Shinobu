@@ -40,7 +40,8 @@ class MidoBotAPI:
 
     @classmethod
     def get_aiohttp_session(cls):
-        return ClientSession(headers=cls.DEFAULT_HEADERS)
+        return ClientSession(headers=cls.DEFAULT_HEADERS,
+                             connector=aiohttp.TCPConnector(limit=0))
 
     async def _request_get(self,
                            url: str,
@@ -188,6 +189,7 @@ class RedditAPI(CachedImageAPI):
         try:
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
+                await asyncio.sleep(0.1)
         except (asyncprawcore.NotFound, asyncprawcore.Forbidden) as e:
             logging.error(f"Subreddit '{subreddit_name}' caused error: {e}")
             return
@@ -233,8 +235,6 @@ class RedditAPI(CachedImageAPI):
 
         for sub in LocalSubreddit.get_all():
             await _fill(sub.subreddit_name)
-            await asyncio.sleep(5.0)
-
 
 class NSFW_DAPIs(CachedImageAPI):
     BLACKLISTED_TAGS = [
@@ -250,10 +250,10 @@ class NSFW_DAPIs(CachedImageAPI):
     ]
 
     DAPI_LINKS = {
-        'danbooru'       : 'https://danbooru.donmai.us/posts.json',
-        'gelbooru'       : 'https://gelbooru.com/index.php',
-        'rule34'         : 'https://rule34.xxx/index.php',
-        'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
+        'danbooru': 'https://danbooru.donmai.us/posts.json',
+        'gelbooru': 'https://gelbooru.com/index.php',
+        'rule34'  : 'https://rule34.xxx/index.php'
+        # 'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
     }
 
     def __init__(self, session: ClientSession, db: Pool):
@@ -267,7 +267,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.extend(('rating:explicit', 'sort:random', 'score:>=50'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video]
+            args = [nsfw_type, tags, allow_video, limit]
 
         elif nsfw_type == 'sankaku_complex':
             # max 2 args
@@ -275,7 +275,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.extend(('rating:explicit', 'order:random', 'score:>=50'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video]
+            args = [nsfw_type, tags, allow_video, limit]
 
         elif nsfw_type == 'danbooru':
             # max 2 args
@@ -283,7 +283,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.append('rating:explicit')
 
             func = self._get_danbooru
-            args = [tags, allow_video]
+            args = [tags, allow_video, limit]
 
         else:
             raise Exception(f"Unknown nsfw type: {nsfw_type}")
@@ -337,7 +337,8 @@ class NSFW_DAPIs(CachedImageAPI):
     def is_video(url: str):
         return url.endswith('.webm') or url.endswith('.mp4')
 
-    async def _get_nsfw_dapi(self, dapi_name, tags: List[str], allow_video=False, score: int = 10) -> List[str]:
+    async def _get_nsfw_dapi(self, dapi_name, tags: List[str], allow_video=False, score: int = 10, limit: int = 100) -> \
+    List[str]:
         images = []
 
         if f'score:>={score}' in tags:
@@ -356,12 +357,12 @@ class NSFW_DAPIs(CachedImageAPI):
                     's'    : 'post',
                     'q'    : 'index',
                     'tags' : " ".join(tags),
-                    'limit': 100,
+                    'limit': limit,
                     'json' : 1
                 }, return_json=True)
             except mido_utils.NotFoundError:
                 if score > 1:
-                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 5)
+                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 5, limit=limit)
                 else:
                     raise mido_utils.NotFoundError
 
@@ -392,11 +393,11 @@ class NSFW_DAPIs(CachedImageAPI):
 
             return images
 
-    async def _get_danbooru(self, tags=None, allow_video=False):
+    async def _get_danbooru(self, tags=None, allow_video=False, limit: int = 100):
         images = []
 
         response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
-            'limit' : 100,
+            'limit' : limit,
             'tags'  : " ".join(tags),
             'random': 'true'
         }, return_json=True)
@@ -724,8 +725,8 @@ class SpotifyAPI(OAuthAPI):
 
         request_url = f'{self.API_URL}/{url_type}/{_id}/{extra_query}'
         responses = self._pagination_get(request_url, params=params, return_json=True)
-        track_list = []
 
+        track_list = []
         async for response in responses:
             if 'tracks' in response:
                 if 'items' in response['tracks']:

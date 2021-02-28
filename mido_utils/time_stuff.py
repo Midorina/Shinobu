@@ -70,7 +70,7 @@ class Time:
 
     @property
     def passed_seconds_in_float_formatted(self) -> str:
-        return '{:.2f}s'.format(self.passed_seconds_in_float)
+        return '{:.5f}s'.format(self.passed_seconds_in_float)
 
     @property
     def passed_string(self):

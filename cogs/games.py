@@ -232,8 +232,10 @@ class Games(commands.Cog):
         self.bot.loop.create_task(self.assign_hangman_variable())
 
     async def assign_hangman_variable(self):
+        time = mido_utils.Time()
         if not self.hangman_categories_and_word_counts:
             self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(self.bot)
+        self.bot.logger.info("Assigning hangman variables took:\t" + time.passed_seconds_in_float_formatted)
 
     def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:
         """Returns a race and whether it is just created or not"""

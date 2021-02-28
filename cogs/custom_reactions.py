@@ -23,7 +23,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
 
     async def check_cr_db_func(self):
         """PSQL function to escape special characters"""
-        exists = await self.bot.db.fetchval("select exists(select * from pg_proc where proname = 'f_like_escape');")
+        time = mido_utils.Time()
+        exists = await self.bot.db.fetchval("SELECT exists(SELECT * FROM pg_proc WHERE proname = 'f_like_escape');")
         if not exists:
             await self.bot.db.execute("""
                 CREATE OR REPLACE FUNCTION f_like_escape(text)
@@ -35,9 +36,9 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                          , '_', '\_');
                 $func$;
                 """)
+        self.bot.logger.info("Checking CR DB function took:\t" + time.passed_seconds_in_float_formatted)
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def base_cr_on_message(self, message: discord.Message):
         """This on_message function is used to check whether a message triggered a custom reaction or not."""
         if not self.bot.should_listen_to_msg(message, guild_only=True):
             return False
@@ -53,21 +54,26 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                                                                 author=message.author,
                                                                 channel=channel_to_send,
                                                                 message_obj=message)
-
             try:
                 await channel_to_send.send(content=content, embed=embed)
-            except discord.Forbidden:
+                if cr.delete_trigger:
+                    await message.delete()
+            except (discord.Forbidden, discord.NotFound):
                 pass
             except discord.HTTPException:
                 await self.bot.get_cog('ErrorHandling').on_error(f"Error happened in custom reaction with ID: {cr.id}")
             else:
-                if cr.delete_trigger:
-                    await message.delete()
-
                 self.bot.logger.info(f"User [{message.author}] "
                                      f"executed custom reaction [{cr.trigger}]"
                                      f" in [{message.guild}].")
                 await cr.increase_use_count()
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        time = mido_utils.Time()
+        await self.base_cr_on_message(message)
+        self.bot.logger.info(
+            'Checking custom reaction took:\t' + time.passed_seconds_in_float_formatted)
 
     def get_cr_embed(self, cr: CustomReaction):
         e = mido_utils.Embed(bot=self.bot)

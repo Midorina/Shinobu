@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 import asyncpg
 import discord
@@ -52,6 +52,8 @@ class MidoBot(commands.AutoShardedBot):
 
         self.loop.create_task(self.prepare_bot())
 
+        self.webhook_cache: Dict[int, discord.Webhook] = dict()
+
     async def prepare_bot(self):
         self.uptime = mido_utils.Time()
         # get db
@@ -70,12 +72,12 @@ class MidoBot(commands.AutoShardedBot):
                     self.logger.error(f"Failed to load cog {name}")
                     self.logger.exception(e)
 
-        self.loop.create_task(self.chunk_active_guilds())
+        # self.loop.create_task(self.chunk_active_guilds())
 
     async def close(self):
+        await super().close()
         await self.http_session.close()
         await self.db.close()
-        await super().close()
 
     def get_config(self):
         with open(f'config_{self.name}.json') as f:
@@ -125,7 +127,6 @@ class MidoBot(commands.AutoShardedBot):
         await self.invoke(ctx)
 
     async def chunk_guild(self, guild: discord.Guild):
-        """Chunks the guild if not chunked and returns True if chunk happened."""
         await guild.chunk(cache=True)
         self.logger.info(f'Chunked {guild.member_count} members of guild: {guild.name}')
 
@@ -167,12 +168,22 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(log_msg)
         self.command_counter += 1
 
+    def get_member_count(self):
+        i = 0
+        for guild in self.guilds:
+            try:
+                i += guild.member_count
+            except AttributeError:
+                pass
+
+        return i
+
     async def on_command_completion(self, ctx: mido_utils.Context):
         if ctx.guild is not None:
             if ctx.guild_db.delete_commands is True:
                 try:
                     await ctx.message.delete()
-                except discord.Forbidden:
+                except (discord.Forbidden, discord.NotFound):
                     pass
 
         self.log_command(ctx)
@@ -213,6 +224,34 @@ class MidoBot(commands.AutoShardedBot):
         which attaches db objects when a command is about to be called.
         """
         await ctx.attach_db_objects()
+
+    async def send_as_webhook(self, channel: discord.TextChannel, *args, **kwargs):
+        try:
+            try:
+                webhook = self.webhook_cache[channel.id]
+            except KeyError:
+                try:
+                    webhook = self.webhook_cache[channel.id] = next(
+                        x for x in await channel.webhooks() if x.name == self.user.display_name)
+                except StopIteration:
+                    async with self.http_session.get(url=str(self.user.avatar_url_as(format='png'))) as r:
+                        webhook = self.webhook_cache[channel.id] = await channel.create_webhook(
+                            name=self.user.display_name,
+                            avatar=await r.read())
+            await webhook.send(*args, **kwargs)
+
+        except discord.Forbidden:
+            await channel.send("I need **Manage Webhooks** permission to continue.")
+
+        except Exception as e:
+            await self.get_cog('ErrorHandling').on_error(str(e))
+
+    @discord.utils.cached_property
+    def color(self):
+        if self.name.lower() == 'shinobu':
+            return mido_utils.Color.shino_yellow()
+        else:
+            return mido_utils.Color.mido_green()
 
     def run(self):
         super().run(self.config["token"])

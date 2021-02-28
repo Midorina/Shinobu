@@ -58,7 +58,7 @@ class NSFW(commands.Cog):
                             category=nsfw_type.name,
                             tags=[tags] if tags else None,
                             limit=100,
-                            allow_gif=allow_video)]
+                            allow_gif=True)]
                 else:
                     cache[tags] = [x for x in await self.api.get_bomb(tags=tags,
                                                                       limit=100,
@@ -76,20 +76,26 @@ class NSFW(commands.Cog):
         while True:
             images = await CachedImage.get_oldest_checked_images(self.bot, limit=100)
             for image in images:
+                time = mido_utils.Time()
                 try:
                     if not await image.url_is_working():
                         await image.delete()
-                    await asyncio.sleep(0.22)
                 except Exception as e:
                     await self.bot.get_cog('ErrorHandling').on_error(str(e))
+                finally:
+                    self.bot.logger.info(f"Checking 1 image took:\t\t{time.passed_seconds_in_float_formatted}")
+                    await asyncio.sleep(1.0)
+            await asyncio.sleep(5.0)
 
     async def start_auto_nsfw_services(self):
         await self.bot.wait_until_ready()
 
+        time = mido_utils.Time()
         auto_nsfw_guilds = await GuildDB.get_auto_nsfw_guilds(bot=self.bot)
         for guild in auto_nsfw_guilds:
             self.add_auto_nsfw_tasks(guild)
-            await asyncio.sleep(0.66)
+            # await asyncio.sleep(0.66)
+        self.bot.logger.info("Adding auto nsfw services took:\t" + time.passed_seconds_in_float_formatted)
 
     def add_auto_nsfw_tasks(self, guild: GuildDB, nsfw_type: NSFWImage.Type = None):
         for base_nsfw_type in NSFWImage.Type:
@@ -132,7 +138,7 @@ class NSFW(commands.Cog):
                                   f"\t\t\tChannel\t: #{nsfw_channel} ({nsfw_channel.id})\n"
                                   f"\t\t\tTags\t: {tags}")
             try:
-                await nsfw_channel.send(embed=image.get_embed(self.bot))
+                await self.bot.send_as_webhook(nsfw_channel, embed=image.get_embed(self.bot))
             except discord.Forbidden:
                 nsfw_channel = None  # reset
                 break
@@ -146,9 +152,9 @@ class NSFW(commands.Cog):
     async def fill_the_database(self):
         await self.bot.wait_until_ready()
 
-        self.bot.logger.info('Checking hot posts from Reddit...')
+        time = mido_utils.Time()
         await self.reddit.fill_the_database()
-        self.bot.logger.info('Checking hot posts from Reddit is done.')
+        self.bot.logger.info('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
 
     @fill_the_database.error
     async def task_error(self, error):
@@ -227,7 +233,7 @@ class NSFW(commands.Cog):
         image = (await self.api.get('rule34', tags))[0]
         await ctx.send(embed=image.get_embed(self.bot))
 
-    @commands.command(aliases=['sankakucomplex'])
+    @commands.command(aliases=['sankakucomplex'], enabled=False)
     async def sankaku(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Rule34.
 
@@ -310,10 +316,11 @@ class NSFW(commands.Cog):
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autohentai')
+    @commands.bot_has_permissions(manage_webhooks=True)
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have hentai automatically posted!
 
-        Interval argument can be 15 seconds minimum.
+        Interval argument can be 10 seconds minimum.
 
         Put `+` between tags.
         Put `|` between tag groups. A random tag group will be chosen each time.
@@ -328,10 +335,11 @@ class NSFW(commands.Cog):
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autoporn')
+    @commands.bot_has_permissions(manage_webhooks=True)
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have porn automatically posted!
 
-        Interval argument can be 15 seconds minimum.
+        Interval argument can be 10 seconds minimum.
 
         Put `|` between tag groups. A random tag group will be chosen each time.
         Please provide a single tag for each tag group (unlike `autohentai`)

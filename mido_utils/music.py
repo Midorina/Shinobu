@@ -97,7 +97,7 @@ class VoicePlayer(Player):
 
     async def parse_query_and_add_songs(self, ctx: Context, query: str, spotify):
         if query.startswith('https://open.spotify.com/'):  # spotify link
-            songs_to_add = [x for x in await spotify.get_songs(ctx, query)]
+            songs_to_add = [x for x in await spotify.get_songs(ctx, query) if x is not None]
         else:
             songs_to_add = await self._get_tracks_from_query(ctx, query)
 
@@ -182,7 +182,12 @@ class BaseSong:
         title = ", ".join(artist['name'] for artist in track['artists'])
         title += f" - {track['name']}"
 
-        url = track["external_urls"]["spotify"]
+        try:
+            url = track["external_urls"]["spotify"]
+        except KeyError:
+            # no external url, meaning its not actually playable on spotify
+            return None
+
         duration = track["duration_ms"]
 
         return cls(ctx, title, duration, url)

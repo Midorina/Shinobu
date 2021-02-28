@@ -13,7 +13,7 @@ class Searches(commands.Cog):
         self.bot = bot
 
         self.google: mido_utils.Google = mido_utils.Google(self.bot.http_session)
-        self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop)
+        self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop, session=self.bot.http_session)
         self.some_random_api = mido_utils.SomeRandomAPI(self.bot.http_session)
         self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
 

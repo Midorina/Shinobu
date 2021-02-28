@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple, Union
 
+import aiohttp
 import asyncpg
 import discord
 from asyncpg import Record
@@ -138,23 +139,6 @@ class ModLog(BaseDBModel):
             return self.id == other.id
 
 
-def calculate_xp_data(total_xp: int):
-    base_xp = 30
-    used_xp = 0
-    lvl = 1
-
-    while True:
-        required_xp_to_level_up = int(base_xp + base_xp / 3.0 * (lvl - 1))
-
-        if required_xp_to_level_up + used_xp > total_xp:
-            break
-
-        used_xp += required_xp_to_level_up
-        lvl += 1
-
-    return lvl, total_xp - used_xp, required_xp_to_level_up
-
-
 class UserDB(BaseDBModel):
     def __init__(self, user_db: Record, bot):
         super(UserDB, self).__init__(user_db, bot)
@@ -165,14 +149,12 @@ class UserDB(BaseDBModel):
 
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
-        self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
         self.xp_status = mido_utils.Time.add_to_previous_date_and_get(
             user_db.get('last_xp_gain'), bot.config['cooldowns']['xp']
         )
 
         self.daily_date_status = mido_utils.Time.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
                                                                               bot.config['cooldowns']['daily'])
-
         self.waifu: Waifu = Waifu(self)
 
     @property
@@ -251,19 +233,14 @@ class UserDB(BaseDBModel):
 
         await self.add_cash(amount=0 - amount, reason=reason)
 
-    async def add_xp(self, amount: int, owner=False) -> int:
-        if not self.xp_status.end_date_has_passed and not owner:
-            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
-                                             f"Try again after **{self.xp_status.remaining_string}**.")
-        else:
-            await self.db.execute(
-                """UPDATE users SET xp = xp + $1, last_xp_gain = $2 WHERE id=$3""",
-                amount, datetime.now(timezone.utc), self.id)
-
-            self.total_xp += amount
-            # im just too lazy
-            self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-            return self.total_xp
+    async def add_xp(self, amount: int, owner=False):
+        # if not self.xp_status.end_date_has_passed and not owner:
+        #     raise mido_utils.OnCooldownError(f"You're still on cooldown! "
+        #                                      f"Try again after **{self.xp_status.remaining_string}**.")
+        self.total_xp += amount
+        await self.db.execute(
+            """UPDATE users SET xp = $1, last_xp_gain = $2 WHERE id=$3""",
+            self.total_xp, datetime.now(timezone.utc), self.id)
 
     async def remove_xp(self, amount: int) -> int:
         await self.db.execute(
@@ -328,7 +305,6 @@ class MemberDB(BaseDBModel):
 
         self.total_xp: int = member_db.get('xp')
 
-        self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
         self.xp_date_status = mido_utils.Time.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), bot.config['cooldowns']['xp'])
 
@@ -357,19 +333,14 @@ class MemberDB(BaseDBModel):
 
         return member_obj
 
-    async def add_xp(self, amount: int, owner=False) -> int:
-        if not self.xp_date_status.end_date_has_passed and not owner:
-            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
-                                             f"Try again after **{self.xp_date_status.remaining_string}**.")
-        else:
-            await self.db.execute(
-                """UPDATE members SET xp = xp + $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",
-                amount, datetime.now(timezone.utc), self.guild.id, self.id)
-
-            self.total_xp += amount
-            # im just too lazy
-            self.level, self.progress, self.required_xp_to_level_up = calculate_xp_data(self.total_xp)
-            return self.total_xp
+    async def add_xp(self, amount: int, owner=False):
+        # if not self.xp_date_status.end_date_has_passed and not owner:
+        #     raise mido_utils.OnCooldownError(f"You're still on cooldown! "
+        #                                      f"Try again after **{self.xp_date_status.remaining_string}**.")
+        self.total_xp += amount
+        await self.db.execute(
+            """UPDATE members SET xp = $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",
+            self.total_xp, datetime.now(timezone.utc), self.guild.id, self.id)
 
     async def remove_xp(self, amount: int) -> int:
         await self.db.execute(
@@ -950,6 +921,7 @@ class CachedImage(BaseDBModel, NSFWImage):
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
     async def url_is_working(self) -> bool:
+        self.bot.logger.info(f"Checking image: {self.url}")
         try:
             async with self.bot.http_session.get(url=self.url) as response:
                 if response.status == 200:
@@ -964,6 +936,8 @@ class CachedImage(BaseDBModel, NSFWImage):
                     raise Exception(f"Unknown status code {response.status} for link: {self.url}")
         except asyncio.TimeoutError:
             return await self.url_is_working()
+        except aiohttp.ClientConnectorError:
+            return False
 
     async def url_is_just_checked(self):
         await self.bot.db.execute("UPDATE api_cache SET last_url_check=now() WHERE id=$1;", self.id)
@@ -1065,6 +1039,10 @@ class TransactionLog(BaseDBModel):
 
 
 class BlacklistDB(BaseDBModel):
+    class BlacklistType(Enum):
+        guild = auto()
+        user = auto()
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -1073,9 +1051,9 @@ class BlacklistDB(BaseDBModel):
         self.date = mido_utils.Time(data.get('date'))
 
     @classmethod
-    async def get(cls, bot, user_or_guild_id: int, type: str):
+    async def get(cls, bot, user_or_guild_id: int, bl_type: BlacklistType):
         ret = await bot.db.fetchrow("SELECT * FROM blacklist WHERE user_or_guild_id=$1 AND type=$2;",
-                                    user_or_guild_id, type)
+                                    user_or_guild_id, bl_type.name)
         if not ret:
             return None
         else:
@@ -1085,11 +1063,11 @@ class BlacklistDB(BaseDBModel):
     async def blacklist(cls,
                         bot,
                         user_or_guild_id: int,
-                        type: str = 'user',
+                        bl_type: BlacklistType,
                         reason: str = None):
         ret = await bot.db.fetchrow(
             "INSERT INTO blacklist(user_or_guild_id, type, reason) VALUES ($1, $2, $3) RETURNING *;",
-            user_or_guild_id, type, reason
+            user_or_guild_id, bl_type.name, reason
         )
 
         return cls(ret, bot)
@@ -1098,11 +1076,11 @@ class BlacklistDB(BaseDBModel):
     async def unblacklist(cls,
                           bot,
                           user_or_guild_id: int,
-                          type: str = 'user'):
+                          bl_type: BlacklistType):
 
         return await bot.db.execute(
             "DELETE FROM blacklist WHERE user_or_guild_id=$1 AND type=$2;",
-            user_or_guild_id, type
+            user_or_guild_id, bl_type.name
         )
 
 

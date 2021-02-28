@@ -12,9 +12,11 @@ class Shitposting(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+    @discord.utils.cached_property
     def get_random_api(self) -> mido_utils.SomeRandomAPI:
         return self.bot.get_cog('Searches').some_random_api
 
+    @discord.utils.cached_property
     def get_reddit_api(self) -> mido_utils.RedditAPI:
         return self.bot.get_cog('NSFW').reddit
 

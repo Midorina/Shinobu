@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 import discord
+import wavelink
 from discord import ShardInfo
 from discord.ext import commands
 
@@ -188,15 +189,16 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
             "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
             "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
             "%user.joined_time%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None',
-            "%user.joined_date%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC')
+            "%user.joined_date%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None'
         }
     )
 
     # bot stats placeholders
+    # todo: handle AttributeError: _member_count in a separate func
     base_dict.update(
         {
             "%servers%": len(bot.guilds),
-            "%users%"  : sum([guild.member_count for guild in bot.guilds])
+            "%users%"  : bot.get_member_count()
         }
     )
 
@@ -205,19 +207,23 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
     base_dict.update(
         {
             "%shard.servercount%": len([g for g in bot.guilds if g.shard_id == shard.id]),
-            "%shard.usercount%"  : sum([g.member_count for g in bot.guilds if g.shard_id == shard.id]),
+            "%shard.usercount%"  : sum(
+                [g.member_count for g in bot.guilds if g.shard_id == shard.id and hasattr(g, '_member_count')]),
             "%shard.id"          : shard.id
         }
     )
 
-    voice_player: VoicePlayer = bot.wavelink.get_player(guild.id, cls=VoicePlayer)
-    if voice_player.is_playing:
-        base_dict.update(
-            {
-                "%music.queued%" : len(voice_player.song_queue),
-                "%music.playing%": voice_player.current.title,
-            }
-        )
+    try:
+        voice_player: VoicePlayer = bot.wavelink.get_player(guild.id, cls=VoicePlayer)
+        if voice_player.is_playing:
+            base_dict.update(
+                {
+                    "%music.queued%" : len(voice_player.song_queue),
+                    "%music.playing%": voice_player.current.title,
+                }
+            )
+    except wavelink.ZeroConnectedNodes:
+        pass
 
     # Miscellaneous placeholders
     if message_obj:

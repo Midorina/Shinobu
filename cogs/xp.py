@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import discord
 from discord.ext import commands
@@ -9,30 +9,47 @@ from midobot import MidoBot
 from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
 
 
-# todo: xp exclude channel
+def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
+    """Returns level, progress and required xp to level up"""
+    base_xp = 30
+    used_xp = 0
+    lvl = 1
+
+    while True:
+        required_xp_to_level_up = int(base_xp + base_xp / 3.0 * (lvl - 1))
+
+        if required_xp_to_level_up + used_xp > total_xp:
+            break
+
+        used_xp += required_xp_to_level_up
+        lvl += 1
+
+    return lvl, total_xp - used_xp, required_xp_to_level_up
 
 
 class XP(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-    async def get_xp_embed(self, user_or_member, db) -> discord.Embed:
+    async def get_xp_embed(self, user_or_member, db: Union[MemberDB, UserDB]) -> discord.Embed:
         e = mido_utils.Embed(bot=self.bot, title=str(user_or_member))
 
         # if in guild
         if isinstance(user_or_member, discord.Member):
+            lvl, progress, required_xp_to_lvl_up = calculate_xp_data(db.total_xp)
             e.add_field(name='**Server Stats**',
-                        value=f"**Level**: {db.level}\n"
+                        value=f"**Level**: {lvl}\n"
                               f"**Total XP**: {db.total_xp}\n"
-                              f"**Level Progress**: {db.progress}/{db.required_xp_to_level_up}\n"
+                              f"**Level Progress**: {progress}/{required_xp_to_lvl_up}\n"
                               f"**Server Rank**: #{await db.get_xp_rank()}")
 
             db = db.user
 
+        lvl, progress, required_xp_to_lvl_up = calculate_xp_data(db.total_xp)
         e.add_field(name='**Global Stats**',
-                    value=f"**Level**: {db.level}\n"
+                    value=f"**Level**: {lvl}\n"
                           f"**Total XP**: {db.total_xp}\n"
-                          f"**Level Progress**: {db.progress}/{db.required_xp_to_level_up}\n"
+                          f"**Level Progress**: {progress}/{required_xp_to_lvl_up}\n"
                           f"**Global Rank**: #{await db.get_xp_rank()}"
                     )
 
@@ -51,8 +68,9 @@ class XP(commands.Cog):
             if i == 1 and self.bot.get_user(user.id):
                 e.set_thumbnail(url=self.bot.get_user(user.id).avatar_url)
 
+            level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
             e.description += f"`#{i}` **{user.discord_name}**\n" \
-                             f"Level: **{user.level}** | Total XP: **{user.total_xp}**\n\n"
+                             f"Level: **{level}** | Total XP: **{user.total_xp}**\n\n"
 
         return e
 
@@ -64,8 +82,11 @@ class XP(commands.Cog):
         if member_db.user.level_up_notification == XpAnnouncement.SILENT:
             return
 
-        lvld_up_in_guild = member_db.progress < added
-        lvld_up_globally = member_db.user.progress < added
+        level, progress, required_xp_to_level_up = calculate_xp_data(member_db.total_xp)
+        global_level, global_progress, global_required_xp_to_level_up = calculate_xp_data(member_db.user.total_xp)
+
+        lvld_up_in_guild = progress < added
+        lvld_up_globally = global_progress < added
 
         if not lvld_up_globally or not lvld_up_in_guild:
             return
@@ -73,9 +94,9 @@ class XP(commands.Cog):
         msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
 
         if lvld_up_in_guild:
-            msg += f"You just have leveled up to **{member_db.level}** in {str(message.guild)}!\n"
+            msg += f"You just have leveled up to **{level}** in {str(message.guild)}!\n"
         if lvld_up_globally and added_globally:
-            msg += f"You just have leveled up to **{member_db.user.level}** globally!"
+            msg += f"You just have leveled up to **{global_level}** globally!"
 
         if member_db.user.level_up_notification == XpAnnouncement.DM or member_db.guild.level_up_notifs_silenced:
             channel = message.author
@@ -109,8 +130,7 @@ class XP(commands.Cog):
             if role not in member.roles:
                 await member.add_roles(role, reason=f"XP Level {reward.level} reward.")
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def base_xp_on_message(self, message: discord.Message):
         if not self.bot.should_listen_to_msg(message, guild_only=True):
             return
 
@@ -134,6 +154,12 @@ class XP(commands.Cog):
             await member_db.user.add_xp(amount=3)
 
         await self.check_for_level_up(message, member_db, added=3, added_globally=can_gain_xp_global)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        time = mido_utils.Time()
+        await self.base_xp_on_message(message)
+        self.bot.logger.info('Checking XP took:\t\t\t' + time.passed_seconds_in_float_formatted)
 
     @commands.command(name="xp", aliases=['level', 'rank'])
     async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):
@@ -340,7 +366,7 @@ class XP(commands.Cog):
     @mido_utils.is_owner()
     async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
-        await member_db.add_xp(amount, owner=True)
+        await member_db.user.add_xp(amount, owner=True)
         await ctx.send_success("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)

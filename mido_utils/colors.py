@@ -10,6 +10,10 @@ class Color(discordColor):
         return cls(0x15a34a)
 
     @classmethod
+    def shino_yellow(cls):
+        return cls(0xfffe91)
+
+    @classmethod
     def success(cls):
         return cls(0x00ff00)
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum, auto
 from io import StringIO
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import discord
 from discord.ext import commands, tasks
@@ -31,12 +31,17 @@ class Logging(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
+        self.guild_config_cache: Dict[int, GuildLoggingDB] = dict()
+
         self.message_cache = list()
+
         self.cache_to_db_task.start()
 
     async def insert_cache_to_db(self):
+        time = mido_utils.Time()
         to_db, self.message_cache = self.message_cache, []
         await LoggedMessage.insert_bulk(self.bot, to_db)
+        self.bot.logger.info("Inserting cached messages to DB took:\t" + time.passed_seconds_in_float_formatted)
 
     @tasks.loop(minutes=1.0)
     async def cache_to_db_task(self):
@@ -110,7 +115,12 @@ class Logging(commands.Cog):
         if not guild_id:
             return
 
-        guild_settings = await GuildLoggingDB.get_or_create(bot=self.bot, guild_id=guild_id)
+        try:
+            guild_settings = self.guild_config_cache[guild_id]
+        except KeyError:
+            guild_settings = self.guild_config_cache[guild_id] = await GuildLoggingDB.get_or_create(bot=self.bot,
+                                                                                                    guild_id=guild_id)
+
         if not guild_settings.logging_is_enabled:
             return
 
@@ -213,7 +223,7 @@ class Logging(commands.Cog):
                 if guild_settings.simple_mode_is_enabled:
                     e = self.get_member_event_embed(msg.author)
                     e.description = f"**Message sent by {msg.author.mention} in {msg.channel.mention} " \
-                                    f"has just been edited.** [Jump]({msg.jump_url})\n" \
+                                    f"has just been edited.** [Jump]({msg.jump_url})\n\n" \
                                     f"**Before:**\n" \
                                     f"{msg.content}\n" \
                                     f"**After:**\n" \
@@ -230,7 +240,7 @@ class Logging(commands.Cog):
                 if guild_settings.simple_mode_is_enabled:
                     e = self.get_member_event_embed(msg.author)
                     e.description = f"**Message sent by {msg.author.mention} in {msg.channel.mention} " \
-                                    f"has just been deleted. Message Content:**\n{msg.content}"
+                                    f"has just been deleted:**\n{msg.content}"
                     e.set_footer(text=f"Author ID: {msg.author.id} | Message ID: {msg.id}")
                 else:
                     content = f"{time} :x: Message `{msg.id}` sent by {self.detailed(msg.author)} " \
@@ -268,10 +278,10 @@ class Logging(commands.Cog):
             else:
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
-        await guild_settings.logging_channel.send(content=content,
-                                                  embed=e,
-                                                  file=file,
-                                                  allowed_mentions=discord.AllowedMentions.none())
+        await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
+                                       embed=e,
+                                       file=file,
+                                       allowed_mentions=discord.AllowedMentions.none())
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
@@ -323,6 +333,7 @@ class Logging(commands.Cog):
     @commands.command(aliases=['log'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(manage_webhooks=True)
     async def logging(self, ctx: mido_utils.Context):
         """Disable or enable logging in the current channel.
         Use `{0.prefix}loggingmode` to change between simple and advanced logging.
@@ -336,6 +347,8 @@ class Logging(commands.Cog):
             await guild_settings.set_log_channel(None)  # disable
             await ctx.send_success("You've successfully **disabled logging**.")
 
+        self.guild_config_cache[ctx.guild.id] = guild_settings
+
     @commands.command(aliaseS=['logmode'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
@@ -348,6 +361,8 @@ class Logging(commands.Cog):
         else:
             await guild_settings.change_mode_to_simple(True)
             await ctx.send_success(f"You've successfully change the logging mode to **simple**.")
+
+        self.guild_config_cache[ctx.guild.id] = guild_settings
 
 
 def setup(bot):

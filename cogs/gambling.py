@@ -54,6 +54,8 @@ class Gambling(commands.Cog):
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
     async def get_active_donut_events(self):
+        await self.bot.wait_until_ready()
+
         self.active_donut_events = await DonutEvent.get_active_ones(self.bot)
 
         for donut_event in self.active_donut_events:

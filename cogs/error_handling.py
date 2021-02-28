@@ -70,11 +70,20 @@ class ErrorHandling(commands.Cog):
             elif isinstance(error, commands.NotOwner):
                 return await ctx.send_error(error, "This is an owner-only command. Sorry.")
 
-            elif isinstance(error, (commands.BotMissingPermissions, discord.Forbidden)):
-                return await ctx.send_error(f"I do not have enough permissions to execute `{ctx.prefix}{ctx.command}`!")
+            elif isinstance(error, commands.BotMissingPermissions):
+                missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_perms]
+                if len(missing) > 2:
+                    fmt = '{}, and {}'.format(", ".join(missing[:-1]), missing[-1])
+                else:
+                    fmt = ' and '.join(missing)
+                return await ctx.send_error(
+                    f"I am missing these necessary permissions to execute `{ctx.prefix}{ctx.command}`:\n**{fmt}**")
+
+            elif isinstance(error, discord.Forbidden):
+                return await ctx.send_error("I am missing some necessary permissions to do what I need to do.")
 
             elif isinstance(error, commands.DisabledCommand):
-                return await ctx.send_error("This command is currently disabled and can't be used.")
+                return await ctx.send_error("This command is temporarily disabled. Sorry for the inconvenience.")
 
             # cooldown errors
             elif isinstance(error, commands.CommandOnCooldown):

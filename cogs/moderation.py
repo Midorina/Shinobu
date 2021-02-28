@@ -32,6 +32,7 @@ class Moderation(commands.Cog):
     async def check_modlogs(self):
         await self.bot.wait_until_ready()
 
+        time = mido_utils.Time()
         open_modlogs = await ModLog.get_open_logs(bot=self.bot)
 
         for modlog in open_modlogs:
@@ -54,6 +55,7 @@ class Moderation(commands.Cog):
                                 await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unmute)')
 
                 await modlog.complete()
+        self.bot.logger.info("Checking modlogs took:\t\t" + time.passed_seconds_in_float_formatted)
 
     @check_modlogs.error
     async def task_error(self, error):
@@ -752,8 +754,17 @@ class Moderation(commands.Cog):
                             inline=True)
 
             # roles
+            role_field = ""
+            for i, role in enumerate(user.roles, 1):
+                if len(role_field) < 1000:
+                    role_field += role.mention
+                else:
+                    role_field += f"**And {len(user.roles) - i} more role(s)**"
+                    break
+                role_field += ',\n'
+
             embed.add_field(name=f'Roles ({len(user.roles)})',
-                            value=',\n'.join(role.mention for role in user.roles),
+                            value=role_field,
                             inline=False)
 
         await ctx.send(embed=embed)
