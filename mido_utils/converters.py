@@ -247,6 +247,11 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
         content = embed.get('plainText', None) or embed.get('content', None)
         embed = embed.get('embed', None) or embed
 
+        # if image is just a str, we need to convert it to dict
+        # legacy, again
+        if 'image' in embed.keys() and isinstance(embed['image'], str):
+            embed['image'] = {'url': embed['image']}
+
         return content, discord.Embed.from_dict(embed)
 
 

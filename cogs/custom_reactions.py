@@ -61,7 +61,8 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
             except (discord.Forbidden, discord.NotFound):
                 pass
             except discord.HTTPException:
-                await self.bot.get_cog('ErrorHandling').on_error(f"Error happened in custom reaction with ID: {cr.id}")
+                await self.bot.get_cog('ErrorHandling').on_error(f"Error happened in custom reaction with ID: {cr.id}\n"
+                                                                 f"Embed content: {embed.to_dict()}")
             else:
                 self.bot.logger.info(f"User [{message.author}] "
                                      f"executed custom reaction [{cr.trigger}]"
@@ -72,7 +73,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     async def on_message(self, message: discord.Message):
         time = mido_utils.Time()
         await self.base_cr_on_message(message)
-        self.bot.logger.info(
+        self.bot.logger.debug(
             'Checking custom reaction took:\t' + time.passed_seconds_in_float_formatted)
 
     def get_cr_embed(self, cr: CustomReaction):
