@@ -11,10 +11,7 @@ import discord
 from async_timeout import timeout
 from wavelink import InvalidIDProvided, Node, Player, Track, TrackPlaylist
 
-from mido_utils.context import Context
-from mido_utils.exceptions import *
-from mido_utils.resources import Resources
-from mido_utils.time_stuff import Time
+import mido_utils
 
 
 class VoicePlayer(Player):
@@ -61,10 +58,10 @@ class VoicePlayer(Player):
         finally:
             self.task.cancel()
 
-    async def add_songs(self, ctx: Context, *songs: Song):
+    async def add_songs(self, ctx: mido_utils.Context, *songs: Song):
         for i, song in enumerate(songs):
             if len(self.song_queue) > 500 and i == 0:
-                raise OnCooldownError("You can't add more than 500 songs.")
+                raise mido_utils.OnCooldownError("You can't add more than 500 songs.")
 
             if isinstance(song, Track):
                 song = Song.convert(song, ctx)
@@ -85,8 +82,8 @@ class VoicePlayer(Player):
             attempt += 1
 
         if not song:
-            raise NotFoundError(f"Couldn't find anything that matches the query:\n"
-                                f"`{original_query}`.")
+            raise mido_utils.NotFoundError(f"Couldn't find anything that matches the query:\n"
+                                           f"`{original_query}`.")
 
         if isinstance(song, TrackPlaylist):
             songs = song.tracks
@@ -95,7 +92,7 @@ class VoicePlayer(Player):
 
         return list(map(lambda x: Song.convert(x, ctx), songs))
 
-    async def parse_query_and_add_songs(self, ctx: Context, query: str, spotify):
+    async def parse_query_and_add_songs(self, ctx: mido_utils.Context, query: str, spotify):
         if query.startswith('https://open.spotify.com/'):  # spotify link
             songs_to_add = [x for x in await spotify.get_songs(ctx, query) if x is not None]
         else:
@@ -125,7 +122,7 @@ class VoicePlayer(Player):
                     async with timeout(180):
                         try:
                             self.current = await self.parse_and_get_the_next_song()
-                        except NotFoundError as e:  # might be annoying
+                        except mido_utils.NotFoundError as e:  # might be annoying
                             await self.bot.get_cog('ErrorHandling').on_error(e)
                             continue
                         else:
@@ -163,7 +160,7 @@ class BaseSong:
 
     @property
     def duration_str(self) -> str:
-        return Time.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
+        return mido_utils.Time.parse_seconds_to_str(self.duration_in_seconds, short=True, sep=':')
 
     @property
     def requester(self) -> discord.Member:
@@ -198,10 +195,10 @@ class Song(Track, BaseSong):
                  _id: str,
                  info: dict,
                  query: str,
-                 ctx: Context):
+                 ctx: mido_utils.Context):
         super().__init__(_id, info, query)
 
-        self.ctx: Context = ctx
+        self.ctx: mido_utils.Context = ctx
         self.player: VoicePlayer = ctx.voice_player
 
     @property
@@ -211,7 +208,7 @@ class Song(Track, BaseSong):
     @classmethod
     def convert(cls,
                 track: Track,
-                ctx: Context):
+                ctx: mido_utils.Context):
         """Converts a native wavelink track object to a local Song object."""
         return cls(track.id, track.info, track.query, ctx)
 
@@ -222,10 +219,10 @@ class Song(Track, BaseSong):
     def create_np_embed(self):
         e = discord.Embed(
             title=self.title,
-            color=0x15a34a)
+            color=self.ctx.bot.color)
 
         e.set_author(
-            icon_url=Resources.images.now_playing,
+            icon_url=mido_utils.Resources.images.now_playing,
             name="Now Playing",
             url=self.url)
 
@@ -245,7 +242,7 @@ class Song(Track, BaseSong):
         #                 value="{:,}/{:,}\n(**{:.2f}%**)".format(likes, dislikes, (likes * 100 / (likes + dislikes))))
 
         e.set_footer(text=f"Volume: {self.player.volume}%",
-                     icon_url=Resources.images.volume)
+                     icon_url=mido_utils.Resources.images.volume)
 
         if self.thumb:
             e.set_thumbnail(url=self.thumb)

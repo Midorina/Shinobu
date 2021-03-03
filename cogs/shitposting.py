@@ -13,11 +13,11 @@ class Shitposting(commands.Cog):
         self.bot = bot
 
     @discord.utils.cached_property
-    def get_random_api(self) -> mido_utils.SomeRandomAPI:
+    def random_api(self) -> mido_utils.SomeRandomAPI:
         return self.bot.get_cog('Searches').some_random_api
 
     @discord.utils.cached_property
-    def get_reddit_api(self) -> mido_utils.RedditAPI:
+    def reddit_api(self) -> mido_utils.RedditAPI:
         return self.bot.get_cog('NSFW').reddit
 
     @commands.command(name='8ball')
@@ -73,7 +73,7 @@ class Shitposting(commands.Cog):
         """Place a pride flag on someone's avatar."""
         user = target or ctx.author
 
-        url = await self.get_random_api().wasted_gay_or_triggered(
+        url = await self.random_api.wasted_gay_or_triggered(
             avatar_url=str(user.avatar_url_as(static_format='png')),
             _type="gay")
 
@@ -84,7 +84,7 @@ class Shitposting(commands.Cog):
         """Place a wasted screen on someone's avatar."""
         user = target or ctx.author
 
-        url = await self.get_random_api().wasted_gay_or_triggered(
+        url = await self.random_api.wasted_gay_or_triggered(
             avatar_url=str(user.avatar_url_as(static_format='png')),
             _type="wasted")
 
@@ -95,7 +95,7 @@ class Shitposting(commands.Cog):
         """See triggered version of someone's avatar."""
         user = target or ctx.author
 
-        url = await self.get_random_api().wasted_gay_or_triggered(
+        url = await self.random_api.wasted_gay_or_triggered(
             avatar_url=str(user.avatar_url_as(static_format='png')),
             _type="triggered")
 
@@ -104,12 +104,12 @@ class Shitposting(commands.Cog):
     @commands.command()
     async def dadjoke(self, ctx: mido_utils.Context):
         """Get a random dad joke."""
-        await ctx.send_success(await self.get_random_api().get_joke())
+        await ctx.send_success(await self.random_api.get_joke())
 
     @commands.command()
     async def meme(self, ctx: mido_utils.Context):
         """Get a random meme."""
-        image = (await self.get_reddit_api().get_reddit_post_from_db(ctx.bot, category='meme'))[0]
+        image = (await self.reddit_api.get_reddit_post_from_db(ctx.bot, category='meme'))[0]
         await ctx.send_simple_image(image.url)
 
     @commands.guild_only()
@@ -127,7 +127,7 @@ class Shitposting(commands.Cog):
         user = target or ctx.author
 
         await ctx.send_simple_image(
-            url=await self.get_random_api().youtube_comment(
+            url=await self.random_api.youtube_comment(
                 avatar_url=str(user.avatar_url_as(static_format='png')),
                 username=user.display_name,
                 comment=comment)

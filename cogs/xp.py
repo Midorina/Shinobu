@@ -159,7 +159,7 @@ class XP(commands.Cog):
     async def on_message(self, message: discord.Message):
         time = mido_utils.Time()
         await self.base_xp_on_message(message)
-        self.bot.logger.info('Checking XP took:\t\t\t' + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug('Checking XP took:\t\t\t' + time.passed_seconds_in_float_formatted)
 
     @commands.command(name="xp", aliases=['level', 'rank'])
     async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):

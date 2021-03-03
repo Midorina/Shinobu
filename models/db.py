@@ -927,15 +927,14 @@ class CachedImage(BaseDBModel, NSFWImage):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status in (429, 503):
-                    await asyncio.sleep(3.0)
-                    return await self.url_is_working()
+                elif response.status in (429, 500, 503):
+                    return None
                 elif response.status in (404, 403):
                     return False
                 else:
                     raise Exception(f"Unknown status code {response.status} for link: {self.url}")
         except asyncio.TimeoutError:
-            return await self.url_is_working()
+            return None
         except aiohttp.ClientConnectorError:
             return False
 

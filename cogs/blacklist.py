@@ -12,14 +12,14 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
         time = mido_utils.Time()
         user_is_blacklisted = await BlacklistDB.get(bot=ctx.bot, user_or_guild_id=ctx.author.id,
                                                     bl_type=BlacklistDB.BlacklistType.user)
-
         guild_is_blacklisted = False
-        if ctx.guild is not None:
-            guild_is_blacklisted = await BlacklistDB.get(bot=ctx.bot, user_or_guild_id=ctx.guild.id,
-                                                         bl_type=BlacklistDB.BlacklistType.guild)
+
+        if user_is_blacklisted and ctx.guild:
             # if the guild owner is blacklisted but the guild is not blacklisted
             # blacklist their guild too, fuck'em
-            if user_is_blacklisted and ctx.author.id == ctx.guild.owner.id and not guild_is_blacklisted:
+            guild_is_blacklisted = await BlacklistDB.get(bot=ctx.bot, user_or_guild_id=ctx.guild.id,
+                                                         bl_type=BlacklistDB.BlacklistType.guild)
+            if ctx.author.id == ctx.guild.owner.id and not guild_is_blacklisted:
                 await BlacklistDB.blacklist(bot=ctx.bot,
                                             user_or_guild_id=ctx.guild.id,
                                             bl_type=BlacklistDB.BlacklistType.guild,

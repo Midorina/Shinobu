@@ -41,7 +41,8 @@ class MidoBotAPI:
     @classmethod
     def get_aiohttp_session(cls):
         return ClientSession(headers=cls.DEFAULT_HEADERS,
-                             connector=aiohttp.TCPConnector(limit=0))
+                             connector=aiohttp.TCPConnector(limit=0),
+                             timeout=aiohttp.ClientTimeout(total=10))
 
     async def _request_get(self,
                            url: str,
@@ -236,6 +237,7 @@ class RedditAPI(CachedImageAPI):
         for sub in LocalSubreddit.get_all():
             await _fill(sub.subreddit_name)
 
+
 class NSFW_DAPIs(CachedImageAPI):
     BLACKLISTED_TAGS = [
         'loli',
@@ -305,7 +307,9 @@ class NSFW_DAPIs(CachedImageAPI):
     async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[NSFWImage]:
         urls = []
 
-        for dapi in random.sample(self.DAPI_LINKS.keys(), len(self.DAPI_LINKS.keys())):
+        sample = limit if limit <= len(self.DAPI_LINKS.keys()) else len(self.DAPI_LINKS.keys())
+
+        for dapi in random.sample(self.DAPI_LINKS.keys(), sample):
             try:
                 urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
             except (mido_utils.NotFoundError, TooManyArguments, mido_utils.APIError):
@@ -338,7 +342,7 @@ class NSFW_DAPIs(CachedImageAPI):
         return url.endswith('.webm') or url.endswith('.mp4')
 
     async def _get_nsfw_dapi(self, dapi_name, tags: List[str], allow_video=False, score: int = 10, limit: int = 100) -> \
-    List[str]:
+            List[str]:
         images = []
 
         if f'score:>={score}' in tags:

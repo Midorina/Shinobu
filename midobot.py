@@ -243,6 +243,11 @@ class MidoBot(commands.AutoShardedBot):
         except discord.Forbidden:
             await channel.send("I need **Manage Webhooks** permission to continue.")
 
+        except discord.NotFound:
+            # webhook is probably deleted, so delete it from cache as well
+            del self.webhook_cache[channel.id]
+            return await self.send_as_webhook(channel, *args, **kwargs)
+
         except Exception as e:
             await self.get_cog('ErrorHandling').on_error(str(e))
 
