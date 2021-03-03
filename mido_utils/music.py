@@ -48,7 +48,7 @@ class VoicePlayer(Player):
 
     @property
     def position_str(self):
-        return Time.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
+        return mido_utils.Time.parse_seconds_to_str(self.position_in_seconds, short=True, sep=':')
 
     async def destroy(self) -> None:
         try:

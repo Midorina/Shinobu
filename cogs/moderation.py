@@ -7,8 +7,6 @@ import mido_utils
 from midobot import MidoBot
 from models.db import GuildDB, ModLog
 
-# TODO: logging
-
 action_emotes = {
     'kick': '👢',
     'ban' : '🔨',
