@@ -212,7 +212,7 @@ class Moderation(commands.Cog):
 
             muted_role = await guild.create_role(name='Muted',
                                                  reason="Mute role for the mute command.",
-                                                 color=discord.Colour.dark_grey())
+                                                 color=mido_utils.Color.dark_grey())
 
             couldnt_configure_some_channels = False
 

@@ -4,9 +4,7 @@ import discord
 from asyncpg.pool import Pool
 from discord.ext import commands
 
-from mido_utils.embed import Embed
-from mido_utils.resources import Resources
-from mido_utils.time_stuff import Time
+import mido_utils
 from models.db import GuildDB, MemberDB, UserDB
 
 
@@ -15,7 +13,7 @@ class Context(commands.Context):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.resources = Resources()
+        self.resources = mido_utils.Resources()
 
         from midobot import MidoBot
         from mido_utils.music import VoicePlayer
@@ -30,10 +28,10 @@ class Context(commands.Context):
 
         self.voice_player: VoicePlayer = None
 
-        self.time_created: Time = Time()
+        self.time_created: mido_utils.Time = mido_utils.Time()
 
     async def attach_db_objects(self):
-        time = Time()
+        time = mido_utils.Time()
         try:
             self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
 
@@ -52,16 +50,16 @@ class Context(commands.Context):
                          message_to_show_if_no_msg_is_included: str = 'Error!') -> discord.Message:
         msg = str(error_obj) or message_to_show_if_no_msg_is_included
 
-        embed = Embed(bot=self.bot,
-                      color=discord.Colour.red(),
-                      description=msg)
+        embed = mido_utils.Embed(bot=self.bot,
+                                 color=mido_utils.Color.red(),
+                                 description=msg)
 
         return await self.send(embed=embed)
 
     async def send_success(self, message: str = 'Success!', delete_after: float = None, **kwargs) -> discord.Message:
-        embed = Embed(bot=self.bot,
-                      description=message,
-                      **kwargs)
+        embed = mido_utils.Embed(bot=self.bot,
+                                 description=message,
+                                 **kwargs)
 
         return await self.send(embed=embed, delete_after=delete_after)
 
@@ -72,7 +70,7 @@ class Context(commands.Context):
         await message_object.edit(embed=embed)
 
     async def send_simple_image(self, url: str):
-        e = Embed(bot=self.bot, image_url=url)
+        e = mido_utils.Embed(bot=self.bot, image_url=url)
         await self.send(embed=e)
 
     async def send_help(self, entity=None, content=''):
