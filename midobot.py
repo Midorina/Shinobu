@@ -28,6 +28,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.name = bot_name
 
+        # case insensitive cogs
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
         self.config: dict = self.get_config()
@@ -246,6 +247,10 @@ class MidoBot(commands.AutoShardedBot):
         except discord.NotFound:
             # webhook is probably deleted, so delete it from cache as well
             del self.webhook_cache[channel.id]
+            return await self.send_as_webhook(channel, *args, **kwargs)
+
+        except discord.DiscordServerError:
+            # probably discord servers dying
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except Exception as e:

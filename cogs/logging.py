@@ -215,7 +215,12 @@ class Logging(commands.Cog):
                 msg: discord.Message = payload.cached_message
 
             if logging_type is LoggedEvents.MESSAGE_EDIT:
-                new_msg = await msg.channel.fetch_message(msg.id)
+                try:
+                    new_msg = await msg.channel.fetch_message(msg.id)
+                except discord.Forbidden:
+                    # todo
+                    return
+
                 if new_msg.content == msg.content:
                     # if the contents are identical, return
                     return
