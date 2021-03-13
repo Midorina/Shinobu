@@ -36,7 +36,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
                          , '_', '\_');
                 $func$;
                 """)
-        self.bot.logger.info("Checking CR DB function took:\t" + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug("Checking CR DB function took:\t" + time.passed_seconds_in_float_formatted)
 
     async def base_cr_on_message(self, message: discord.Message):
         """This on_message function is used to check whether a message triggered a custom reaction or not."""

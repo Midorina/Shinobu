@@ -30,12 +30,13 @@ class Reminder(commands.Cog):
         # sleep until its time
         await asyncio.sleep(delay=reminder.time_obj.remaining_seconds)
 
-        author = self.bot.get_user(reminder.author_id)
+        channel = author = self.bot.get_user(reminder.author_id)
 
-        if reminder.channel_type == ReminderDB.ChannelType.DM:
-            channel = self.bot.get_user(reminder.channel_id)
-        else:
+        if reminder.channel_type != ReminderDB.ChannelType.DM:
             channel = self.bot.get_channel(reminder.channel_id)
+
+        if not channel:
+            return
 
         e = mido_utils.Embed(bot=self.bot,
                              title="A Friendly Reminder:",

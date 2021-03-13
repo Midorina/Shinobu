@@ -43,7 +43,7 @@ class Context(commands.Context):
         except AttributeError:  # not in guild
             self.user_db = await UserDB.get_or_create(self.bot, self.author.id)
 
-        self.bot.logger.info('Attaching db objects to ctx took:\t' + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug('Attaching db objects to ctx took:\t' + time.passed_seconds_in_float_formatted)
 
     async def send_error(self,
                          error_obj: Union[Exception, str],

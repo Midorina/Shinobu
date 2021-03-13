@@ -82,7 +82,7 @@ class NSFW(commands.Cog):
                 except Exception as e:
                     await self.bot.get_cog('ErrorHandling').on_error(str(e))
                 finally:
-                    self.bot.logger.info(f"Checking 1 image took:\t\t{time.passed_seconds_in_float_formatted}")
+                    self.bot.logger.debug(f"Checking 1 image took:\t\t{time.passed_seconds_in_float_formatted}")
                     await asyncio.sleep(1.0)
             await asyncio.sleep(5.0)
 
@@ -95,7 +95,7 @@ class NSFW(commands.Cog):
             self.add_auto_nsfw_tasks(guild)
             await asyncio.sleep(0.33)
 
-        self.bot.logger.info("Adding auto nsfw services took:\t" + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug("Adding auto nsfw services took:\t" + time.passed_seconds_in_float_formatted)
 
     def add_auto_nsfw_tasks(self, guild: GuildDB, nsfw_type: NSFWImage.Type = None):
         for base_nsfw_type in NSFWImage.Type:
@@ -142,7 +142,7 @@ class NSFW(commands.Cog):
                 nsfw_channel = None  # reset
                 break
 
-            self.bot.logger.info(f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
+            self.bot.logger.debug(f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
 
             await asyncio.sleep(db_interval)
 
@@ -160,7 +160,7 @@ class NSFW(commands.Cog):
 
         time = mido_utils.Time()
         await self.reddit.fill_the_database()
-        self.bot.logger.info('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
 
     @fill_the_database.error
     async def task_error(self, error):

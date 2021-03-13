@@ -41,7 +41,7 @@ class Logging(commands.Cog):
         time = mido_utils.Time()
         to_db, self.message_cache = self.message_cache, []
         await LoggedMessage.insert_bulk(self.bot, to_db)
-        self.bot.logger.info("Inserting cached messages to DB took:\t" + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug("Inserting cached messages to DB took:\t" + time.passed_seconds_in_float_formatted)
 
     @tasks.loop(minutes=1.0)
     async def cache_to_db_task(self):

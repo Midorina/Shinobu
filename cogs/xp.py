@@ -58,15 +58,16 @@ class XP(commands.Cog):
 
         return e
 
-    def get_leaderboard_embed(self, top_10: List[Union[UserDB, MemberDB]], title: str):
+    async def get_leaderboard_embed(self, top_10: List[Union[UserDB, MemberDB]], title: str):
         e = mido_utils.Embed(bot=self.bot, title=title)
 
         e.timestamp = datetime.utcnow()
 
         e.description = ""
         for i, user in enumerate(top_10, 1):
-            if i == 1 and self.bot.get_user(user.id):
-                e.set_thumbnail(url=self.bot.get_user(user.id).avatar_url)
+            user_discord = await self.bot.get_user_using_ipc(user.id)
+            if i == 1 and user_discord:
+                e.set_thumbnail(url=user_discord.avatar_url)
 
             level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
             e.description += f"`#{i}` **{user.discord_name}**\n" \
@@ -186,7 +187,7 @@ class XP(commands.Cog):
         """See the XP leaderboard of the server."""
         top_10 = await ctx.guild_db.get_top_10()
 
-        e = self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
+        e = await self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
 
         await ctx.send(embed=e)
 
@@ -196,7 +197,7 @@ class XP(commands.Cog):
         """See the global XP leaderboard."""
         top_10 = await ctx.user_db.get_top_10(ctx.bot)
 
-        e = self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
+        e = await self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
 
         await ctx.send(embed=e)
 

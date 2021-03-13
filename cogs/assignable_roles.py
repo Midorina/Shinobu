@@ -80,7 +80,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send(embed=e)
 
-    @commands.command(name='iam', aliases=['join'])
+    @commands.command(name='iam')
     async def join_role(self,
                         ctx: mido_utils.Context,
                         role: mido_utils.RoleConverter()):
@@ -106,7 +106,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
 
-    @commands.command(name='iamnot', aliases=['iamn', 'leave'])
+    @commands.command(name='iamnot', aliases=['iamn'])
     async def leave_role(self,
                          ctx: mido_utils.Context,
                          role: mido_utils.RoleConverter()):

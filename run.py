@@ -1,8 +1,9 @@
 import argparse
+import asyncio
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-from midobot import MidoBot
+from cluster_manager import Launcher
 
 # arg stuff
 parser = argparse.ArgumentParser()
@@ -27,8 +28,7 @@ handler_c = logging.StreamHandler()
 handler_f.setFormatter(_format)
 handler_c.setFormatter(_format)
 
-logger.addHandler(handler_f)
-logger.addHandler(handler_c)
+logger.handlers = [handler_f, handler_c]
 
-bot = MidoBot(bot_name)
-bot.run()
+loop = asyncio.get_event_loop()
+Launcher(loop, bot_name).start()

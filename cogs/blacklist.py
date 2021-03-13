@@ -27,7 +27,7 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
                                                    f'because the owner {ctx.author.id} was blacklisted')
                 guild_is_blacklisted = True
 
-        self.bot.logger.info('Blacklist checking took:\t' + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug('Blacklist checking took:\t' + time.passed_seconds_in_float_formatted)
         if user_is_blacklisted:
             raise mido_utils.UserIsBlacklisted("The user is blacklisted.")
         if guild_is_blacklisted:

@@ -62,7 +62,7 @@ class Music(commands.Cog, WavelinkMixin):
     async def track_end_event(self, node: Node, payload: events.TrackEnd):
         payload.player.next.set()
 
-    @commands.command(name='connect')
+    @commands.command(name='join', aliases=['connect'])
     async def _join(self, ctx: mido_utils.Context):
         """Make me connect to your voice channel."""
         await self.ensure_can_control(ctx)  # this is cuz ctx.invoke doesn't call pre-invoke hooks
@@ -78,7 +78,7 @@ class Music(commands.Cog, WavelinkMixin):
             await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
 
-    @commands.command(name='stop', aliases=['disconnect', 'destroy', 'd', 'dc'])
+    @commands.command(name='leave', aliases=['disconnect', 'destroy', 'd', 'dc', 'stop'])
     async def _leave(self, ctx: mido_utils.Context):
         """Make me disconnect from your voice channel."""
         if ctx.voice_player.channel_id:
