@@ -15,7 +15,6 @@ from aiohttp import ClientResponse, ClientSession
 from anekos.client import Tag
 from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
-from discord.ext.commands import TooManyArguments
 
 import mido_utils
 from models.db import CachedImage, NSFWImage
@@ -305,15 +304,19 @@ class NSFW_DAPIs(CachedImageAPI):
             return fetched_imgs
 
     async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[NSFWImage]:
-        urls = []
-
         sample = limit if limit <= len(self.DAPI_LINKS.keys()) else len(self.DAPI_LINKS.keys())
 
+        urls = []
+        aws = []
         for dapi in random.sample(self.DAPI_LINKS.keys(), sample):
-            try:
-                urls.extend(await self.get(dapi, tags, limit=limit, allow_video=allow_video))
-            except (mido_utils.NotFoundError, TooManyArguments, mido_utils.APIError):
-                pass
+            aws.append(self.get(nsfw_type=dapi,
+                                tags=tags,
+                                limit=limit,
+                                allow_video=allow_video))
+
+        for result in await asyncio.gather(*aws, return_exceptions=True):
+            if isinstance(result, list):  # ignore exceptions
+                urls.extend(result)
 
         try:
             return random.sample(urls, limit)
@@ -341,8 +344,12 @@ class NSFW_DAPIs(CachedImageAPI):
     def is_video(url: str):
         return url.endswith('.webm') or url.endswith('.mp4')
 
-    async def _get_nsfw_dapi(self, dapi_name, tags: List[str], allow_video=False, score: int = 10, limit: int = 100) -> \
-            List[str]:
+    async def _get_nsfw_dapi(self,
+                             dapi_name: str,
+                             tags: List[str],
+                             allow_video=False,
+                             limit: int = 100,
+                             score: int = 100) -> List[str]:
         images = []
 
         if f'score:>={score}' in tags:
@@ -365,8 +372,8 @@ class NSFW_DAPIs(CachedImageAPI):
                     'json' : 1
                 }, return_json=True)
             except mido_utils.NotFoundError:
-                if score > 1:
-                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 5, limit=limit)
+                if score > 10:
+                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 10, limit=limit)
                 else:
                     raise mido_utils.NotFoundError
 

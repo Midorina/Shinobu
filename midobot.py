@@ -3,57 +3,69 @@ import json
 import logging
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import asyncpg
 import discord
 from discord.ext import commands
 
 import mido_utils
+from ipc import ipc_funcs
 from models.db import GuildDB, UserDB
 
 
 class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
-    def __init__(self, bot_name: str = 'midobot'):
+    def __init__(self, **cluster_kwargs):
+        self.name = cluster_kwargs.pop('bot_name')
+        self.config: dict = self.get_config(self.name)
+
+        self.cluster_name = cluster_kwargs.pop('cluster_name')
+        self.cluster_count = cluster_kwargs.pop('total_clusters')
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         super().__init__(
+            loop=loop,
             command_prefix=self.get_prefix,
             case_insensitive=True,
             chunk_guilds_at_startup=False,
             intents=discord.Intents.all(),
+            **cluster_kwargs,
 
-            status=discord.Status.dnd,
-            activity=discord.Game("Getting ready...")
+            # status=discord.Status.dnd,
+            # activity=discord.Game("Getting ready..."),
+            status=discord.Status.online,
+            activity=discord.Game(name=self.config["playing"])
         )
-
-        self.name = bot_name
 
         # case insensitive cogs
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
-        self.config: dict = self.get_config()
-
+        self.db: asyncpg.pool.Pool = None
+        self.prefix_cache = {}
         self.owner_ids = set(self.config['owner_ids'])
 
-        self.first_time = True
-
-        self.db: asyncpg.pool.Pool = None
-
-        self.logger = logging.getLogger(self.name.title())
+        self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_name}\t')
+        self.logger.info(
+            f'[Cluster#{self.cluster_name}] {cluster_kwargs["shard_ids"]}, {cluster_kwargs["shard_count"]}')
 
         self.message_counter = 0
         self.command_counter = 0
         self.uptime: mido_utils.Time = None
 
-        self.prefix_cache = {}
-
         self.http_session = mido_utils.MidoBotAPI.get_aiohttp_session()
 
         self.before_invoke(self.attach_db_objects_to_ctx)
 
+        self.webhook_cache: Dict[int, discord.Webhook] = dict()
+
         self.loop.create_task(self.prepare_bot())
 
-        self.webhook_cache: Dict[int, discord.Webhook] = dict()
+        self.ipc: ipc_funcs.IPCClient = ipc_funcs.IPCClient(self)
+
+        self.run()
 
     async def prepare_bot(self):
         self.uptime = mido_utils.Time()
@@ -62,26 +74,13 @@ class MidoBot(commands.AutoShardedBot):
 
         self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
-        # load cogs
-        for file in os.listdir("cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
-                try:
-                    self.load_extension(f"cogs.{name}")
-                    self.logger.info(f"Loaded cogs.{name}")
-                except Exception as e:
-                    self.logger.error(f"Failed to load cog {name}")
-                    self.logger.exception(e)
+        self.load_or_reload_cogs()
 
-        # self.loop.create_task(self.chunk_active_guilds())
+        self.loop.create_task(self.chunk_active_guilds())
 
-    async def close(self):
-        await super().close()
-        await self.http_session.close()
-        await self.db.close()
-
-    def get_config(self):
-        with open(f'config_{self.name}.json') as f:
+    @staticmethod
+    def get_config(bot_name: str) -> dict:
+        with open(f'config_{bot_name}.json') as f:
             return json.load(f)
 
     @property
@@ -104,9 +103,7 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(f'Chunked {i} active guilds.')
 
     async def on_ready(self):
-        self.logger.info(f"{self.user} is ready.")
-
-        await self.change_presence(status=discord.Status.online, activity=discord.Game(name=self.config["playing"]))
+        self.logger.info(f'[Cluster#{self.cluster_name}] Ready called.')
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
         return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
@@ -132,12 +129,14 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(f'Chunked {guild.member_count} members of guild: {guild.name}')
 
     async def on_guild_join(self, guild):
-        await self.log_channel.send(
-            f"I just joined the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
+        guild_count = await self.ipc.get_guild_count()
+        await self.ipc.send_to_log_channel(
+            f"I just joined the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {guild_count}")
 
     async def on_guild_remove(self, guild):
-        await self.log_channel.send(
-            f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {len(self.guilds)}")
+        guild_count = await self.ipc.get_guild_count()
+        await self.ipc.send_to_log_channel(
+            f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {guild_count}")
 
     def log_command(self, ctx: mido_utils.Context, error: Exception = None):
         if isinstance(error, commands.CommandNotFound):
@@ -226,6 +225,34 @@ class MidoBot(commands.AutoShardedBot):
         """
         await ctx.attach_db_objects()
 
+    def load_or_reload_cogs(self, cog_name: str = None) -> int:
+        """Loads or reloads all cogs or a specified one. Returns the number of loaded/reloaded cogs."""
+        cog_counter = 0
+        for file in os.listdir("cogs"):
+            if file.endswith(".py"):
+                name = file[:-3]
+
+                # if a cog name is provided, and its not the cog we want, skip
+                if cog_name and name != cog_name:
+                    continue
+
+                try:
+                    self.reload_extension(f"cogs.{name}")
+                    self.logger.info(f"Reloaded cogs.{name}")
+                except discord.ext.commands.ExtensionNotLoaded:
+                    self.load_extension(f"cogs.{name}")
+                    self.logger.info(f"Loaded cogs.{name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to load cog {name}")
+                    self.logger.exception(e)
+                finally:
+                    cog_counter += 1
+
+        return cog_counter
+
+    async def get_user_using_ipc(self, user_id: int) -> Optional[Union[discord.User, ipc_funcs.SerializedObject]]:
+        return super().get_user(user_id) or await self.ipc.get_user(user_id)
+
     async def send_as_webhook(self, channel: discord.TextChannel, *args, **kwargs):
         try:
             try:
@@ -263,5 +290,14 @@ class MidoBot(commands.AutoShardedBot):
         else:
             return mido_utils.Color.mido_green()
 
+    def get_guild_id_list(self):
+        return [x.id for x in self.guilds]
+
     def run(self):
-        super().run(self.config["token"])
+        super().run(self.config['token'])
+
+    async def close(self):
+        await super().close()
+        await self.http_session.close()
+        await self.db.close()
+        await self.ipc.close_ipc(f"Cluster {self.cluster_name} has shut down.")

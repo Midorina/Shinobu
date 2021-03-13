@@ -53,7 +53,7 @@ class Moderation(commands.Cog):
                                 await member.remove_roles(mute_role, reason='ModLog time has expired. (Auto-Unmute)')
 
                 await modlog.complete()
-        self.bot.logger.info("Checking modlogs took:\t\t" + time.passed_seconds_in_float_formatted)
+        self.bot.logger.debug("Checking modlogs took:\t\t" + time.passed_seconds_in_float_formatted)
 
     @check_modlogs.error
     async def task_error(self, error):

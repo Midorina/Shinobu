@@ -5,10 +5,11 @@ import discord
 from discord.ext import commands
 
 import mido_utils
+from midobot import MidoBot
 
 
 class ErrorHandling(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: MidoBot):
         self.bot = bot
 
     # this doesn't fire as a listener
@@ -25,7 +26,7 @@ class ErrorHandling(commands.Cog):
                                         color=mido_utils.Color.red(),
                                         description=f"```py\n{error_msg[:2000]}```")
 
-        await self.bot.log_channel.send(content=content, embed=traceback_embed)
+        await self.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: mido_utils.Context, error):
@@ -179,7 +180,7 @@ An error occurred during the execution of a command:
         traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2000]}```",
                                         timestamp=ctx.message.created_at, color=mido_utils.Color.red())
 
-        await ctx.bot.log_channel.send(content=content, embed=traceback_embed)
+        await ctx.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)
 
 
 def setup(bot):

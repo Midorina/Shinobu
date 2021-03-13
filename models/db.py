@@ -90,7 +90,8 @@ class ModLog(BaseDBModel):
             WHERE 
                 length_in_seconds IS NOT NULL AND length_in_seconds != 0
                 AND type = ANY($1) 
-                AND done IS NOT TRUE;""", (ModLog.Type.MUTE.value, ModLog.Type.BAN.value))
+                AND done IS NOT TRUE
+                AND guild_id=ANY($2);""", (ModLog.Type.MUTE.value, ModLog.Type.BAN.value), [x.id for x in bot.guilds])
 
         return [cls(x, bot) for x in ret]
 
@@ -403,6 +404,7 @@ class GuildDB(BaseDBModel):
         # music
         self.volume: int = guild_db.get('volume')
 
+        # todo: move these to another table
         # auto hentai
         self.auto_hentai_channel_id: int = guild_db.get('auto_hentai_channel_id')
         self.auto_hentai_tags: List[str] = guild_db.get('auto_hentai_tags')
@@ -423,8 +425,9 @@ class GuildDB(BaseDBModel):
 
     @classmethod
     async def get_guilds_that_are_active_in_last_x_hours(cls, bot, hours: int = 24):
-        ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (now() - $1::interval);",
-                                 timedelta(hours=hours))
+        ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (now() - $1::interval) "
+                                 "AND id=ANY($2);",  # clustering
+                                 timedelta(hours=hours), [x.id for x in bot.guilds])
 
         return [cls(guild, bot) for guild in ret]
 
@@ -448,8 +451,10 @@ class GuildDB(BaseDBModel):
     @classmethod
     async def get_auto_nsfw_guilds(cls, bot):
         ret = await bot.db.fetch("SELECT * FROM guilds "
-                                 "WHERE auto_hentai_channel_id IS NOT NULL "
-                                 "OR auto_porn_channel_id IS NOT NULL;")
+                                 "WHERE (auto_hentai_channel_id IS NOT NULL "
+                                 "OR auto_porn_channel_id IS NOT NULL) "
+                                 "AND id=ANY($1);", [x.id for x in bot.guilds]  # clustering
+                                 )
         return [cls(guild, bot) for guild in ret]
 
     async def change_prefix(self, new_prefix: str):
@@ -676,7 +681,7 @@ class LoggedMessage(BaseDBModel):
 
         await bot.db.executemany("""
             INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+            VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING *;
             """, tup)
 
         # update active guilds with this info
@@ -860,6 +865,7 @@ class NSFWImage:
         self.api_name = api_name
 
     def get_embed(self, bot) -> mido_utils.Embed:
+        # todo: send as a normal message if the link is .webm or .mp4
         e = mido_utils.Embed(bot=bot,
                              description=f"Image not working? [Click here.]({self.url})",
                              image_url=self.url)
@@ -921,7 +927,7 @@ class CachedImage(BaseDBModel, NSFWImage):
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
     async def url_is_working(self) -> bool:
-        self.bot.logger.info(f"Checking image: {self.url}")
+        self.bot.logger.debug(f"Checking image: {self.url}")
         try:
             async with self.bot.http_session.get(url=self.url) as response:
                 if response.status == 200:
@@ -969,7 +975,7 @@ class DonutEvent(BaseDBModel):
 
     @classmethod
     async def get_active_ones(cls, bot) -> List[DonutEvent]:
-        ret = await bot.db.fetch("SELECT * FROM donut_events;")
+        ret = await bot.db.fetch("SELECT * FROM donut_events WHERE guild_id=ANY($1);", [x.id for x in bot.guilds])
         objects = [cls(x, bot) for x in ret]
 
         return list(x for x in objects if x.end_date.end_date_has_passed is False)

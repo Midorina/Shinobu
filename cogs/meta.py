@@ -6,7 +6,7 @@ from datetime import datetime
 
 import discord
 import psutil
-from discord.ext import commands, commands
+from discord.ext import commands
 
 import mido_utils
 from midobot import MidoBot
@@ -129,19 +129,7 @@ class Meta(commands.Cog):
     def cog_unload(self):
         self.bot.help_command = self.old_help_command
 
-    @commands.command(hidden=True)
-    @mido_utils.is_owner()
-    async def eval(self, ctx, *, cmd):
-        """A developer command that evaluates code.
-
-        Globals:
-          - `bot`: the bot instance
-          - `discord`: the discord module
-          - `commands`: the discord.ext.commands module
-          - `ctx`: the invocation context
-          - `__import__`: the builtin `__import__` function
-        """
-
+    async def _eval(self, cmd, ctx=None):
         def insert_returns(_body):
             # insert return stmt if the last expression is a expression statement
             if isinstance(_body[-1], ast.Expr):
@@ -173,12 +161,13 @@ class Meta(commands.Cog):
         insert_returns(body)
 
         env = {
-            'bot'       : ctx.bot,
+            'bot'       : self.bot,
             'discord'   : discord,
             'commands'  : commands,
-            'ctx'       : ctx,
             '__import__': __import__
         }
+        if ctx:
+            env['ctx'] = ctx
 
         exec(compile(parsed, filename="<ast>", mode="exec"), env)
 
@@ -187,7 +176,21 @@ class Meta(commands.Cog):
         except Exception as e:
             result = e
 
-        await ctx.send(result)
+        return result
+
+    @commands.command(hidden=True)
+    @mido_utils.is_owner()
+    async def eval(self, ctx, *, cmd):
+        """A developer command that evaluates code.
+
+        Globals:
+          - `bot`: the bot instance
+          - `discord`: the discord module
+          - `commands`: the discord.ext.commands module
+          - `ctx`: the invocation context
+          - `__import__`: the builtin `__import__` function
+        """
+        await ctx.send(await self._eval(cmd, ctx))
 
     @commands.command()
     async def ping(self, ctx: mido_utils.Context):
@@ -248,7 +251,7 @@ class Meta(commands.Cog):
     @commands.command(aliases=['info', 'about'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
-        mido = self.bot.get_user(self.bot.config['owner_ids'][0])
+        mido = await self.bot.get_user_using_ipc(self.bot.config['owner_ids'][0])
 
         memory = self.process.memory_info().rss / 10 ** 6
 
@@ -269,8 +272,10 @@ class Meta(commands.Cog):
                         value=mido_utils.Time.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
                         inline=True)
 
+        # todo: more detailed info with each cluster
         embed.add_field(name="Discord Stats",
-                        value=f"{len(self.bot.guilds)} Guilds\n"
+                        value=f"{self.bot.cluster_count} Clusters\n"
+                              f"{await self.bot.ipc.get_guild_count()} Guilds\n"
                               f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels\n"
                               f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
                         inline=True)
@@ -297,26 +302,11 @@ class Meta(commands.Cog):
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
-        # reload config
-        self.bot.config = self.bot.get_config()
+        await self.bot.ipc.reload(target_cog=cog_name)
 
-        cog_counter = 0
-        for file in os.listdir("cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
+        cog_counter = 1 if cog_name else len(self.bot.cogs)
 
-                # if a cog name is provided, and its not the cog we want, skip
-                if cog_name and name != cog_name:
-                    continue
-
-                try:
-                    self.bot.reload_extension(f"cogs.{name}")
-                except discord.ext.commands.ExtensionNotLoaded:
-                    self.bot.load_extension(f"cogs.{name}")
-                finally:
-                    cog_counter += 1
-
-        await ctx.send(f"Successfully reloaded **{cog_counter}** cog(s)!")
+        await ctx.send(f"All {self.bot.cluster_count} clusters have successfully reloaded **{cog_counter}** cog(s)!")
 
     @commands.command(hidden=True)
     @mido_utils.is_owner()
@@ -325,8 +315,8 @@ class Meta(commands.Cog):
 
         if force == '-f':
             multiprocessing.Process(target=os.system, args=(f'pm2 stop {self.bot.name}',)).start()
-
-        await self.bot.close()
+        else:
+            await self.bot.ipc.shutdown()
 
     @mido_utils.is_owner()
     @commands.command(name='setavatar', hidden=True)

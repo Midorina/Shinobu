@@ -4,7 +4,7 @@ from typing import List, Union
 
 import dbl
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -46,12 +46,20 @@ class Gambling(commands.Cog):
 
         # dbl stuff
         self.dblpy = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'],
-                                   autopost=self.bot.name == 'shinobu')  # post if shinobu
+                                   autopost=False)
         self.votes = set()
 
         # donut event stuff
         self.active_donut_events: List[DonutEvent] = list()
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
+
+    @tasks.loop(minutes=30.0)
+    async def post_guild_count(self):
+        """Manual posting is required due to clustering"""
+        await self.dblpy.http.post_guild_count(bot_id=self.bot.user.id,
+                                               guild_count=await self.bot.ipc.get_guild_count(),
+                                               shard_count=None,
+                                               shard_no=None)
 
     async def get_active_donut_events(self):
         await self.bot.wait_until_ready()
@@ -140,6 +148,9 @@ class Gambling(commands.Cog):
 
         await ctx.send_success(f"**{user.mention}** has **{user_db.cash_str}**!")
 
+    async def user_has_voted(self, user_id: int) -> bool:
+        return user_id in self.votes or await self.dblpy.get_user_vote(user_id)
+
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
@@ -148,20 +159,20 @@ class Gambling(commands.Cog):
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
 
-        try:
-            has_voted = ctx.author.id in self.votes or await self.dblpy.get_user_vote(ctx.author.id)
-        except dbl.HTTPException:
-            raise mido_utils.APIError
-
         if not daily_status.end_date_has_passed:
             raise mido_utils.OnCooldownError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
-        elif not has_voted:
+
+        try:
+            has_voted = await self.bot.ipc.user_has_voted(ctx.author.id)
+        except dbl.HTTPException:
+            raise mido_utils.APIError
+
+        if not has_voted:
             raise mido_utils.DidntVoteError(f"It seems like you haven't voted yet.\n\n"
                                             f"Vote [here]({mido_utils.Resources.links.upvote}), "
                                             f"then use this command again "
                                             f"to get your **{mido_utils.readable_currency(daily_amount)}**!")
-
         else:
             try:
                 self.votes.remove(ctx.author.id)
@@ -397,7 +408,7 @@ class Gambling(commands.Cog):
         for i, user in enumerate(rich_people, 1):
             # if its the #1 user
             if i == 1:
-                user_obj = self.bot.get_user(user.id)
+                user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
                     e.set_thumbnail(url=user_obj.avatar_url)
 
@@ -446,7 +457,7 @@ class Gambling(commands.Cog):
                              description=f"React with {mido_utils.Resources.emotes.currency} "
                                          f"to get **{mido_utils.readable_currency(reward)}** for free!"
                              )
-        e.set_footer(text="Ends at:")
+        e.set_footer(text="Ends")
         e.timestamp = length.end_date
 
         msg = await ctx.send(embed=e)

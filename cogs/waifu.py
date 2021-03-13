@@ -26,7 +26,7 @@ class Waifu(commands.Cog):
 
         e.description = ""
         for i, user_db in enumerate(top_5, 1):
-            user = self.bot.get_user(user_db.id)
+            user = await self.bot.get_user_using_ipc(user_db.id)
             user_name = str(user) if user else user_db.discord_name
 
             affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id) if user_db.waifu.affinity_id \
@@ -198,7 +198,7 @@ class Waifu(commands.Cog):
         elif not target:
             raise commands.BadArgument("Your affinity is already empty.")
 
-        previous_affinity = self.bot.get_user(ctx.user_db.waifu.affinity_id)
+        previous_affinity = await self.bot.get_user_using_ipc(ctx.user_db.waifu.affinity_id)
 
         await ctx.user_db.waifu.change_affinity(target.id if target else None)
 
