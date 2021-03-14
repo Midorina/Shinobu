@@ -222,7 +222,7 @@ class Song(Track, BaseSong):
             color=self.ctx.bot.color)
 
         e.set_author(
-            icon_url=mido_utils.Resources.images.now_playing,
+            icon_url=mido_utils.images.now_playing,
             name="Now Playing",
             url=self.url)
 
@@ -242,7 +242,7 @@ class Song(Track, BaseSong):
         #                 value="{:,}/{:,}\n(**{:.2f}%**)".format(likes, dislikes, (likes * 100 / (likes + dislikes))))
 
         e.set_footer(text=f"Volume: {self.player.volume}%",
-                     icon_url=mido_utils.Resources.images.volume)
+                     icon_url=mido_utils.images.volume)
 
         if self.thumb:
             e.set_thumbnail(url=self.thumb)

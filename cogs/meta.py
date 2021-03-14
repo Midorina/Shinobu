@@ -47,7 +47,7 @@ class MidoHelp(commands.HelpCommand):
                         f'You can type `{self.context.prefix}help <module>` '
                         f'to see the commands that are in that module.\n'
                         f'\n'
-                        f'Feel free to join the [support server]({mido_utils.Resources.links.support_server}) '
+                        f'Feel free to join the [support server]({mido_utils.links.support_server}) '
                         f'if you need additional help.',
             default_footer=True
         )
@@ -261,12 +261,12 @@ class Meta(commands.Cog):
                             f"Type `{ctx.prefix}help` to learn more.\n\n" \
                             f"Type `{ctx.prefix}invite` to invite me to your server.\n\n" \
                             f"**I've recently got re-written, so some features might be missing or misbehaving.**\n\n" \
-                            f"Join the [support server]({mido_utils.Resources.links.support_server}) " \
+                            f"Join the [support server]({mido_utils.links.support_server}) " \
                             f"if you want to provide feedback, get the latest news and join donut events."
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
-                         url=mido_utils.Resources.links.website)
+                         url=mido_utils.links.website)
 
         embed.add_field(name="Uptime",
                         value=mido_utils.Time.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
@@ -344,13 +344,13 @@ class Meta(commands.Cog):
         e = mido_utils.Embed(self.bot)
         e.title = f"Invite {self.bot.user} to your server:"
         e.description = f"[With Administrator Permission]" \
-                        f"({mido_utils.Resources.links.invite_admin.format(self.bot.user.id)}) (Suggested)\n" \
+                        f"({mido_utils.links.invite_admin.format(self.bot.user.id)}) (Suggested)\n" \
                         f"[With Minimal Permissions]" \
-                        f"({mido_utils.Resources.links.invite_minimal.format(self.bot.user.id)})\n" \
+                        f"({mido_utils.links.invite_minimal.format(self.bot.user.id)})\n" \
                         f"[With Selectable Permissions]" \
-                        f"({mido_utils.Resources.links.invite_selectable.format(self.bot.user.id)})\n" \
+                        f"({mido_utils.links.invite_selectable.format(self.bot.user.id)})\n" \
                         f"[With No Permission]" \
-                        f"({mido_utils.Resources.links.invite_none.format(self.bot.user.id)})"
+                        f"({mido_utils.links.invite_none.format(self.bot.user.id)})"
         e.set_thumbnail(url=self.bot.user.avatar_url)
 
         await ctx.send(embed=e)

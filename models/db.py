@@ -15,8 +15,13 @@ from asyncpg import Record
 from discord.ext.commands import BadArgument
 
 import mido_utils
-from models.subreddits import LocalSubreddit
-from models.waifu import Waifu
+import models
+
+__all__ = ['XpAnnouncement', 'ModLog', 'UserDB', 'MemberDB',
+           'GuildDB', 'GuildLoggingDB', 'LoggedMessage',
+           'ReminderDB', 'CustomReaction', 'NSFWImage',
+           'CachedImage', 'DonutEvent', 'TransactionLog',
+           'BlacklistDB', 'XpRoleReward', 'HangmanWord']
 
 
 class XpAnnouncement(Enum):
@@ -49,7 +54,7 @@ class ModLog(BaseDBModel):
         UNBAN = 3
 
     def __init__(self, modlog_db: Record, bot):
-        super(ModLog, self).__init__(modlog_db, bot)
+        super().__init__(modlog_db, bot)
 
         self.guild_id = modlog_db.get('guild_id')
         self.user_id = modlog_db.get('user_id')
@@ -142,7 +147,7 @@ class ModLog(BaseDBModel):
 
 class UserDB(BaseDBModel):
     def __init__(self, user_db: Record, bot):
-        super(UserDB, self).__init__(user_db, bot)
+        super().__init__(user_db, bot)
 
         self.cash: int = user_db.get('cash')
 
@@ -156,7 +161,7 @@ class UserDB(BaseDBModel):
 
         self.daily_date_status = mido_utils.Time.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
                                                                               bot.config['cooldowns']['daily'])
-        self.waifu: Waifu = Waifu(self)
+        self.waifu = models.Waifu(self)
 
     @property
     def discord_name(self) -> str:
@@ -193,13 +198,11 @@ class UserDB(BaseDBModel):
 
     @property
     def cash_str_without_emoji(self) -> str:
-        from mido_utils.converters import readable_bigint
-        return readable_bigint(self.cash)
+        return mido_utils.readable_bigint(self.cash)
 
     @property
     def cash_str(self) -> str:
-        from mido_utils.converters import readable_currency
-        return readable_currency(self.cash)
+        return mido_utils.readable_currency(self.cash)
 
     async def update_name(self, new_name: str):
         self._discord_name = new_name
@@ -235,9 +238,9 @@ class UserDB(BaseDBModel):
         await self.add_cash(amount=0 - amount, reason=reason)
 
     async def add_xp(self, amount: int, owner=False):
-        # if not self.xp_status.end_date_has_passed and not owner:
-        #     raise mido_utils.OnCooldownError(f"You're still on cooldown! "
-        #                                      f"Try again after **{self.xp_status.remaining_string}**.")
+        if not self.xp_status.end_date_has_passed and not owner:
+            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
+                                             f"Try again after **{self.xp_status.remaining_string}**.")
         self.total_xp += amount
         await self.db.execute(
             """UPDATE users SET xp = $1, last_xp_gain = $2 WHERE id=$3""",
@@ -297,7 +300,7 @@ class UserDB(BaseDBModel):
 class MemberDB(BaseDBModel):
     # noinspection PyTypeChecker
     def __init__(self, member_db: Record, bot):
-        super(MemberDB, self).__init__(member_db, bot)
+        super().__init__(member_db, bot)
 
         self.id = member_db.get('user_id')
 
@@ -379,7 +382,7 @@ class MemberDB(BaseDBModel):
 
 class GuildDB(BaseDBModel):
     def __init__(self, guild_db: Record, bot):
-        super(GuildDB, self).__init__(guild_db, bot)
+        super().__init__(guild_db, bot)
 
         self.prefix: str = guild_db.get('prefix')
 
@@ -698,7 +701,7 @@ class ReminderDB(BaseDBModel):
         TEXT_CHANNEL = 1
 
     def __init__(self, data: Record, bot):
-        super(ReminderDB, self).__init__(data, bot)
+        super().__init__(data, bot)
 
         self.author_id: int = data.get('author_id')
 
@@ -896,7 +899,7 @@ class CachedImage(BaseDBModel, NSFWImage):
     @classmethod
     async def get_random(cls,
                          bot,
-                         subreddits: List[LocalSubreddit],
+                         subreddits: List[models.LocalSubreddit],
                          limit: int = 1,
                          allow_gif=False) -> List[CachedImage]:
         if not allow_gif:
@@ -926,7 +929,7 @@ class CachedImage(BaseDBModel, NSFWImage):
     async def delete(self):
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
-    async def url_is_working(self) -> bool:
+    async def url_is_working(self) -> Optional[bool]:
         self.bot.logger.debug(f"Checking image: {self.url}")
         try:
             async with self.bot.http_session.get(url=self.url) as response:
@@ -1013,9 +1016,8 @@ class DonutEvent(BaseDBModel):
             f"User {user_db.discord_name} has been awarded {self.reward} donuts for reacting to the donut event."
         )
 
-        from mido_utils.converters import readable_currency
         e = mido_utils.Embed(bot=self.bot,
-                             description=f"You have been awarded **{readable_currency(self.reward)}** "
+                             description=f"You have been awarded **{mido_utils.readable_currency(self.reward)}** "
                                          f"for attending the donut event!")
         try:
             await user_db.discord_obj.send(embed=e)

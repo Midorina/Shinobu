@@ -1,5 +1,7 @@
 from enum import Enum
 
+__all__ = ['HearthstoneCard']
+
 
 class Rarity(Enum):
     Common = 1

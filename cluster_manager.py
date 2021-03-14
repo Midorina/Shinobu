@@ -6,6 +6,7 @@ import os
 import signal
 import sys
 import time
+import types
 from typing import List
 
 import requests
@@ -19,6 +20,30 @@ CLUSTER_NAMES = iter((
     'India', 'Juliett', 'Kilo', 'Mike', 'November', 'Oscar', 'Papa', 'Quebec',
     'Romeo', 'Sierra', 'Tango', 'Uniform', 'Victor', 'Whisky', 'X-ray', 'Yankee', 'Zulu'
 ))
+
+
+def reload_package(package):
+    # reloading from top level cause some bugs such as this https://thomas-cokelaer.info/blog/2011/09/382/
+    # so reload from the lowest level if something behaves weird
+    assert (hasattr(package, "__package__"))
+    fn = package.__file__
+    fn_dir = os.path.dirname(fn) + os.sep
+    module_visit = {fn}
+    del fn
+
+    def reload_recursive_ex(module):
+        importlib.reload(module)
+
+        for module_child in vars(module).values():
+            if isinstance(module_child, types.ModuleType):
+                fn_child = getattr(module_child, "__file__", None)
+                if (fn_child is not None) and fn_child.startswith(fn_dir):
+                    if fn_child not in module_visit:
+                        log.debug("Reloading module:", fn_child, "\tFrom:", module)
+                        module_visit.add(fn_child)
+                        reload_recursive_ex(module_child)
+
+    return reload_recursive_ex(package)
 
 
 class Launcher:
@@ -155,7 +180,8 @@ class Cluster:
             self.process.close()
 
         # reload the bot so that the changes we've made takes effect
-        importlib.reload(midobot)
+        reload_package(midobot)
+
         self.process = multiprocessing.Process(target=midobot.MidoBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
         self.log.info(f"Process started with PID {self.process.pid}")

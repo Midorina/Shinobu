@@ -9,9 +9,11 @@ import asyncpg
 import discord
 from discord.ext import commands
 
+# anything not imported here will not be reloaded once the cluster is shut down.
+# so its important to import everything but cogs here
+import ipc
 import mido_utils
-from ipc import ipc_funcs
-from models.db import GuildDB, UserDB
+import models
 
 
 class MidoBot(commands.AutoShardedBot):
@@ -63,7 +65,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.loop.create_task(self.prepare_bot())
 
-        self.ipc: ipc_funcs.IPCClient = ipc_funcs.IPCClient(self)
+        self.ipc: ipc.IPCClient = ipc.IPCClient(self)
 
         self.run()
 
@@ -90,7 +92,7 @@ class MidoBot(commands.AutoShardedBot):
     async def chunk_active_guilds(self):
         await self.wait_until_ready()
 
-        active_guilds = await GuildDB.get_guilds_that_are_active_in_last_x_hours(self, hours=6)
+        active_guilds = await models.GuildDB.get_guilds_that_are_active_in_last_x_hours(self, hours=6)
 
         i = 0
         for guild_db in active_guilds:
@@ -211,7 +213,7 @@ class MidoBot(commands.AutoShardedBot):
         return os.urandom(4).hex()
 
     async def get_user_name(self, _id: int) -> str:
-        user_db = await UserDB.get_or_create(bot=self, user_id=_id)
+        user_db = await models.UserDB.get_or_create(bot=self, user_id=_id)
         return user_db.discord_name
 
     async def on_error(self, event_method: str, *args, **kwargs):
@@ -250,7 +252,7 @@ class MidoBot(commands.AutoShardedBot):
 
         return cog_counter
 
-    async def get_user_using_ipc(self, user_id: int) -> Optional[Union[discord.User, ipc_funcs.SerializedObject]]:
+    async def get_user_using_ipc(self, user_id: int) -> Optional[Union[discord.User, ipc.SerializedObject]]:
         return super().get_user(user_id) or await self.ipc.get_user(user_id)
 
     async def send_as_webhook(self, channel: discord.TextChannel, *args, **kwargs):

@@ -29,7 +29,7 @@ class Shitposting(commands.Cog):
         e.set_author(icon_url=ctx.author.avatar_url, name=ctx.author)
 
         e.add_field(name='❓ Question', value=question, inline=False)
-        e.add_field(name='🎱 8ball', value=mido_utils.Resources.strings.eight_ball_responses[answer_index],
+        e.add_field(name='🎱 8ball', value=mido_utils.strings.eight_ball_responses[answer_index],
                     inline=False)
 
         if answer_index < 10:

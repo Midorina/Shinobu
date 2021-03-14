@@ -64,7 +64,7 @@ class Searches(commands.Cog):
 
         results = await self.google.search(query=search)
         e = mido_utils.Embed(self.bot)
-        e.set_author(icon_url=mido_utils.Resources.images.google,
+        e.set_author(icon_url=mido_utils.images.google,
                      name=f"Google: {search}")
 
         e.description = ""

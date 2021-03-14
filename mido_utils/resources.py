@@ -17,26 +17,25 @@ class Resource:
 
 class Strings(Resource):
     def __init__(self):
-        super(Strings, self).__init__('resources/strings.json')
+        super().__init__('resources/strings.json')
 
 
 class Emotes(Resource):
     def __init__(self):
-        super(Emotes, self).__init__('resources/emotes.json')
+        super().__init__('resources/emotes.json')
 
 
 class Links(Resource):
     def __init__(self):
-        super(Links, self).__init__('resources/links.json')
+        super().__init__('resources/links.json')
 
 
 class Images(Resource):
     def __init__(self):
-        super(Images, self).__init__('resources/images.json')
+        super().__init__('resources/images.json')
 
 
-class Resources:
-    images = Images()
-    links = Links()
-    strings = Strings()
-    emotes = Emotes()
+images = Images()
+links = Links()
+strings = Strings()
+emotes = Emotes()

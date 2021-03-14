@@ -4,6 +4,8 @@ from typing import List
 
 from mido_utils.exceptions import NotFoundError
 
+__all__ = ['LocalSubreddit']
+
 
 class LocalSubreddit:
     def __init__(self, exact_subreddit_name: str, tags: List[str]):

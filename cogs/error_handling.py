@@ -130,9 +130,8 @@ class ErrorHandling(commands.Cog):
             elif isinstance(error, (mido_utils.MusicError,
                                     commands.UserInputError,
                                     mido_utils.TimedOut,
-                                    mido_utils.DidntVoteError
-                                    )
-                            ):
+                                    mido_utils.DidntVoteError,
+                                    mido_utils.UnknownCurrency)):
                 return await ctx.send_error(error)
 
         except discord.Forbidden:

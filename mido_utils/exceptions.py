@@ -37,6 +37,10 @@ class APIError(CommandError):
     pass
 
 
+class UnknownCurrency(CommandError):
+    pass
+
+
 class TimedOut(CommandError):
     pass
 

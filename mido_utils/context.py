@@ -5,35 +5,31 @@ from asyncpg.pool import Pool
 from discord.ext import commands
 
 import mido_utils
-from models.db import GuildDB, MemberDB, UserDB
+import models
 
 
 class Context(commands.Context):
     # noinspection PyTypeChecker
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-        self.resources = mido_utils.Resources()
-
-        from midobot import MidoBot
-        from mido_utils.music import VoicePlayer
-
-        # FOR TYPE HINTING
-        self.bot: MidoBot = self.bot
         self.db: Pool = self.bot.db
 
-        self.guild_db: GuildDB = None
-        self.member_db: MemberDB = None
-        self.user_db: UserDB = None
+        # FOR TYPE HINTING
+        from midobot import MidoBot
+        self.bot: MidoBot
 
-        self.voice_player: VoicePlayer = None
+        self.guild_db: models.GuildDB = None
+        self.member_db: models.MemberDB = None
+        self.user_db: models.UserDB = None
+
+        self.voice_player: mido_utils.VoicePlayer = None
 
         self.time_created: mido_utils.Time = mido_utils.Time()
 
     async def attach_db_objects(self):
         time = mido_utils.Time()
         try:
-            self.member_db = await MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
+            self.member_db = await models.MemberDB.get_or_create(self.bot, self.guild.id, self.author.id)
 
             # guild stuff
             self.guild_db = self.member_db.guild
@@ -41,7 +37,7 @@ class Context(commands.Context):
 
             self.user_db = self.member_db.user
         except AttributeError:  # not in guild
-            self.user_db = await UserDB.get_or_create(self.bot, self.author.id)
+            self.user_db = await models.UserDB.get_or_create(self.bot, self.author.id)
 
         self.bot.logger.debug('Attaching db objects to ctx took:\t' + time.passed_seconds_in_float_formatted)
 

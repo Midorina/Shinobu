@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import List, Tuple
 
+__all__ = ['Waifu']
+
 
 class Item:
     def __init__(self, _id: int, name: str, emote: str, price: int):

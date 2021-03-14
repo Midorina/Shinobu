@@ -192,7 +192,7 @@ class Race:
 
         # set emoji
         used_emojis = [x.emoji for x in self.participants]
-        remaining_emojis = [x for x in mido_utils.Resources.emotes.race_emotes if x not in used_emojis]
+        remaining_emojis = [x for x in mido_utils.emotes.race_emotes if x not in used_emojis]
         if not remaining_emojis:
             raise mido_utils.RaceError("Race is full.")
 

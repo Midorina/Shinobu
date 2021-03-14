@@ -14,6 +14,8 @@ import websockets
 
 from ipc import ipc_errors
 
+__all__ = ['IPCClient', 'SerializedObject']
+
 
 class IPCMessage:
     MANDATORY_ATTRS = ('type', 'key')
@@ -220,8 +222,8 @@ class IPCClient:
         self.server = _IPCServer(bot=self.bot)
         self.handler = _InternalIPCHandler(self.server)
 
-    async def send_to_log_channel(self, content: str, embed: discord.Embed = discord.Embed()) -> None:
-        await self.handler.request('send_to_log_channel', content=content, embed=embed.to_dict())
+    async def send_to_log_channel(self, content: str, embed: discord.Embed = None) -> None:
+        await self.handler.request('send_to_log_channel', content=content, embed=embed.to_dict() if embed else None)
 
     async def get_guild_count(self) -> int:
         responses = await self.handler.request('get_guild_count')

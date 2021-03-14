@@ -7,10 +7,7 @@ import wavelink
 from discord import ShardInfo
 from discord.ext import commands
 
-from mido_utils.context import Context
-from mido_utils.exceptions import InsufficientCash
-from mido_utils.music import VoicePlayer
-from mido_utils.resources import Resources
+import mido_utils
 
 
 class NotDict(Exception):
@@ -20,7 +17,7 @@ class NotDict(Exception):
 # case insensitive object searches
 # and dummy discord object to unban/ban someone we don't see
 class MemberConverter(commands.MemberConverter):
-    async def convert(self, ctx: Context, argument) -> discord.Member:
+    async def convert(self, ctx: mido_utils.Context, argument) -> discord.Member:
         try:
             member = await super().convert(ctx, argument)
         except commands.MemberNotFound:
@@ -33,7 +30,7 @@ class MemberConverter(commands.MemberConverter):
 
 
 class RoleConverter(commands.RoleConverter):
-    async def convert(self, ctx: Context, argument) -> discord.Role:
+    async def convert(self, ctx: mido_utils.Context, argument) -> discord.Role:
         try:
             role = await super().convert(ctx, argument)
         except commands.RoleNotFound:
@@ -46,7 +43,7 @@ class RoleConverter(commands.RoleConverter):
 
 
 class UserConverter(commands.UserConverter):
-    async def convert(self, ctx: Context, argument) -> Union[discord.User, discord.Object]:
+    async def convert(self, ctx: mido_utils.Context, argument) -> Union[discord.User, discord.Object]:
         try:
             user = await super().convert(ctx, argument)
         except commands.UserNotFound:
@@ -63,7 +60,7 @@ class UserConverter(commands.UserConverter):
 
 # these are implemented but not used and tested yet
 class Int32(commands.Converter):
-    async def convert(self, ctx: Context, argument) -> int:
+    async def convert(self, ctx: mido_utils.Context, argument) -> int:
         try:
             arg = int(argument)
         except ValueError:
@@ -76,7 +73,7 @@ class Int32(commands.Converter):
 
 
 class Int64(commands.Converter):
-    async def convert(self, ctx: Context, argument) -> int:
+    async def convert(self, ctx: mido_utils.Context, argument) -> int:
         try:
             arg = int(argument)
         except ValueError:
@@ -89,7 +86,7 @@ class Int64(commands.Converter):
 
 
 # todo: add 'k' support
-async def ensure_not_broke_and_parse_bet(ctx: Context, bet_amount: str) -> int:
+async def ensure_not_broke_and_parse_bet(ctx: mido_utils.Context, bet_amount: str) -> int:
     if isinstance(bet_amount, str):
         if bet_amount == 'all':
             bet_amount = int(ctx.user_db.cash)
@@ -99,7 +96,7 @@ async def ensure_not_broke_and_parse_bet(ctx: Context, bet_amount: str) -> int:
             raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
     if bet_amount > ctx.user_db.cash:
-        raise InsufficientCash
+        raise mido_utils.InsufficientCash
     elif bet_amount <= 0:
         raise commands.BadArgument("The amount can not be less than or equal to 0!")
     else:
@@ -107,12 +104,15 @@ async def ensure_not_broke_and_parse_bet(ctx: Context, bet_amount: str) -> int:
         return bet_amount
 
 
-def readable_bigint(number: int) -> str:
-    return '{:,}'.format(number)
+def readable_bigint(number: Union[int, float], small_precision=False) -> str:
+    if small_precision:
+        return '{:,.2f}'.format(number).rstrip('0').rstrip('.')
+    else:
+        return '{:,f}'.format(number).rstrip('0').rstrip('.')
 
 
 def readable_currency(number: int) -> str:
-    return readable_bigint(number) + Resources.emotes.currency
+    return readable_bigint(number) + mido_utils.emotes.currency
 
 
 def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: discord.Guild, author: discord.Member,
@@ -214,7 +214,7 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
     )
 
     try:
-        voice_player: VoicePlayer = bot.wavelink.get_player(guild.id, cls=VoicePlayer)
+        voice_player: mido_utils.VoicePlayer = bot.wavelink.get_player(guild.id, cls=mido_utils.VoicePlayer)
         if voice_player.is_playing:
             base_dict.update(
                 {

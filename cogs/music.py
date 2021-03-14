@@ -205,7 +205,7 @@ class Music(commands.Cog, WavelinkMixin):
                  .set_footer(text=f"{ctx.voice_player.volume}% | "
                                   f"{len(ctx.voice_player.song_queue) + 1} Songs | "
                                   f"{queue_duration} in Total",
-                             icon_url=mido_utils.Resources.images.volume)
+                             icon_url=mido_utils.images.volume)
                  )
         await embed.paginate(ctx, blocks, item_per_page=5, add_page_info_to='author')
 

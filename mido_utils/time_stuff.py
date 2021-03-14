@@ -43,6 +43,10 @@ class Time:
         else:
             return cls(datetime.now(timezone.utc))
 
+    @classmethod
+    def from_timestamp(cls, timestamp: int):
+        return cls(datetime.fromtimestamp(timestamp))
+
     @cached_property
     def start_date_string(self):
         return self.start_date.strftime('%Y-%m-%d, %H:%M:%S UTC')

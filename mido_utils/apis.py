@@ -82,7 +82,7 @@ class MidoBotAPI:
 
 class CachedImageAPI(MidoBotAPI):
     def __init__(self, session: ClientSession, db: Pool):
-        super(CachedImageAPI, self).__init__(session)
+        super().__init__(session)
 
         self.db = db
 
@@ -109,7 +109,7 @@ class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
     async def image(self, tag: Tag, get_bytes: bool = False) -> anekos.result.ImageResult:
         while True:
             try:
-                ret = await super(NekoAPI, self).image(tag, get_bytes)
+                ret = await super().image(tag, get_bytes)
             except (aiohttp.ContentTypeError, anekos.errors.NoResponse, asyncio.TimeoutError):
                 raise mido_utils.APIError
             else:
@@ -156,7 +156,7 @@ class RedditAPI(CachedImageAPI):
                 _id = url.split('/')[-1].split('-')[0].split('?')[0]
 
                 if not any(x.isupper() for x in _id):  # if capital letters are missing
-                    for word_type, word_list in mido_utils.Resources.strings.gfycat_words.items():
+                    for word_type, word_list in mido_utils.strings.gfycat_words.items():
                         word_list = sorted(word_list, key=lambda x: len(x), reverse=True)
                         for word in word_list:
                             if word in _id:
@@ -259,7 +259,7 @@ class NSFW_DAPIs(CachedImageAPI):
     }
 
     def __init__(self, session: ClientSession, db: Pool):
-        super(NSFW_DAPIs, self).__init__(session, db)
+        super().__init__(session, db)
 
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[NSFWImage]:
         base_tags = tags
@@ -493,7 +493,7 @@ class SomeRandomAPI(MidoBotAPI):
             self.generation: int = int(data.pop('generation'))
 
     def __init__(self, session: ClientSession):
-        super(SomeRandomAPI, self).__init__(session)
+        super().__init__(session)
 
     async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
         response = await self._request_get(self.URLs['lyrics'], params={'title': title}, return_json=True)
@@ -590,7 +590,7 @@ class Google(MidoBotAPI):
             return self.__str__()
 
     def __init__(self, session: ClientSession):
-        super(Google, self).__init__(session)
+        super().__init__(session)
 
     async def search(self, query: str):
         async with self.session.get(f"https://google.com/search?q={query}&hl=en") as r:

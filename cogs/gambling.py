@@ -79,7 +79,7 @@ class Gambling(commands.Cog):
 
             try:
                 event_reaction = next(x for x in msg_obj.reactions
-                                      if str(x.emoji) == mido_utils.Resources.emotes.currency)
+                                      if str(x.emoji) == mido_utils.emotes.currency)
             except StopIteration:
                 continue
             else:
@@ -107,7 +107,7 @@ class Gambling(commands.Cog):
                 self.active_donut_events.remove(donut_event)
                 return
 
-            if str(payload.emoji) == mido_utils.Resources.emotes.currency:
+            if str(payload.emoji) == mido_utils.emotes.currency:
                 user = self.bot.get_user(payload.user_id)
 
                 if donut_event.user_is_eligible(user):
@@ -154,7 +154,7 @@ class Gambling(commands.Cog):
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
-        Claim {0.bot.config[daily_amount]} {0.resources.emotes.currency} for free every 12 hours by upvoting [here]({0.resources.links.upvote}).
+        Claim {0.bot.config[daily_amount]} {0.emotes.currency} for free every 12 hours by upvoting [here]({0.links.upvote}).
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
@@ -170,7 +170,7 @@ class Gambling(commands.Cog):
 
         if not has_voted:
             raise mido_utils.DidntVoteError(f"It seems like you haven't voted yet.\n\n"
-                                            f"Vote [here]({mido_utils.Resources.links.upvote}), "
+                                            f"Vote [here]({mido_utils.links.upvote}), "
                                             f"then use this command again "
                                             f"to get your **{mido_utils.readable_currency(daily_amount)}**!")
         else:
@@ -192,7 +192,7 @@ class Gambling(commands.Cog):
                     author_id=ctx.author.id,
                     channel_id=ctx.author.id,
                     channel_type=ReminderDB.ChannelType.DM,
-                    content=f"Your daily is ready! You can vote [here]({mido_utils.Resources.links.upvote}).",
+                    content=f"Your daily is ready! You can vote [here]({mido_utils.links.upvote}).",
                     date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
                 )
                 ctx.bot.get_cog('Reminder').add_reminder(reminder)
@@ -286,12 +286,12 @@ class Gambling(commands.Cog):
         """Play slots!
 
         You get;
-        - **x30** -> If you get 3 {0.resources.emotes.currency}
+        - **x30** -> If you get 3 {0.emotes.currency}
         - **x10** -> If you get 3 same emojis
-        - **x4** -> If you get 2 {0.resources.emotes.currency}
-        - **x1** -> If you get 1 {0.resources.emotes.currency}
+        - **x4** -> If you get 2 {0.emotes.currency}
+        - **x1** -> If you get 1 {0.emotes.currency}
         """
-        emojis = [mido_utils.Resources.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
+        emojis = [mido_utils.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
 
         slot = []
         for i in range(3):
@@ -402,7 +402,7 @@ class Gambling(commands.Cog):
         rich_people = await UserDB.get_rich_people(bot=ctx.bot, limit=100)
 
         e = mido_utils.Embed(bot=self.bot,
-                             title=f"{mido_utils.Resources.emotes.currency} Leaderboard")
+                             title=f"{mido_utils.emotes.currency} Leaderboard")
 
         blocks = []
         for i, user in enumerate(rich_people, 1):
@@ -454,14 +454,14 @@ class Gambling(commands.Cog):
     async def donut_event(self, ctx: mido_utils.Context, reward: mido_utils.Int32(), length: mido_utils.Time):
         e = mido_utils.Embed(bot=ctx.bot,
                              title="Donut Event!",
-                             description=f"React with {mido_utils.Resources.emotes.currency} "
+                             description=f"React with {mido_utils.emotes.currency} "
                                          f"to get **{mido_utils.readable_currency(reward)}** for free!"
                              )
         e.set_footer(text="Ends")
         e.timestamp = length.end_date
 
         msg = await ctx.send(embed=e)
-        await msg.add_reaction(mido_utils.Resources.emotes.currency)
+        await msg.add_reaction(mido_utils.emotes.currency)
 
         self.bot.loop.create_task(msg.delete(delay=length.remaining_seconds))
 
