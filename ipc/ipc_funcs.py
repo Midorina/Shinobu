@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 import os
-import time
 import uuid
 from typing import List, Optional
 
@@ -18,12 +16,11 @@ __all__ = ['IPCClient', 'SerializedObject']
 
 
 class IPCMessage:
-    MANDATORY_ATTRS = ('type', 'key')
+    MANDATORY_ATTRS = ('author', 'type', 'key')
 
-    def __init__(self, author: str, type: str, key: str, data: dict):
-        # cluster name
+    def __init__(self, author: id, type: str, key: str, data: dict):
+        # cluster id
         self.author = author
-
         # response or command
         self.type = type
         # unique key to identify the requester
@@ -32,8 +29,13 @@ class IPCMessage:
         self._data = data
 
     def __getattr__(self, item):
-        if item in self._data.keys():
-            return self._data[item]
+        if self.type == 'response' and isinstance(self._data['return_value'], dict):
+            data_to_look_for = self._data['return_value']
+        else:
+            data_to_look_for = self._data
+
+        if item in data_to_look_for.keys():
+            return data_to_look_for[item]
 
         return super().__getattribute__(item)
 
@@ -76,12 +78,13 @@ class _InternalIPCHandler:
         self.bot = self.server.bot
 
         self.port = self.bot.config['ipc_port']
-        self.identity = self.bot.name + '#' + self.bot.cluster_name
+        self.identity = f'{self.bot.name}#{self.bot.cluster_id}'
 
         self.ws: websockets.WebSocketClientProtocol = None
         self.ws_task: asyncio.Task = None
 
         self.responses = asyncio.Queue()
+        self.key_queue = []
         self.bot.loop.create_task(self._connect_to_ipc())
 
     async def close(self, reason: str = 'Close called.'):
@@ -115,6 +118,10 @@ class _InternalIPCHandler:
                 await self.responses.put(item)
                 await asyncio.sleep(0.05)
 
+        self.key_queue.remove(key)
+
+        # sort responses
+        ret.sort(key=lambda x: x.author)
         return ret
 
     async def _websocket_loop(self):
@@ -122,22 +129,25 @@ class _InternalIPCHandler:
             try:
                 raw_data = await self.ws.recv()
                 data = IPCMessage.get_from_raw(raw_data)
-                self.bot.logger.info(f"Websocket received: {data}")
 
                 if data.type == 'response':
-                    await self.responses.put(data)
+                    # if we're waiting for this, get it, else, ignore
+                    if data.key in self.key_queue:
+                        await self.responses.put(data)
+                        self.bot.logger.info(f"Websocket received: {data}")
                     continue
+
                 elif data.type == 'command':
                     returned_value = await getattr(self.server, data.endpoint)(data)
-                    ret = IPCMessage(author=self.bot.cluster_name,
+                    ret = IPCMessage(author=self.bot.cluster_id,
                                      type='response',
                                      key=data.key,
                                      data={'return_value': returned_value})
                     await self._send(ret.dumps())
-                    self.bot.logger.info("Responded with: " + ret.dumps())
+                    self.bot.logger.debug("Responded with: " + ret.dumps())
                 else:
                     raise ipc_errors.UnknownRequestType
-            except websockets.ConnectionClosed as exc:
+            except websockets.ConnectionClosed:
                 self.bot.logger.error("Websocket connection seems to be closed. Retrying to receive messages...")
                 await self._connect_to_ipc()
                 await asyncio.sleep(1.0)
@@ -146,13 +156,19 @@ class _InternalIPCHandler:
                 self.bot.logger.error("error in websocket loop:", str(e))
 
     async def request(self, endpoint: str, **kwargs):
-        msg = IPCMessage(author=self.bot.cluster_name,
+        key = self.get_key()
+        # put the key in the queue so that the response doesn't get ignored
+        self.key_queue.append(key)
+
+        msg = IPCMessage(author=self.bot.cluster_id,
                          type='command',
                          data={'endpoint': endpoint,
                                **kwargs},
-                         key=self.get_key())
+                         key=key)
+
         await self._send(msg.dumps())
         self.bot.logger.info("Made request: " + msg.dumps())
+
         return await self._get_responses(msg.key)
 
     async def _send(self, data: str):
@@ -199,19 +215,21 @@ class _IPCServer:
         await self.bot.close()
 
     async def get_cluster_stats(self, data: IPCMessage):
-        member_list = list(self.bot.get_all_members())
         process = psutil.Process(os.getpid())
-        memory = process.memory_info()
+
         return {
-            "guilds"   : len(self.bot.guilds),
-            "latency"  : self.bot.latency,
-            "latencies": self.bot.latencies,
-            "members"  : len(member_list),
-            "users"    : len(set(m.id for m in member_list)),
-            "uptime"   : self.bot.uptime.passed_seconds_in_float,
-            "time"     : time.time(),
-            "memory"   : math.ceil(memory.rss / 10000) / 100,
-            "threads"  : process.num_threads()
+            "uptime"       : self.bot.uptime.passed_seconds_in_float,
+            "cluster_id"   : self.bot.cluster_id,
+            "latency"      : self.bot.latency,
+
+            "guilds"       : len(self.bot.guilds),
+            "channels"     : len([channel for guild in self.bot.guilds for channel in guild.channels]),
+            "members"      : len(list(self.bot.get_all_members())),
+
+            "memory"       : process.memory_info().rss / 10 ** 6,
+            "threads"      : process.num_threads(),
+            "cpu_usage"    : process.cpu_percent(interval=0),
+            "music_players": len(self.bot.wavelink.players)
         }
 
 
@@ -227,14 +245,10 @@ class IPCClient:
 
     async def get_guild_count(self) -> int:
         responses = await self.handler.request('get_guild_count')
-        print(responses)
-        print(sum(x.return_value for x in responses))
         return sum(x.return_value for x in responses)
 
     async def user_has_voted(self, user_id: int) -> bool:
         responses = await self.handler.request('user_has_voted', user_id=user_id)
-        print(responses)
-        print(any(x.return_value for x in responses))
         return any(x.return_value for x in responses)
 
     async def get_user(self, user_id: int) -> Optional[SerializedObject]:
@@ -254,15 +268,18 @@ class IPCClient:
     async def close_ipc(self, reason: str = None):
         await self.handler.close(reason)
 
+    async def get_cluster_stats(self):
+        return await self.handler.request('get_cluster_stats')
+
 # class IPCCommand(IPCMessage):
-#     def __init__(self, func: Callable, *args):
-#         self.func = func
-#         self.args = args
+#     def __init__(self, author: str, key: str, endpoint: str, **command_kwargs):
+#         super().__init__(author=author, type='command', key=key, data=dict(**command_kwargs))
+#         self.endpoint = endpoint
 #
 #
 # class IPCResponse(IPCMessage):
-#     def __init__(self, successful: bool, data: dict = {}):
-#         self.success_status = successful
+#     def __init__(self, author: str, key: str, **command_kwargs):
+#         super().__init__(author=author, type='response', key=key, data=dict(**command_kwargs))
 #         self.data = data
 
 

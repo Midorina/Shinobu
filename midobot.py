@@ -22,7 +22,7 @@ class MidoBot(commands.AutoShardedBot):
         self.name = cluster_kwargs.pop('bot_name')
         self.config: dict = self.get_config(self.name)
 
-        self.cluster_name = cluster_kwargs.pop('cluster_name')
+        self.cluster_id = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
 
         loop = asyncio.new_event_loop()
@@ -49,9 +49,9 @@ class MidoBot(commands.AutoShardedBot):
         self.prefix_cache = {}
         self.owner_ids = set(self.config['owner_ids'])
 
-        self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_name}\t')
+        self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_id}\t')
         self.logger.info(
-            f'[Cluster#{self.cluster_name}] {cluster_kwargs["shard_ids"]}, {cluster_kwargs["shard_count"]}')
+            f'[Cluster#{self.cluster_id}] {cluster_kwargs["shard_ids"]}, {cluster_kwargs["shard_count"]}')
 
         self.message_counter = 0
         self.command_counter = 0
@@ -105,7 +105,7 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(f'Chunked {i} active guilds.')
 
     async def on_ready(self):
-        self.logger.info(f'[Cluster#{self.cluster_name}] Ready called.')
+        self.logger.info(f'[Cluster#{self.cluster_id}] Ready called.')
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
         return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
@@ -302,4 +302,4 @@ class MidoBot(commands.AutoShardedBot):
         await super().close()
         await self.http_session.close()
         await self.db.close()
-        await self.ipc.close_ipc(f"Cluster {self.cluster_name} has shut down.")
+        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")

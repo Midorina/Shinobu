@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import itertools
 import logging
 import multiprocessing
 import os
@@ -15,35 +16,37 @@ import midobot
 
 log = logging.getLogger('Cluster Manager')
 
-CLUSTER_NAMES = iter((
-    'Alpha', 'Beta', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel',
-    'India', 'Juliett', 'Kilo', 'Mike', 'November', 'Oscar', 'Papa', 'Quebec',
-    'Romeo', 'Sierra', 'Tango', 'Uniform', 'Victor', 'Whisky', 'X-ray', 'Yankee', 'Zulu'
-))
 
-
-def reload_package(package):
-    # reloading from top level cause some bugs such as this https://thomas-cokelaer.info/blog/2011/09/382/
-    # so reload from the lowest level if something behaves weird
+def _get_packages_to_reload(package):
     assert (hasattr(package, "__package__"))
     fn = package.__file__
     fn_dir = os.path.dirname(fn) + os.sep
     module_visit = {fn}
+    ret = set()
     del fn
 
     def reload_recursive_ex(module):
-        importlib.reload(module)
-
         for module_child in vars(module).values():
             if isinstance(module_child, types.ModuleType):
                 fn_child = getattr(module_child, "__file__", None)
                 if (fn_child is not None) and fn_child.startswith(fn_dir):
                     if fn_child not in module_visit:
-                        log.debug("Reloading module:", fn_child, "\tFrom:", module)
                         module_visit.add(fn_child)
+                        ret.add(module_child)
                         reload_recursive_ex(module_child)
 
-    return reload_recursive_ex(package)
+    reload_recursive_ex(package)
+    return ret
+
+
+def reload_package(package):
+    packages_to_reload = _get_packages_to_reload(package)
+
+    # reload from the lowest level to the higher
+    for package in reversed(list(packages_to_reload)):
+        importlib.reload(package)
+
+    log.info(f"Successfully reloaded {len(packages_to_reload)} packages.")
 
 
 class Launcher:
@@ -101,9 +104,10 @@ class Launcher:
         self.cluster_count = len(cluster_shard_ids)
         log.info(f"Preparing {self.cluster_count} clusters")
 
+        counter = itertools.count()
         for shard_ids in cluster_shard_ids:
             self.clusters.append(
-                Cluster(bot_name=self.bot_name, cluster_name=next(CLUSTER_NAMES),
+                Cluster(bot_name=self.bot_name, cluster_id=next(counter),
                         launcher=self, shard_ids=shard_ids, max_shards=len(shards),
                         total_clusters=self.cluster_count))
         await self.start_clusters()
@@ -129,9 +133,9 @@ class Launcher:
 
             for cluster in self.clusters:
                 if not cluster.process.is_alive():
-                    log.warning(f"Cluster#{cluster.name} exited with code {cluster.process.exitcode}.")
+                    log.warning(f"Cluster#{cluster.id} exited with code {cluster.process.exitcode}.")
                     cluster.stop()  # ensure stopped
-                    log.info(f"Restarting cluster#{cluster.name}")
+                    log.info(f"Restarting cluster#{cluster.id}")
                     await cluster.start()
 
             await asyncio.sleep(5)
@@ -139,28 +143,27 @@ class Launcher:
     async def start_clusters(self):
         for cluster in self.clusters:
             if not cluster.is_alive():
-                log.info(f"Starting Cluster#{cluster.name}")
                 await cluster.start()
-                log.info("Done!")
+                log.info(f"Started Cluster#{cluster.id}")
 
 
 class Cluster:
-    def __init__(self, bot_name: str, cluster_name: str, launcher: Launcher, shard_ids: List[int], max_shards: int,
+    def __init__(self, bot_name: str, cluster_id: str, launcher: Launcher, shard_ids: List[int], max_shards: int,
                  total_clusters: int):
         self.bot_name = bot_name
         self.launcher = launcher
         self.kwargs = dict(
             shard_ids=shard_ids,
             shard_count=max_shards,
-            cluster_name=cluster_name,
+            cluster_id=cluster_id,
             bot_name=bot_name,
             total_clusters=total_clusters
         )
-        self.name = cluster_name
+        self.id = cluster_id
         self.bot = None
         self.process = None
 
-        self.log = logging.getLogger(f"Cluster#{cluster_name}")
+        self.log = logging.getLogger(f"Cluster#{cluster_id}")
         self.log.info(f"Initialized with shard ids {shard_ids}, total shards {max_shards}")
 
     def wait_close(self):

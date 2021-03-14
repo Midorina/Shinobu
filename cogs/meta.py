@@ -1,7 +1,6 @@
 import ast
 import multiprocessing
 import os
-import time
 from datetime import datetime
 
 import discord
@@ -197,20 +196,22 @@ class Meta(commands.Cog):
         """Ping me to check the latency!"""
         color = ctx.guild.me.top_role.color if ctx.guild else self.bot.color
 
-        before = time.monotonic()
+        cluster_stats = await self.bot.ipc.get_cluster_stats()
 
         embed_msg = mido_utils.Embed(bot=ctx.bot,
-                                     title="Ping!",
-                                     description=f"Latency: `... ms`",
-                                     color=color)
-        message = await ctx.send(embed=embed_msg)
+                                     title='Ping!',
+                                     description='',
+                                     color=color,
+                                     default_footer=True)
 
-        ping = (time.monotonic() - before) * 1000
+        for cluster in cluster_stats:
+            # this is to avoid overflow
+            latency = float(f"{cluster.latency:.3f}")
 
-        embed_msg.title = "🏓 Pong!"
-        embed_msg.description = f"Latency: `{int(ping)} ms`"
+            latency = mido_utils.readable_bigint(latency * 1000)
+            embed_msg.description += f'Cluster**#{cluster.author}**: **Pong! 🏓** | `{latency} ms`\n'
 
-        await message.edit(embed=embed_msg)
+        await ctx.send(embed=embed_msg)
 
     @commands.guild_only()
     @commands.command()
@@ -248,12 +249,12 @@ class Meta(commands.Cog):
         else:
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
-    @commands.command(aliases=['info', 'about'])
+    @commands.command(aliases=['info', 'about', 'botinfo'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
         mido = await self.bot.get_user_using_ipc(self.bot.config['owner_ids'][0])
 
-        memory = self.process.memory_info().rss / 10 ** 6
+        cluster_stats = await self.bot.ipc.get_cluster_stats()
 
         embed = mido_utils.Embed(bot=ctx.bot)
 
@@ -272,12 +273,13 @@ class Meta(commands.Cog):
                         value=mido_utils.Time.parse_seconds_to_str(self.bot.uptime.remaining_seconds, sep='\n'),
                         inline=True)
 
-        # todo: more detailed info with each cluster
+        guild_count = mido_utils.readable_bigint(sum(x.guilds for x in cluster_stats))
+        channel_count = mido_utils.readable_bigint(sum(x.channels for x in cluster_stats))
+        member_count = mido_utils.readable_bigint(sum(x.members for x in cluster_stats))
         embed.add_field(name="Discord Stats",
-                        value=f"{self.bot.cluster_count} Clusters\n"
-                              f"{await self.bot.ipc.get_guild_count()} Guilds\n"
-                              f"{len([channel for guild in self.bot.guilds for channel in guild.channels])} Channels\n"
-                              f"{sum([guild.member_count for guild in self.bot.guilds])} Members",
+                        value=f"{guild_count} Guilds\n"
+                              f"{channel_count} Channels\n"
+                              f"{member_count} Members",
                         inline=True)
 
         # embed.add_field(name="Message Count",
@@ -285,12 +287,16 @@ class Meta(commands.Cog):
         #                       f"{self.bot.command_counter} Commands",
         #                 inline=True)
 
+        music_players = mido_utils.readable_bigint(sum(x.music_players for x in cluster_stats))
+        memory = mido_utils.readable_bigint(sum(x.memory for x in cluster_stats), small_precision=True)
+
+        cpu_usages = [x.cpu_usage for x in cluster_stats]
+        average_cpu = sum(cpu_usages) / len(cpu_usages)
         embed.add_field(name="Performance",
-                        value="Music Players: {}\n"
-                              "CPU: {}%\n"
-                              "Memory: {:.2f} MB\n".format(len(self.bot.wavelink.players),
-                                                           self.process.cpu_percent(interval=0),
-                                                           memory),
+                        value=f"Clusters: {self.bot.cluster_count}\n"
+                              f"Average CPU: {average_cpu}%\n"
+                              f"Total Memory: {memory} MB\n"
+                              f"Music Players: {music_players}\n",
                         inline=True)
 
         if mido:  # intents disabled

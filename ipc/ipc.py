@@ -25,31 +25,31 @@ CLIENTS = {}
 
 
 async def serve(ws, path):
-    cluster_name = (await ws.recv()).decode()
+    cluster_id = (await ws.recv()).decode()
 
     # reconnection
-    if cluster_name in CLIENTS:
-        logger.warning(f"! Cluster[{cluster_name}] reconnected.")
-        await CLIENTS[cluster_name].close(4029, f"Cluster {cluster_name} reconnected somewhere else.")
+    if cluster_id in CLIENTS:
+        logger.warning(f"! Cluster[{cluster_id}] reconnected.")
+        await CLIENTS[cluster_id].close(4029, f"Cluster {cluster_id} reconnected somewhere else.")
     else:
         await ws.send(b'{"status":"ok"}')
-        logger.info(f'$ Cluster[{cluster_name}] connected successfully.')
+        logger.info(f'$ Cluster[{cluster_id}] connected successfully.')
 
-    CLIENTS[cluster_name] = ws
+    CLIENTS[cluster_id] = ws
     try:
         async for msg in ws:
-            logger.info(f'< Cluster[{cluster_name}]: {msg}')
+            logger.info(f'< Cluster[{cluster_id}]: {msg}')
             await dispatch_to_all_clusters(msg)
     except websockets.ConnectionClosed as e:
-        logger.error(f'$ Cluster[{cluster_name}]\'s connection has been closed: {e}')
+        logger.error(f'$ Cluster[{cluster_id}]\'s connection has been closed: {e}')
     finally:
-        CLIENTS.pop(cluster_name)
+        CLIENTS.pop(cluster_id)
 
 
 async def dispatch_to_all_clusters(data):
-    for cluster_name, client in CLIENTS.items():
+    for cluster_id, client in CLIENTS.items():
         await client.send(data)
-        logger.info(f'> Cluster[{cluster_name}] {data}')
+        logger.info(f'> Cluster[{cluster_id}] {data}')
 
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
