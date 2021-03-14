@@ -21,7 +21,8 @@ from models.db import CachedImage, NSFWImage
 from models.hearthstone import HearthstoneCard
 from models.subreddits import LocalSubreddit
 
-__all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI', 'BlizzardAPI']
+__all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI', 'BlizzardAPI',
+           'ExchangeAPI']
 
 
 class MidoBotAPI:
@@ -644,6 +645,42 @@ class Google(MidoBotAPI):
                 search_results.append(self.SearchResult(title, url, description))
 
         return search_results
+
+
+class ExchangeAPI(MidoBotAPI):
+    API_URL = "https://api.exchangeratesapi.io/latest"
+
+    class Response:
+        def __init__(self, data: dict):
+            self.date: mido_utils.Time = mido_utils.Time()
+            self.base: str = data.get('base')
+            self.rates: dict = data.get('rates')
+
+    def __init__(self, session: ClientSession):
+        super().__init__(session)
+
+        self.rate_cache: ExchangeAPI.Response = None
+
+    async def convert(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
+        """Converts any amount of currency to the other one and returns both the result and the exchange rate."""
+        if not self.rate_cache or self.rate_cache.date.passed_seconds > 60:
+            await self.update_rate_cache()
+
+        base_currency = base_currency.upper()
+        target_currency = target_currency.upper()
+
+        if base_currency not in self.rate_cache.rates.keys():
+            raise mido_utils.UnknownCurrency(f'Base currency `{base_currency}` is unknown.')
+        if target_currency not in self.rate_cache.rates.keys():
+            raise mido_utils.UnknownCurrency(f'Target currency `{target_currency}` is unknown.')
+
+        exchange_rate = self.rate_cache.rates[target_currency] / self.rate_cache.rates[base_currency]
+
+        return exchange_rate * amount, exchange_rate
+
+    async def update_rate_cache(self):
+        r = await self._request_get(url=self.API_URL, return_json=True)
+        self.rate_cache = self.Response(r)
 
 
 class OAuthAPI(MidoBotAPI):

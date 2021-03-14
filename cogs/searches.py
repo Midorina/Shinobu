@@ -1,3 +1,5 @@
+from typing import Union
+
 import asyncurban
 from discord.ext import commands
 
@@ -16,6 +18,7 @@ class Searches(commands.Cog):
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop, session=self.bot.http_session)
         self.some_random_api = mido_utils.SomeRandomAPI(self.bot.http_session)
         self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
+        self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session)
 
     @commands.command()
     async def color(self, ctx: mido_utils.Context, *, color: str):
@@ -31,6 +34,27 @@ class Searches(commands.Cog):
         image = await self.some_random_api.view_color(color_str)
         e = mido_utils.Embed(ctx.bot, image_url=image, colour=color)
 
+        await ctx.send(embed=e)
+
+    @commands.command(aliases=['exchange'])
+    async def convert(self, ctx: mido_utils.Context,
+                      amount: Union[float, str], base_currency: str, target_currency: str = None):
+        """Convert a specified amount of currency to another one using the latest exchange rates."""
+        if not target_currency:
+            base_currency, target_currency = amount, base_currency
+            amount = 1
+
+        if amount < 0:
+            amount = 0
+
+        result, exchange_rate = await self.exchange_api.convert(amount, base_currency, target_currency)
+
+        readable = mido_utils.readable_bigint
+
+        e = mido_utils.Embed(bot=ctx.bot)
+        e.description = f'**{readable(amount, 2)}** {base_currency.upper()} = ' \
+                        f'**{readable(result, 2)}** {target_currency.upper()}'
+        e.set_footer(text=f'Exchange Rate: {readable(exchange_rate)}')
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
