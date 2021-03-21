@@ -43,6 +43,7 @@ async def serve(ws, path):
     except websockets.ConnectionClosed as e:
         logger.error(f'$ Cluster[{cluster_id}]\'s connection has been closed: {e}')
     finally:
+        logger.info(f"$ Cluster[{cluster_id}] disconnected.")
         CLIENTS.pop(cluster_id)
 
 

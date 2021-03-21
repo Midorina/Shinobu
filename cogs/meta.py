@@ -38,9 +38,11 @@ class MidoHelp(commands.HelpCommand):
         return f'{alias} {command.signature}'
 
     async def send_bot_help(self, cogs_and_commands):
+        bot = self.context.bot
+
         e = mido_utils.Embed(
-            self.context.bot,
-            title=f'{self.context.bot.name.title()} Command Modules',
+            bot,
+            title=f'{bot.user.name} Command Modules',
             description=f"You can type `{self.context.prefix}invite` to invite me to your server.\n"
                         f"\n"
                         f'You can type `{self.context.prefix}help <module>` '
@@ -103,7 +105,7 @@ class MidoHelp(commands.HelpCommand):
             if not command.help:
                 embed.description = 'There\'s no help information about this command...'
             else:
-                embed.description = command.help.format(self.context)
+                embed.description = command.help.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
     async def send_command_help(self, command, content=''):
         if command.hidden:

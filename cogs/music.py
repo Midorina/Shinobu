@@ -43,7 +43,7 @@ class Music(commands.Cog, WavelinkMixin):
             return True
 
     async def cog_before_invoke(self, ctx: mido_utils.Context):
-        ctx.voice_player: mido_utils.VoicePlayer = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
+        ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         error = getattr(error, 'original', error)
@@ -90,22 +90,34 @@ class Music(commands.Cog, WavelinkMixin):
             raise mido_utils.MusicError("I'm not currently not in a voice channel!")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
-    async def _volume(self, ctx: mido_utils.Context, volume: int = None):
+    async def _volume(self, ctx: mido_utils.Context, volume: mido_utils.Int64() = None):
         """Change or see the volume."""
         if volume is None:
             return await ctx.send_success(f'Current volume: **{ctx.voice_player.volume}**%')
 
-        elif volume == 0:
-            raise mido_utils.MusicError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0.")
+        elif volume == 0 or volume < 0:
+            raise mido_utils.MusicError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0 or below.")
 
-        elif volume < 0 or volume > 100:
-            raise mido_utils.MusicError('The volume must be **between 0 and 100!**')
-
+        elif volume > 100 and not await mido_utils.is_patron(bot=ctx.bot, user_id=ctx.author.id, required_level=2):
+            raise mido_utils.MusicError('Volume can not be more than 100.\n\n'
+                                        f'*You can unlock this limit '
+                                        f'by [supporting the project.]({mido_utils.links.patreon})*')
         # set
         await ctx.voice_player.set_volume(volume)
         await ctx.guild_db.change_volume(volume)
 
         await ctx.send_success(f'Volume is set to **{volume}**%')
+
+    @commands.command(name='earrape')
+    @mido_utils.is_patron_decorator(level=2)
+    async def _earrape(self, ctx: mido_utils.Context):
+        """Increase the volume to 400.
+        You can increase the volume to higher levels using the `{ctx.prefix}volume` command but 400 is suggested."""
+        await ctx.voice_player.set_volume(400)
+        await ctx.guild_db.change_volume(400)
+
+        await ctx.send_success(f'**Earrape mode:** Volume is set to **{400}**%\n'
+                               f'(Can be increased further using `{ctx.prefix}volume` but 400% is suggested.)')
 
     @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
     async def _now_playing(self, ctx: mido_utils.Context):

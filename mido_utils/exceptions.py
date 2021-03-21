@@ -59,6 +59,19 @@ class RaceError(CommandError):
     pass
 
 
+# patron
+class NotPatron(CommandError):
+    pass
+
+
+class InsufficientPatronLevel(CommandError):
+    pass
+
+
+class CantClaimRightNow(CommandError):
+    pass
+
+
 # backend exceptions
 
 class UnknownNSFWType(Exception):

@@ -9,8 +9,10 @@ from typing import List, Optional
 import discord
 import psutil
 import websockets
+from async_timeout import timeout
 
 from ipc import ipc_errors
+from models.patreon import UserAndPledgerCombined
 
 __all__ = ['IPCClient', 'SerializedObject']
 
@@ -73,6 +75,7 @@ class SerializedObject:
 
 
 class _InternalIPCHandler:
+    # noinspection PyTypeChecker
     def __init__(self, server: _IPCServer):
         self.server = server
         self.bot = self.server.bot
@@ -89,34 +92,49 @@ class _InternalIPCHandler:
 
     async def close(self, reason: str = 'Close called.'):
         self.ws_task.cancel()
-        self.ws.close(reason=reason)
+        self.ws_task = None
+
+        await self.ws.close(code=1000, reason=reason)
 
     @staticmethod
     def get_key() -> str:
         return uuid.uuid4().hex[:7]
 
     async def _connect_to_ipc(self):
-        self.ws = await websockets.connect(f'ws://localhost:{self.port}')
+        while True:
+            try:
+                self.ws = await websockets.connect(f'ws://localhost:{self.port}')
 
-        await self.ws.send(self.identity.encode('utf-8'))
-        await self.ws.recv()
+                await self.ws.send(self.identity.encode('utf-8'))
+                await self.ws.recv()
+            except OSError:
+                self.bot.logger.error("Websocket connection attempt is refused. "
+                                      "IPC server is most likely to be dead or never launched at all. "
+                                      "Retrying in 2 seconds...")
+                await asyncio.sleep(2.0)
+            except asyncio.CancelledError:
+                return
+            else:
+                self.bot.logger.info("Websocket connection succeeded.")
+                break
 
         if not self.ws_task:
             self.ws_task = self.bot.loop.create_task(self._websocket_loop())
 
-        self.bot.logger.info("Websocket connection succeeded.")
-
     async def _get_responses(self, key: str) -> List[IPCMessage]:
-        attempt = 0
         ret = []
-        while len(ret) < self.bot.cluster_count and attempt < 200:
-            item: IPCMessage = await self.responses.get()
-            if item.key == str(key):
-                ret.append(item)
-            else:
-                attempt += 1
-                await self.responses.put(item)
-                await asyncio.sleep(0.05)
+
+        try:
+            async with timeout(5.0):
+                while len(ret) < self.bot.cluster_count:
+                    item: IPCMessage = await self.responses.get()
+                    if item.key == str(key):
+                        ret.append(item)
+                    else:
+                        await self.responses.put(item)
+                        await asyncio.sleep(0.05)
+        except asyncio.TimeoutError:
+            pass
 
         self.key_queue.remove(key)
 
@@ -125,10 +143,10 @@ class _InternalIPCHandler:
         return ret
 
     async def _websocket_loop(self):
+        self.bot.logger.info("Websocket loop has successfully  started.")
         while True:
             try:
-                raw_data = await self.ws.recv()
-                data = IPCMessage.get_from_raw(raw_data)
+                data = IPCMessage.get_from_raw(await self.ws.recv())
 
                 if data.type == 'response':
                     # if we're waiting for this, get it, else, ignore
@@ -147,13 +165,17 @@ class _InternalIPCHandler:
                     self.bot.logger.debug("Responded with: " + ret.dumps())
                 else:
                     raise ipc_errors.UnknownRequestType
-            except websockets.ConnectionClosed:
-                self.bot.logger.error("Websocket connection seems to be closed. Retrying to receive messages...")
-                await self._connect_to_ipc()
-                await asyncio.sleep(1.0)
-                continue
-            except Exception as e:
-                self.bot.logger.error("error in websocket loop:", str(e))
+            except websockets.ConnectionClosed as exc:
+                if exc.code == 1000:
+                    self.bot.logger.warn("Websocket connection seems to be closed safely. Stopping the websocket loop.")
+                    return
+                self.bot.logger.error(f"Websocket connection seems to be closed with code {exc.code}.")
+                await self._try_to_reconnect()
+            except asyncio.CancelledError:
+                self.bot.logger.info("Websocket loop task cancelled. Returning...")
+                return
+            except Exception:
+                self.bot.logger.exception("Unexpected error in websocket loop!")
 
     async def request(self, endpoint: str, **kwargs):
         key = self.get_key()
@@ -170,6 +192,16 @@ class _InternalIPCHandler:
         self.bot.logger.info("Made request: " + msg.dumps())
 
         return await self._get_responses(msg.key)
+
+    async def _try_to_reconnect(self, sleep=2.0):
+        self.bot.logger.info("Attempting reconnect...")
+        try:
+            await self._connect_to_ipc()
+        except Exception:
+            self.bot.logger.exception(f"Exception occurred while trying to reconnect!")
+        else:
+            self.bot.logger.info("Successfully reconnected!")
+        await asyncio.sleep(sleep)
 
     async def _send(self, data: str):
         while True:
@@ -190,7 +222,8 @@ class _IPCServer:
 
     async def send_to_log_channel(self, data: IPCMessage):
         if self.bot.log_channel:
-            await self.bot.log_channel.send(content=data.content, embed=discord.Embed.from_dict(data.embed))
+            embed = discord.Embed.from_dict(data.embed) if data.embed else None
+            await self.bot.log_channel.send(content=data.content, embed=embed)
             return True
 
         # if not bot.log_channel:
@@ -232,6 +265,13 @@ class _IPCServer:
             "music_players": len(self.bot.wavelink.players)
         }
 
+    async def get_patron(self, data: IPCMessage):
+        cog = self.bot.get_cog('Gambling')
+        if hasattr(cog, 'patreon_api'):
+            ret = cog.patreon_api.get_with_discord_id(data.user_id)
+            if ret:
+                return ret.to_str()
+
 
 class IPCClient:
     def __init__(self, bot):
@@ -262,14 +302,20 @@ class IPCClient:
         responses = await self.handler.request('reload', target_cog=target_cog)
         return sum(x.return_value for x in responses)
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         await self.handler.request('shutdown')
 
-    async def close_ipc(self, reason: str = None):
+    async def close_ipc(self, reason: str = None) -> None:
         await self.handler.close(reason)
 
-    async def get_cluster_stats(self):
+    async def get_cluster_stats(self) -> List[IPCMessage]:
         return await self.handler.request('get_cluster_stats')
+
+    async def get_patron(self, user_id: int) -> Optional[UserAndPledgerCombined]:
+        responses = await self.handler.request('get_patron', user_id=user_id)
+        for response in responses:
+            if response.return_value is not None:
+                return UserAndPledgerCombined.from_str(response.return_value)
 
 # class IPCCommand(IPCMessage):
 #     def __init__(self, author: str, key: str, endpoint: str, **command_kwargs):

@@ -121,6 +121,7 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff
+    # todo: use stats with ipc
 
     bot_member: discord.Member = guild.me
 

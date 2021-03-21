@@ -163,6 +163,12 @@ class UserDB(BaseDBModel):
                                                                               bot.config['cooldowns']['daily'])
         self.waifu = models.Waifu(self)
 
+        # patreon claim
+        self.last_patreon_claim_date = mido_utils.Time.add_to_previous_date_and_get(
+            previous_date=user_db.get('last_patreon_claim_date'),
+            seconds=60 * 60 * 24 * 30)  # 1 month
+        self.last_patreon_claim_amount: int = user_db.get('last_patreon_claim_amount', 0)
+
     @property
     def discord_name(self) -> str:
         user = self.bot.get_user(self.id)
@@ -179,7 +185,7 @@ class UserDB(BaseDBModel):
         return self.bot.get_user(self.id)
 
     @classmethod
-    async def get_or_create(cls, bot, user_id: int):
+    async def get_or_create(cls, bot, user_id: int) -> UserDB:
         user_db = await bot.db.fetchrow("""SELECT * FROM users WHERE id=$1;""", user_id)
         if not user_db:
             try:
@@ -292,6 +298,17 @@ class UserDB(BaseDBModel):
         await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
         await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
 
+    async def claim_patreon_reward(self, bot, patron_obj: models.UserAndPledgerCombined):
+        amount = patron_obj.level_status.monthly_donut_reward
+        if not self.last_patreon_claim_date.end_date_has_passed:
+            if self.last_patreon_claim_amount < patron_obj.level_status.monthly_donut_reward:
+                amount = patron_obj.level_status.monthly_donut_reward - self.last_patreon_claim_amount
+            else:
+                raise mido_utils.CantClaimRightNow(f"You're on cooldown. Increase your pledge to get more rewards "
+                                                   f"or wait **{self.last_patreon_claim_date.remaining_string}**.")
+
+        await self.add_cash(amount=amount, reason='Claimed Patreon reward.')
+
     def __eq__(self, other):
         if isinstance(other, UserDB):
             return self.id == other.id
@@ -317,7 +334,7 @@ class MemberDB(BaseDBModel):
         return self.user.discord_name
 
     @classmethod
-    async def get_or_create(cls, bot, guild_id: int, member_id: int):
+    async def get_or_create(cls, bot, guild_id: int, member_id: int) -> MemberDB:
         member_db = await bot.db.fetchrow(
             """SELECT * FROM members WHERE guild_id=$1 AND user_id=$2;""", guild_id, member_id)
 
@@ -439,7 +456,7 @@ class GuildDB(BaseDBModel):
         await bot.db.execute("UPDATE guilds SET last_message_date=now() WHERE id=ANY($1);", guild_id_list)
 
     @classmethod
-    async def get_or_create(cls, bot, guild_id: int):
+    async def get_or_create(cls, bot, guild_id: int) -> GuildDB:
         guild_db = await bot.db.fetchrow("""SELECT * FROM guilds WHERE id=$1;""", guild_id)
         if not guild_db:
             try:
@@ -858,6 +875,8 @@ class CustomReaction(BaseDBModel):
 
 
 class NSFWImage:
+    EMBED_PREVIEW_FORMATS = ('png', 'jpg', 'jpeg', 'gif', 'gifv')
+
     class Type(Enum):
         porn = auto()
         hentai = auto()
@@ -868,7 +887,6 @@ class NSFWImage:
         self.api_name = api_name
 
     def get_embed(self, bot) -> mido_utils.Embed:
-        # todo: send as a normal message if the link is .webm or .mp4
         e = mido_utils.Embed(bot=bot,
                              description=f"Image not working? [Click here.]({self.url})",
                              image_url=self.url)
@@ -883,6 +901,18 @@ class NSFWImage:
             e.set_footer(text=' | '.join(stuff_to_add_to_footer))
 
         return e
+
+    def get_send_kwargs(self, bot) -> dict:
+        should_send_as_embed = False
+        for format in self.EMBED_PREVIEW_FORMATS:
+            if self.url.endswith(format):
+                should_send_as_embed = True
+                break
+
+        if should_send_as_embed:
+            return {'embed': self.get_embed(bot)}
+        else:
+            return {'content': self.url}
 
 
 class CachedImage(BaseDBModel, NSFWImage):
@@ -936,7 +966,7 @@ class CachedImage(BaseDBModel, NSFWImage):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status in (429, 500, 503):
+                elif response.status in (429, 500, 503, 502):
                     return None
                 elif response.status in (404, 403):
                     return False

@@ -108,7 +108,8 @@ class ErrorHandling(commands.Cog):
                     return await ctx.send_error(
                         "I don't have permission to use external emojis! Please give me permission to use them.")
 
-            elif isinstance(error, mido_utils.NotFoundError):
+            elif isinstance(error, mido_utils.NotFoundError) \
+                    or str(type(error)) == str(mido_utils.NotFoundError):  # due to importlib.reload
                 return await ctx.send_error(error, "I couldn't find anything with that query.")
 
             elif isinstance(error, mido_utils.RateLimited):
@@ -131,17 +132,17 @@ class ErrorHandling(commands.Cog):
                                     commands.UserInputError,
                                     mido_utils.TimedOut,
                                     mido_utils.DidntVoteError,
-                                    mido_utils.UnknownCurrency)):
+                                    mido_utils.UnknownCurrency,
+                                    mido_utils.NotPatron,
+                                    mido_utils.InsufficientPatronLevel,
+                                    mido_utils.CantClaimRightNow)):
                 return await ctx.send_error(error)
+
+            await ctx.send_error("**A critical error has occurred!** "
+                                 "My developer will work on fixing this as soon as possible.")
 
         except discord.Forbidden:
             return
-
-        try:
-            await ctx.send_error("**A critical error has occurred!** "
-                                 "My developer will work on fixing this as soon as possible.")
-        except discord.Forbidden:
-            pass
 
         exc_info = type(error), error, error.__traceback__
         error_msg = "\n".join(traceback.format_exception(*exc_info))

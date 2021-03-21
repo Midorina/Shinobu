@@ -247,7 +247,7 @@ class MidoBot(commands.AutoShardedBot):
                 except Exception as e:
                     self.logger.error(f"Failed to load cog {name}")
                     self.logger.exception(e)
-                finally:
+                else:
                     cog_counter += 1
 
         return cog_counter
@@ -262,13 +262,11 @@ class MidoBot(commands.AutoShardedBot):
             except KeyError:
                 try:
                     webhook = self.webhook_cache[channel.id] = next(
-                        x for x in await channel.webhooks() if x.name == self.user.display_name)
+                        x for x in await channel.webhooks() if x.name.casefold() == self.user.display_name.casefold())
                 except StopIteration:
-                    async with self.http_session.get(url=str(self.user.avatar_url_as(format='png'))) as r:
-                        webhook = self.webhook_cache[channel.id] = await channel.create_webhook(
-                            name=self.user.display_name,
-                            avatar=await r.read())
-            await webhook.send(*args, **kwargs)
+                    webhook = self.webhook_cache[channel.id] = await channel.create_webhook(name=self.user.display_name)
+
+            await webhook.send(*args, **kwargs, username=self.user.display_name, avatar_url=self.user.avatar_url)
 
         except discord.Forbidden:
             await channel.send("I need **Manage Webhooks** permission to continue.")
@@ -278,8 +276,12 @@ class MidoBot(commands.AutoShardedBot):
             del self.webhook_cache[channel.id]
             return await self.send_as_webhook(channel, *args, **kwargs)
 
-        except discord.DiscordServerError:
+        except (discord.DiscordServerError, discord.HTTPException) as e:
             # probably discord servers dying
+            if isinstance(e, discord.HTTPException) and e.code != 503:
+                raise e
+
+            await asyncio.sleep(1.0)
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except Exception as e:
@@ -299,7 +301,7 @@ class MidoBot(commands.AutoShardedBot):
         super().run(self.config['token'])
 
     async def close(self):
+        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
         await super().close()
         await self.http_session.close()
         await self.db.close()
-        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")

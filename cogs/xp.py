@@ -119,9 +119,10 @@ class XP(commands.Cog):
 
     async def check_member_xp_role_reward(self, member: discord.Member, member_db: MemberDB = None):
         member_db = member_db or await MemberDB.get_or_create(self.bot, member.guild.id, member.id)
+        level, progress, required_xp_to_level_up = calculate_xp_data(member_db.total_xp)
 
         role_rewards = await XpRoleReward.get_all(bot=self.bot, guild_id=member_db.guild.id)
-        eligible_role_rewards = [reward for reward in role_rewards if reward.level <= member_db.level]
+        eligible_role_rewards = [reward for reward in role_rewards if reward.level <= level]
 
         for reward in eligible_role_rewards:
             role = member.guild.get_role(reward.role_id)
@@ -366,8 +367,8 @@ class XP(commands.Cog):
     @commands.command(name="addgxp", hidden=True)
     @mido_utils.is_owner()
     async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
-        member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
-        await member_db.user.add_xp(amount, owner=True)
+        user_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
+        await user_db.add_xp(amount, owner=True)
         await ctx.send_success("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)

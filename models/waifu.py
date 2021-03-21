@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import List, Tuple
 
-__all__ = ['Waifu']
+__all__ = ['Waifu', 'Item']
 
 
 class Item:

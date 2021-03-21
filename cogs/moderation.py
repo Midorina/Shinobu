@@ -82,8 +82,12 @@ class Moderation(commands.Cog):
                 await channel.send(content=content,
                                    embed=embed,
                                    delete_after=guild_db.welcome_delete_after)
-            except (discord.Forbidden, discord.HTTPException):
+            except discord.Forbidden:
                 pass
+            except Exception as e:
+                await self.bot.get_cog('ErrorHandling').on_error(
+                    f"Error happened while sending bye message for guild id `{member.guild.id}`: {e}")
+                return
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
@@ -104,6 +108,10 @@ class Moderation(commands.Cog):
                                    delete_after=guild_db.welcome_delete_after)
             except discord.Forbidden:
                 pass
+            except Exception as e:
+                await self.bot.get_cog('ErrorHandling').on_error(
+                    f"Error happened while sending bye message for guild id `{member.guild.id}`: {e}")
+                return
 
     # TODO: welcome and bye del set commands
 

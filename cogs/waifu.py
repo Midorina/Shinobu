@@ -178,7 +178,7 @@ class Waifu(commands.Cog):
 
     @commands.cooldown(rate=1, per=1800, type=BucketType.user)  # 30 minutes
     @commands.command()
-    async def affinity(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter() = None):
+    async def affinity(self, ctx: mido_utils.Context, target: mido_utils.UserConverter() = None):
         """
         Sets your affinity towards someone you want to be claimed by.
 

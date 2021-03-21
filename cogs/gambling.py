@@ -23,43 +23,51 @@ DIGIT_TO_EMOJI = {
     9: ":nine:"
 }
 
+COIN_SIDES = {
+    "heads": {
+        "aliases": ['heads', 'head', 'h'],
+        "images" : [
+            "https://i.imgur.com/BcSMPgD.png"
+        ]
+    },
+    "tails": {
+        "aliases": ['tails', 'tail', 't'],
+        "images" : [
+            "https://i.imgur.com/bt3xeCq.png"
+        ]
+    }
+}
+
 
 class Gambling(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        # coin variables
-        self.coin_sides = {
-            "heads": {
-                "aliases": ['heads', 'head', 'h'],
-                "images" : [
-                    "https://i.imgur.com/BcSMPgD.png"
-                ]
-            },
-            "tails": {
-                "aliases": ['tails', 'tail', 't'],
-                "images" : [
-                    "https://i.imgur.com/bt3xeCq.png"
-                ]
-            }
-        }
-
-        # dbl stuff
-        self.dblpy = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'],
-                                   autopost=False)
-        self.votes = set()
-
         # donut event stuff
         self.active_donut_events: List[DonutEvent] = list()
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
+        if self.bot.cluster_id == 0:
+            # dbl stuff
+            self.dbl = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'], autopost=False)
+            self.votes = set()
+
+            # patreon
+            self.patreon_api = mido_utils.PatreonAPI(self.bot.http_session, self.bot.config['patreon_credentials'])
+
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
         """Manual posting is required due to clustering"""
-        await self.dblpy.http.post_guild_count(bot_id=self.bot.user.id,
-                                               guild_count=await self.bot.ipc.get_guild_count(),
-                                               shard_count=None,
-                                               shard_no=None)
+        if hasattr(self, 'dbl'):
+            await self.dbl.http.post_guild_count(bot_id=self.bot.user.id,
+                                                 guild_count=await self.bot.ipc.get_guild_count(),
+                                                 shard_count=None,
+                                                 shard_no=None)
+
+    @tasks.loop(minutes=30.0)
+    async def update_patreon_cache(self):
+        if hasattr(self, 'patreon_api'):
+            await self.patreon_api.refresh_patron_cache()
 
     async def get_active_donut_events(self):
         await self.bot.wait_until_ready()
@@ -91,7 +99,8 @@ class Gambling(commands.Cog):
 
     def cog_unload(self):
         self.active_donut_task.cancel()
-        self.bot.loop.create_task(self.dblpy.close())
+        if hasattr(self, 'dbl'):
+            self.bot.loop.create_task(self.dbl.close())
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -149,12 +158,19 @@ class Gambling(commands.Cog):
         await ctx.send_success(f"**{user.mention}** has **{user_db.cash_str}**!")
 
     async def user_has_voted(self, user_id: int) -> bool:
-        return user_id in self.votes or await self.dblpy.get_user_vote(user_id)
+        ret = False
+        if hasattr(self, 'patreon_api'):
+            ret = self.patreon_api.is_patron_and_can_claim_daily(user_id)
+
+        if not ret and hasattr(self, 'dbl'):
+            ret = user_id in self.votes or await self.dbl.get_user_vote(user_id)
+
+        return ret
 
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
-        Claim {0.bot.config[daily_amount]} {0.emotes.currency} for free every 12 hours by upvoting [here]({0.links.upvote}).
+        Claim {bot.config[daily_amount]} {mido_utils.emotes.currency} for free every 12 hours.
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
@@ -172,7 +188,9 @@ class Gambling(commands.Cog):
             raise mido_utils.DidntVoteError(f"It seems like you haven't voted yet.\n\n"
                                             f"Vote [here]({mido_utils.links.upvote}), "
                                             f"then use this command again "
-                                            f"to get your **{mido_utils.readable_currency(daily_amount)}**!")
+                                            f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
+                                            f"*You can receive dailies without voting, get more donuts and other "
+                                            f"cool stuff by [supporting this project]({mido_utils.links.patreon}).*")
         else:
             try:
                 self.votes.remove(ctx.author.id)
@@ -204,6 +222,15 @@ class Gambling(commands.Cog):
                 await ctx.edit_custom(m,
                                       base_msg + f"Alright, you won't be reminded when you can get your daily again.")
 
+    @commands.command(name='claimrewards', aliases=['claimpatreonrewards', 'clparew'])
+    @mido_utils.is_patron_decorator(allow_owner=False)
+    async def claim_patreon_rewards(self, ctx: mido_utils.Context):
+        """Claim the donut reward you'll be getting by [supporting this project.]({mido_utils.links.patreon}) ♥"""
+        patron_obj = await self.bot.ipc.get_patron(ctx.author.id)
+        await ctx.user_db.claim_patreon_reward(self.bot, patron_obj)
+        await ctx.send_success(f"You've successfully claimed "
+                               f"**{mido_utils.readable_currency(patron_obj.level_status.monthly_donut_reward)}**!")
+
     @commands.command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
     async def coin_flip(self, ctx: mido_utils.Context, amount: Union[int, str], guessed_side: str):
         """A coin flip game. You'll earn x1.95 of what you bet if you predict correctly.
@@ -212,17 +239,17 @@ class Gambling(commands.Cog):
         **Heads**: `heads`, `head`, `h`
         **Tails**: `tails`, `tail`, `t`"""
         actual_guessed_side_name = None
-        for side_name, properties in self.coin_sides.items():
+        for side_name, properties in COIN_SIDES.items():
             if guessed_side.lower() in properties['aliases']:
                 actual_guessed_side_name = side_name
 
         if not actual_guessed_side_name:
             raise commands.BadArgument("Incorrect coin side!")
 
-        random_side_name = random.choice(list(self.coin_sides.keys()))
+        random_side_name = random.choice(list(COIN_SIDES.keys()))
 
         e = mido_utils.Embed(bot=ctx.bot)
-        e.set_image(url=random.choice(self.coin_sides[random_side_name]['images']))
+        e.set_image(url=random.choice(COIN_SIDES[random_side_name]['images']))
 
         if actual_guessed_side_name == random_side_name:
             won_amount = int(amount * 1.95)

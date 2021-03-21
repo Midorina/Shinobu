@@ -1,10 +1,11 @@
 import discord
 from discord.ext import commands
 
-from mido_utils.context import Context
+import mido_utils
+import models
 
 
-def ensure_role_hierarchy(ctx: Context, role: discord.Role = None):
+def ensure_role_hierarchy(ctx, role: discord.Role = None):
     command_args = ctx.args + list(ctx.kwargs.values())
     role = role or next(arg for arg in command_args if isinstance(arg, discord.Role))
 
@@ -32,3 +33,32 @@ def is_owner():
         return True
 
     return commands.check(predicate)
+
+
+def is_patron_decorator(level: int = 1, allow_owner=True):
+    async def predicate(ctx):
+        return await is_patron(bot=ctx.bot, user_id=ctx.author.id,
+                               required_level=level, allow_owner=allow_owner,
+                               raise_exceptions=True)
+
+    return commands.check(predicate)
+
+
+async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True, raise_exceptions=False):
+    if allow_owner is True and user_id in bot.owner_ids:
+        return True
+
+    patron: models.UserAndPledgerCombined = await bot.ipc.get_patron(user_id)
+    if not patron:
+        if raise_exceptions is True:
+            raise mido_utils.NotPatron(f'Unfortunately this command is exclusive to the supporters :/\n\n'
+                                       f'You can unlock this command by [supporting the project.]({mido_utils.links.patreon})')
+        else:
+            return False
+    elif patron.level_status.level < required_level:
+        if raise_exceptions is True:
+            raise mido_utils.InsufficientPatronLevel(
+                "Unfortunately your membership level is insufficient to run this command.")
+        else:
+            return False
+    return True

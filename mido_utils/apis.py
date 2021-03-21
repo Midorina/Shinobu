@@ -5,7 +5,8 @@ import base64
 import json
 import logging
 import random
-from typing import List, Tuple, Union
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Tuple, Union
 
 import aiohttp
 import anekos
@@ -17,12 +18,10 @@ from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 
 import mido_utils
-from models.db import CachedImage, NSFWImage
-from models.hearthstone import HearthstoneCard
-from models.subreddits import LocalSubreddit
+import models
 
 __all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI', 'BlizzardAPI',
-           'ExchangeAPI']
+           'ExchangeAPI', 'PatreonAPI']
 
 
 class MidoBotAPI:
@@ -42,7 +41,7 @@ class MidoBotAPI:
     def get_aiohttp_session(cls):
         return ClientSession(headers=cls.DEFAULT_HEADERS,
                              connector=aiohttp.TCPConnector(limit=0),
-                             timeout=aiohttp.ClientTimeout(total=10))
+                             timeout=aiohttp.ClientTimeout(total=15))
 
     async def _request_get(self,
                            url: str,
@@ -206,12 +205,12 @@ class RedditAPI(CachedImageAPI):
                                       category: str,
                                       tags: List[str] = None,
                                       limit: int = 1,
-                                      allow_gif: bool = False) -> List[CachedImage]:
-        subreddits = LocalSubreddit.get_with_related_tag(category=category, tags=tags)
-        return await CachedImage.get_random(bot=bot,
-                                            subreddits=subreddits,
-                                            allow_gif=allow_gif,
-                                            limit=limit)
+                                      allow_gif: bool = False) -> List[models.CachedImage]:
+        subreddits = models.LocalSubreddit.get_with_related_tag(category=category, tags=tags)
+        return await models.CachedImage.get_random(bot=bot,
+                                                   subreddits=subreddits,
+                                                   allow_gif=allow_gif,
+                                                   limit=limit)
 
     async def fill_the_database(self):
         async def _fill(sub_name: str, go_ham=False):
@@ -234,7 +233,7 @@ class RedditAPI(CachedImageAPI):
                 await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
                 await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
 
-        for sub in LocalSubreddit.get_all():
+        for sub in models.LocalSubreddit.get_all():
             await _fill(sub.subreddit_name)
 
 
@@ -252,16 +251,16 @@ class NSFW_DAPIs(CachedImageAPI):
     ]
 
     DAPI_LINKS = {
-        'danbooru': 'https://danbooru.donmai.us/posts.json',
-        'gelbooru': 'https://gelbooru.com/index.php',
-        'rule34'  : 'https://rule34.xxx/index.php'
-        # 'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
+        'danbooru'       : 'https://danbooru.donmai.us/posts.json',
+        'gelbooru'       : 'https://gelbooru.com/index.php',
+        'rule34'         : 'https://rule34.xxx/index.php',
+        'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
     }
 
     def __init__(self, session: ClientSession, db: Pool):
         super().__init__(session, db)
 
-    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[NSFWImage]:
+    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[models.NSFWImage]:
         base_tags = tags
         tags = self._parse_tags(tags)
 
@@ -297,14 +296,14 @@ class NSFW_DAPIs(CachedImageAPI):
 
         # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
 
-        fetched_imgs = [NSFWImage(x, tags=base_tags, api_name=nsfw_type) for x in fetched_imgs]
+        fetched_imgs = [models.NSFWImage(x, tags=base_tags, api_name=nsfw_type) for x in fetched_imgs]
 
         try:
             return random.sample(fetched_imgs, limit)
         except ValueError:
             return fetched_imgs
 
-    async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[NSFWImage]:
+    async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[models.NSFWImage]:
         sample = limit if limit <= len(self.DAPI_LINKS.keys()) else len(self.DAPI_LINKS.keys())
 
         urls = []
@@ -648,8 +647,6 @@ class Google(MidoBotAPI):
 
 
 class ExchangeAPI(MidoBotAPI):
-    API_URL = "https://api.exchangeratesapi.io/latest"
-
     class Response:
         def __init__(self, data: dict):
             self.date: mido_utils.Time = mido_utils.Time()
@@ -660,6 +657,10 @@ class ExchangeAPI(MidoBotAPI):
         super().__init__(session)
 
         self.rate_cache: ExchangeAPI.Response = None
+
+    @property
+    def api_url(self) -> str:
+        return "https://api.exchangeratesapi.io/latest"
 
     async def convert(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
         """Converts any amount of currency to the other one and returns both the result and the exchange rate."""
@@ -679,7 +680,7 @@ class ExchangeAPI(MidoBotAPI):
         return exchange_rate * amount, exchange_rate
 
     async def update_rate_cache(self):
-        r = await self._request_get(url=self.API_URL, return_json=True)
+        r = await self._request_get(url=self.api_url, return_json=True)
         self.rate_cache = self.Response(r)
 
 
@@ -688,14 +689,24 @@ class OAuthAPI(MidoBotAPI):
     def __init__(self, session: ClientSession, credentials: dict):
         super().__init__(session)
 
-        self.url_to_get_token = None
-
         self.client_id: str = credentials.get('client_id')
         self.client_secret: str = credentials.get('client_secret')
 
         self.token: str = None
         self.token_type: str = None
         self.expire_date: mido_utils.Time = None
+
+    @property
+    def token_grant_type(self) -> str:
+        return 'client_credentials'
+
+    @property
+    def api_url(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def url_to_get_token(self) -> str:
+        raise NotImplementedError
 
     @property
     def auth_header(self):
@@ -709,7 +720,7 @@ class OAuthAPI(MidoBotAPI):
         return await super()._request_get(link, headers=self.auth_header, *args, **kwargs)
 
     async def get_token(self):
-        param = {'grant_type': 'client_credentials'}
+        param = {'grant_type': self.token_grant_type}
 
         base_64 = base64.b64encode(
             f'{self.client_id}:{self.client_secret}'.encode('ascii'))
@@ -725,22 +736,26 @@ class OAuthAPI(MidoBotAPI):
 
 
 class SpotifyAPI(OAuthAPI):
-    API_URL = "https://api.spotify.com/v1"
-
     # noinspection PyTypeChecker
     def __init__(self, session: ClientSession, credentials: dict):
         super().__init__(session, credentials)
 
-        self.url_to_get_token = 'https://accounts.spotify.com/api/token'
+    @property
+    def api_url(self) -> str:
+        return "https://api.spotify.com/v1"
 
-    async def _pagination_get(self, url, params, **kwargs):
-        first_page = await self._request_get(url, params, **kwargs)
+    @property
+    def url_to_get_token(self) -> str:
+        return 'https://accounts.spotify.com/api/token'
+
+    async def _pagination_get(self, url, *args, **kwargs):
+        first_page = await self._request_get(url, *args, **kwargs)
         yield first_page
 
         if 'tracks' in first_page and 'next' in first_page['tracks']:
             next_page_url = first_page['tracks']['next']
             while next_page_url:
-                next_page_content = await self._request_get(next_page_url, params, **kwargs)
+                next_page_content = await self._request_get(next_page_url, *args, **kwargs)
                 yield next_page_content
                 next_page_url = next_page_content['next']
 
@@ -771,7 +786,7 @@ class SpotifyAPI(OAuthAPI):
         else:
             extra_query = 'tracks'
 
-        request_url = f'{self.API_URL}/{url_type}/{_id}/{extra_query}'
+        request_url = f'{self.api_url}/{url_type}/{_id}/{extra_query}'
         responses = self._pagination_get(request_url, params=params, return_json=True)
 
         track_list = []
@@ -790,28 +805,32 @@ class SpotifyAPI(OAuthAPI):
 
 
 class BlizzardAPI(OAuthAPI):
-    API_URL = "https://eu.api.blizzard.com"
-
     def __init__(self, session: ClientSession, credentials: dict):
         super().__init__(session, credentials)
 
-        self.url_to_get_token = "https://eu.battle.net/oauth/token"
+    @property
+    def api_url(self) -> str:
+        return "https://eu.api.blizzard.com"
 
-    async def get_hearthstone_card(self, keyword: str = None) -> HearthstoneCard:
+    @property
+    def url_to_get_token(self) -> str:
+        return "https://eu.battle.net/oauth/token"
+
+    async def get_hearthstone_card(self, keyword: str = None) -> models.HearthstoneCard:
         if keyword:
-            r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+            r = await self._request_get(f'{self.api_url}/hearthstone/cards',
                                         params={"locale"    : "en_US",
                                                 "textFilter": keyword,
                                                 "pageSize"  : 1},
                                         return_json=True)
             if not r['cards']:
-                r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+                r = await self._request_get(f'{self.api_url}/hearthstone/cards',
                                             params={"locale"  : "en_US",
                                                     "keyword" : keyword,
                                                     "pageSize": 1},
                                             return_json=True)
         else:  # get random
-            r = await self._request_get(f'{self.API_URL}/hearthstone/cards',
+            r = await self._request_get(f'{self.api_url}/hearthstone/cards',
                                         params={"locale"  : "en_US",
                                                 "pageSize": 1,
                                                 "page"    : random.randint(1, 2710)  # total amount of cards
@@ -822,4 +841,73 @@ class BlizzardAPI(OAuthAPI):
         if not cards:
             raise mido_utils.NotFoundError
 
-        return HearthstoneCard(cards[0])  # get the first result
+        return models.HearthstoneCard(cards[0])  # get the first result
+
+
+class PatreonAPI(OAuthAPI):
+    def __init__(self, session: ClientSession, credentials: dict):
+        super().__init__(session, credentials)
+
+        self.campaign_id = credentials.get('campaign_id')
+
+        # we set these manually, because patreon api is confusing af.
+        # todo: get access token dynamically
+        self.token = credentials.get('creator_access_token')
+        self.token_type = 'Bearer'
+        self.expire_date = mido_utils.Time(end_date=datetime.now(timezone.utc) + timedelta(days=30))
+
+        self.cache: List[models.UserAndPledgerCombined] = []
+
+    @property
+    def api_url(self) -> str:
+        return "https://www.patreon.com/api/oauth2/api"
+
+    @property
+    def url_to_get_token(self) -> str:
+        return "https://www.patreon.com/api/oauth2/token"
+
+    async def _pagination_get(self, url, **kwargs):
+        first_page = await self._request_get(url, **kwargs)
+        yield first_page
+
+        temp_page = first_page
+        while 'next' in temp_page['links']:
+            temp_page = await self._request_get(first_page['links']['next'], **kwargs)
+            yield temp_page
+
+    async def refresh_patron_cache(self) -> List[models.UserAndPledgerCombined]:
+        responses = self._pagination_get(f'{self.api_url}/campaigns/{self.campaign_id}/pledges',
+                                         return_json=True)
+        active_pledgers: List[models.PatreonPledger] = []
+        users: List[models.PatreonUser] = []
+
+        async for page in responses:
+            pledgers = [models.PatreonPledger(x) for x in page['data'] if x['type'] == 'pledge']
+
+            active_pledgers += [x for x in pledgers if x.attributes.declined_since is None]
+            users += [models.PatreonUser(x) for x in page['included'] if x['type'] == 'user']
+
+        ret: List[models.UserAndPledgerCombined] = []
+        for pledger in active_pledgers:
+            user = next(x for x in users if x.id == pledger.relationships.patron.data.id)
+            ret.append(models.UserAndPledgerCombined(user=user, pledger=pledger))
+
+        self.cache = ret
+
+        return ret
+
+    def get_with_discord_id(self, discord_id: int) -> Optional[models.UserAndPledgerCombined]:
+        try:
+            return next(x for x in self.cache if x.discord_id == discord_id)
+        except StopIteration:
+            return None
+
+    def is_patron_and_can_claim_daily(self, discord_id) -> bool:
+        patron = self.get_with_discord_id(discord_id)
+        if not patron or not patron.can_claim_daily_without_ads:
+            return False
+
+    def is_patron_and_can_use_music_premium(self, discord_id) -> bool:
+        patron = self.get_with_discord_id(discord_id)
+        if not patron or not patron.can_use_premium_music:
+            return False

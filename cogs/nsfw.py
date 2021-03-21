@@ -137,7 +137,7 @@ class NSFW(commands.Cog):
                 continue
 
             try:
-                await self.bot.send_as_webhook(nsfw_channel, embed=image.get_embed(self.bot))
+                await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
             except discord.Forbidden:
                 nsfw_channel = None  # reset
                 break
@@ -190,34 +190,33 @@ class NSFW(commands.Cog):
     @commands.command()
     async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
-
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags=tag, limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx: mido_utils.Context):
         """Get a random boob picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='boobs', limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['butt', 'ass'])
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='butts', limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='pussy', limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def asian(self, ctx: mido_utils.Context):
         """Get a random asian porn content."""
 
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='asian', limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def gelbooru(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -227,7 +226,7 @@ class NSFW(commands.Cog):
         `{0.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('gelbooru', tags))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def rule34(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -237,9 +236,9 @@ class NSFW(commands.Cog):
         `{0.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('rule34', tags))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(aliases=['sankakucomplex'], enabled=False)
+    @commands.command(aliases=['sankakucomplex'])
     async def sankaku(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Rule34.
 
@@ -247,7 +246,7 @@ class NSFW(commands.Cog):
         `{0.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('sankaku_complex', tags))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -258,8 +257,7 @@ class NSFW(commands.Cog):
 
         **Danbooru doesn't allow more than 2 tags.**"""
         image = (await self.api.get('danbooru', tags))[0]
-
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(name='lewdneko')
     async def lewd_neko(self, ctx: mido_utils.Context):
@@ -267,7 +265,7 @@ class NSFW(commands.Cog):
 
         image = await self.neko.get_random_neko(nsfw=True)
         image = NSFWImage(image.url, tags='neko', api_name='Nekos.Life')
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def hentai(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -276,7 +274,7 @@ class NSFW(commands.Cog):
         You must put '+' between different tags.
         `{0.prefix}hentaibomb yuri+group`"""
         image = (await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1))[0]
-        await ctx.send(embed=image.get_embed(self.bot))
+        await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(name='hentaibomb')
     async def hentai_bomb(self, ctx: mido_utils.Context, *, tags: str = None):
@@ -305,8 +303,8 @@ class NSFW(commands.Cog):
 
                 return await ctx.send_success(f"Auto-{nsfw_type.name} service has successfully been disabled.")
 
-        if interval < 10:
-            raise commands.UserInputError("Interval can not be less than 10!")
+        if interval < 3:
+            raise commands.UserInputError("Interval can not be less than 3!")
 
         await ctx.guild_db.set_auto_nsfw(nsfw_type=nsfw_type,
                                          channel_id=ctx.channel.id,
@@ -320,13 +318,15 @@ class NSFW(commands.Cog):
                                       f"every **{mido_utils.Time.parse_seconds_to_str(interval)}** "
                                       f"with these tags: `{tags if tags else 'random'}`")
 
+    # todo: fix multiple auto nsfws in a server
+
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autohentai')
     @commands.bot_has_permissions(manage_webhooks=True)
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have hentai automatically posted!
 
-        Interval argument can be 10 seconds minimum.
+        Interval argument can be 3 seconds minimum.
 
         Put `+` between tags.
         Put `|` between tag groups. A random tag group will be chosen each time.
@@ -345,7 +345,7 @@ class NSFW(commands.Cog):
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have porn automatically posted!
 
-        Interval argument can be 10 seconds minimum.
+        Interval argument can be 3 seconds minimum.
 
         Put `|` between tag groups. A random tag group will be chosen each time.
         Please provide a single tag for each tag group (unlike `autohentai`)
