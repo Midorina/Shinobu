@@ -24,7 +24,7 @@ class ErrorHandling(commands.Cog):
 
         traceback_embed = discord.Embed(title=f"Traceback",
                                         color=mido_utils.Color.red(),
-                                        description=f"```py\n{error_msg[:2000]}```")
+                                        description=f"```py\n{error_msg[-2000:]}```")
 
         await self.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)
 
@@ -177,7 +177,7 @@ An error occurred during the execution of a command:
 **Message contents:** `{ctx.message.content}`
 """
 
-        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[:2000]}```",
+        traceback_embed = discord.Embed(title="Traceback", description=f"```py\n{error_msg[-2000:]}```",
                                         timestamp=ctx.message.created_at, color=mido_utils.Color.red())
 
         await ctx.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)

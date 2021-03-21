@@ -966,7 +966,8 @@ class CachedImage(BaseDBModel, NSFWImage):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status in (429, 500, 503, 502):
+                elif response.status == 429 or response.status >= 500:
+                    # if we are rate limited or the target server is dying, return None to try again later
                     return None
                 elif response.status in (404, 403):
                     return False

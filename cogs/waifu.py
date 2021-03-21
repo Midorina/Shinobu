@@ -213,6 +213,7 @@ class Waifu(commands.Cog):
                                    f"*Sometimes you just can't oppose your heart.*")
 
     @commands.command(name='claim', aliases=['claimwaifu'])
+    @commands.guild_only()
     async def claim_waifu(self, ctx: mido_utils.Context, price: mido_utils.Int64(),
                           target: mido_utils.MemberConverter()):
         """

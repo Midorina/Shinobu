@@ -9,9 +9,6 @@ from midobot import MidoBot
 from models.db import ReminderDB
 
 
-# todo: fix s.remind me in DMs
-
-
 class Reminder(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
@@ -99,12 +96,12 @@ class Reminder(commands.Cog):
             channel_id = channel.id
             channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
         else:
-            if channel == 'me' or isinstance(ctx.channel, discord.DMChannel):
+            if channel.casefold() == 'me' or isinstance(ctx.channel, discord.DMChannel):
                 channel = ctx.author
                 channel_id = ctx.author.id
                 channel_type = ReminderDB.ChannelType.DM
 
-            elif channel == 'here':
+            elif channel.casefold() == 'here':
                 channel = ctx.channel
                 channel_id = ctx.channel.id
                 channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
@@ -119,10 +116,15 @@ class Reminder(commands.Cog):
                                            date_obj=length)
         self.add_reminder(reminder)
 
-        await ctx.send_success(f"Success! "
-                               f"**{channel.mention}** will be reminded "
-                               f"to **{message}** in "
-                               f"**{length.initial_remaining_string}**. `{length.end_date_string}`")
+        e = mido_utils.Embed(bot=ctx.bot,
+                             description=f"Success! "
+                                         f"**{channel.mention}** will be reminded "
+                                         f"to **{message}** in "
+                                         f"**{length.initial_remaining_string}**.",
+                             timestamp=reminder.time_obj.end_date)
+        e.set_footer(text="In your timezone, this will execute")
+
+        await ctx.send(embed=e)
 
     @commands.command()
     async def remindlist(self,

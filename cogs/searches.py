@@ -67,7 +67,6 @@ class Searches(commands.Cog):
         e.set_author(icon_url=mido_utils.images.google,
                      name=f"Google: {search}")
 
-        e.description = ""
         for result in results[:5]:
             e.add_field(name=result.url_simple,
                         value=f"[{result.title}]({result.url})\n"

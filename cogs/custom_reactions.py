@@ -52,12 +52,12 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
         if cr and cr.response != '-':
             channel_to_send = message.author if cr.send_in_DM else message.channel
 
-            content, embed = mido_utils.parse_text_with_context(text=cr.response,
-                                                                bot=self.bot,
-                                                                guild=message.guild,
-                                                                author=message.author,
-                                                                channel=channel_to_send,
-                                                                message_obj=message)
+            content, embed = await mido_utils.parse_text_with_context(text=cr.response,
+                                                                      bot=self.bot,
+                                                                      guild=message.guild,
+                                                                      author=message.author,
+                                                                      channel=channel_to_send,
+                                                                      message_obj=message)
             try:
                 await channel_to_send.send(content=content, embed=embed)
                 if cr.delete_trigger:

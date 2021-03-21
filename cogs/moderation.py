@@ -73,11 +73,12 @@ class Moderation(commands.Cog):
                 if not channel:
                     return await guild_db.set_welcome(channel_id=None)  # reset
 
-            content, embed = mido_utils.parse_text_with_context(text=guild_db.welcome_message,
-                                                                bot=self.bot,
-                                                                guild=member.guild,
-                                                                author=member,
-                                                                channel=channel)
+            content, embed = await mido_utils.parse_text_with_context(
+                text=guild_db.welcome_message,
+                bot=self.bot,
+                guild=member.guild,
+                author=member,
+                channel=channel)
             try:
                 await channel.send(content=content,
                                    embed=embed,
@@ -97,11 +98,12 @@ class Moderation(commands.Cog):
             if not channel:
                 return await guild_db.set_bye()  # reset
 
-            content, embed = mido_utils.parse_text_with_context(text=guild_db.bye_message,
-                                                                bot=self.bot,
-                                                                guild=member.guild,
-                                                                author=member,
-                                                                channel=channel)
+            content, embed = await mido_utils.parse_text_with_context(
+                text=guild_db.bye_message,
+                bot=self.bot,
+                guild=member.guild,
+                author=member,
+                channel=channel)
             try:
                 await channel.send(content=content,
                                    embed=embed,
@@ -112,8 +114,6 @@ class Moderation(commands.Cog):
                 await self.bot.get_cog('ErrorHandling').on_error(
                     f"Error happened while sending bye message for guild id `{member.guild.id}`: {e}")
                 return
-
-    # TODO: welcome and bye del set commands
 
     @commands.command(aliases=['greet'])
     async def welcome(self,
@@ -762,12 +762,14 @@ class Moderation(commands.Cog):
             # roles
             role_field = ""
             for i, role in enumerate(user.roles, 1):
-                if len(role_field) < 1000:
+                if len(role_field) < 977:
                     role_field += role.mention
                 else:
                     role_field += f"**And {len(user.roles) - i} more role(s)**"
                     break
-                role_field += ',\n'
+
+                if i != len(user.roles):
+                    role_field += ',\n'
 
             embed.add_field(name=f'Roles ({len(user.roles)})',
                             value=role_field,

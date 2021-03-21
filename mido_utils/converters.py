@@ -8,6 +8,7 @@ from discord import ShardInfo
 from discord.ext import commands
 
 import mido_utils
+from midobot import MidoBot
 
 
 class NotDict(Exception):
@@ -115,13 +116,12 @@ def readable_currency(number: int) -> str:
     return readable_bigint(number) + mido_utils.emotes.currency
 
 
-def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: discord.Guild, author: discord.Member,
-                            channel: discord.TextChannel,
-                            message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
+async def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, author: discord.Member,
+                                  channel: discord.TextChannel,
+                                  message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff
-    # todo: use stats with ipc
 
     bot_member: discord.Member = guild.me
 
@@ -195,11 +195,12 @@ def parse_text_with_context(text: str, bot: commands.AutoShardedBot, guild: disc
     )
 
     # bot stats placeholders
-    # todo: handle AttributeError: _member_count in a separate func
+    clusters = await bot.ipc.get_cluster_stats()
+
     base_dict.update(
         {
-            "%servers%": len(bot.guilds),
-            "%users%"  : bot.get_member_count()
+            "%servers%": mido_utils.readable_bigint(sum(x.guilds for x in clusters)),
+            "%users%"  : mido_utils.readable_bigint(sum(x.members for x in clusters))
         }
     )
 
