@@ -1,10 +1,9 @@
-import math
-import random
-from typing import List, Union
-
 import dbl
 import discord
+import math
+import random
 from discord.ext import commands, tasks
+from typing import List, Union
 
 import mido_utils
 from midobot import MidoBot
@@ -192,10 +191,11 @@ class Gambling(commands.Cog):
                                             f"*You can receive dailies without voting, get more donuts and other "
                                             f"cool stuff by [supporting this project]({mido_utils.links.patreon}).*")
         else:
-            try:
-                self.votes.remove(ctx.author.id)
-            except KeyError:
-                pass
+            if hasattr(self, 'votes'):
+                try:
+                    self.votes.remove(ctx.author.id)
+                except KeyError:
+                    pass
 
             await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
 
@@ -313,10 +313,10 @@ class Gambling(commands.Cog):
         """Play slots!
 
         You get;
-        - **x30** -> If you get 3 {0.emotes.currency}
+        - **x30** -> If you get 3 {mido_utils.emotes.currency}
         - **x10** -> If you get 3 same emojis
-        - **x4** -> If you get 2 {0.emotes.currency}
-        - **x1** -> If you get 1 {0.emotes.currency}
+        - **x4** -> If you get 2 {mido_utils.emotes.currency}
+        - **x1** -> If you get 1 {mido_utils.emotes.currency}
         """
         emojis = [mido_utils.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
 

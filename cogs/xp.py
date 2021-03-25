@@ -1,8 +1,7 @@
-from datetime import datetime
-from typing import List, Tuple, Union
-
 import discord
+from datetime import datetime
 from discord.ext import commands
+from typing import List, Tuple, Union
 
 import mido_utils
 from midobot import MidoBot
@@ -206,9 +205,9 @@ class XP(commands.Cog):
     async def change_level_up_notifications(self, ctx: mido_utils.Context, new_preference: str):
         """Configure your level up notifications. It's DM by default.
 
-        `{0.prefix}xpnotifs [silence|disable]` (**disables** level up notifications)
-        `{0.prefix}xpnotifs dm` (sends level up notifications through your **DMs**)
-        `{0.prefix}xpnotifs [guild|server]` (sends level up notifications to the **server**)
+        `{ctx.prefix}xpnotifs [silence|disable]` (**disables** level up notifications)
+        `{ctx.prefix}xpnotifs dm` (sends level up notifications through your **DMs**)
+        `{ctx.prefix}xpnotifs [guild|server]` (sends level up notifications to the **server**)
         """
         if new_preference in ('silence', 'disable'):
             new_preference = XpAnnouncement.SILENT

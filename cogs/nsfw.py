@@ -1,9 +1,8 @@
 import asyncio
-import random
-from typing import Dict, List
-
 import discord
+import random
 from discord.ext import commands, tasks
+from typing import Dict, List
 
 import mido_utils
 from midobot import MidoBot
@@ -223,7 +222,7 @@ class NSFW(commands.Cog):
         """Get a random image from Gelbooru.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('gelbooru', tags))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
@@ -233,7 +232,7 @@ class NSFW(commands.Cog):
         """Get a random image from Rule34.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('rule34', tags))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
@@ -243,7 +242,7 @@ class NSFW(commands.Cog):
         """Get a random image from Rule34.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`"""
 
         image = (await self.api.get('sankaku_complex', tags))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
@@ -253,7 +252,7 @@ class NSFW(commands.Cog):
         """Get a random image from Danbooru.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`
+        `{ctx.prefix}hentaibomb yuri+group`
 
         **Danbooru doesn't allow more than 2 tags.**"""
         image = (await self.api.get('danbooru', tags))[0]
@@ -272,7 +271,7 @@ class NSFW(commands.Cog):
         """Get a random hentai image.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`"""
         image = (await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
@@ -281,7 +280,7 @@ class NSFW(commands.Cog):
         """Get multiple hentai images.
 
         You must put '+' between different tags.
-        `{0.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`"""
         images = await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=3, allow_video=True)
 
         await ctx.send(content="\n".join(im.url for im in images))

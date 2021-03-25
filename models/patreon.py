@@ -106,9 +106,9 @@ class Level:
         self.monthly_donut_reward = 0
 
         # permissions
-        if self.level >= 2:
+        if self.level >= 1:
             self.can_claim_daily_without_voting = True
-        if self.level >= 3:
+        if self.level >= 2:
             self.can_use_premium_music = True
 
         # donuts

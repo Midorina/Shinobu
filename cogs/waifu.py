@@ -1,10 +1,9 @@
 import math
 import random
-from typing import List
-
 from discord.ext import commands
 from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
+from typing import List
 
 import mido_utils
 from midobot import MidoBot
@@ -182,7 +181,7 @@ class Waifu(commands.Cog):
         """
         Sets your affinity towards someone you want to be claimed by.
 
-        Setting affinity will reduce their `{0.prefix}claim` on you by 20%.
+        Setting affinity will reduce their `{ctx.prefix}claim` on you by 20%.
         Provide no parameters to clear your affinity.
         30 minutes cooldown.
         """
@@ -218,7 +217,7 @@ class Waifu(commands.Cog):
                           target: mido_utils.MemberConverter()):
         """
         Claim a waifu for yourself by spending money.
-        You must spend at least 10% more than their current value, unless they set `{0.prefix}affinity` towards you.
+        You must spend at least 10% more than their current value, unless they set `{ctx.prefix}affinity` towards you.
         """
         target_db = await UserDB.get_or_create(bot=ctx.bot, user_id=target.id)
 

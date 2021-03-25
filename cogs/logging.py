@@ -1,10 +1,9 @@
+import discord
 from datetime import datetime
+from discord.ext import commands, tasks
 from enum import Enum, auto
 from io import StringIO
 from typing import Dict, List, Optional, Union
-
-import discord
-from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -341,7 +340,7 @@ class Logging(commands.Cog):
     @commands.bot_has_permissions(manage_webhooks=True)
     async def logging(self, ctx: mido_utils.Context):
         """Disable or enable logging in the current channel.
-        Use `{0.prefix}loggingmode` to change between simple and advanced logging.
+        Use `{ctx.prefix}loggingmode` to change between simple and advanced logging.
 
         You need Administrator permission to use this command."""
         guild_settings = await GuildLoggingDB.get_or_create(bot=self.bot, guild_id=ctx.guild.id)

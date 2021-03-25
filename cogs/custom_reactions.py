@@ -161,7 +161,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     @commands.command(name='deletecustomreaction', aliases=['dcr'])
     async def delete_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Delete a custom reaction using it's ID.
-        You can see the list of custom reactions using `{0.prefix}lcr`
+        You can see the list of custom reactions using `{ctx.prefix}lcr`
 
         You need Administrator permission to use this command."""
 

@@ -1,6 +1,5 @@
-import typing
-
 import discord
+import typing
 from discord.ext import commands, tasks
 
 import mido_utils
@@ -9,8 +8,9 @@ from models.db import GuildDB, ModLog
 
 action_emotes = {
     'kick': '👢',
-    'ban' : '🔨',
-    'mute': '🔇'
+    'ban': '🔨',
+    'mute': '🔇',
+    'unmute': '🔈'
 }
 
 
@@ -128,13 +128,13 @@ class Moderation(commands.Cog):
         Available placeholders: https://nadekobot.readthedocs.io/en/latest/placeholders/
 
         Examples:
-        `{0.prefix}welcome dm`
+        `{ctx.prefix}welcome dm`
         (welcomes new members in DMs using the default message)
-        `{0.prefix}welcome #welcome`
+        `{ctx.prefix}welcome #welcome`
         (welcomes new members in #welcome using the default message)
-        `{0.prefix}welcome #welcome Welcome %user.mention%!`
+        `{ctx.prefix}welcome #welcome Welcome %user.mention%!`
         (welcomes new members in #welcome using a customized message)
-        `{0.prefix}welcome`
+        `{ctx.prefix}welcome`
         (disables this feature)
         """
         if not channel:
@@ -174,11 +174,11 @@ class Moderation(commands.Cog):
         Available placeholders: https://nadekobot.readthedocs.io/en/latest/placeholders/
 
         **Examples:**
-        `{0.prefix}bye #bye`
+        `{ctx.prefix}bye #bye`
         (says goodbye in #bye to members that left using the default message)
-        `{0.prefix}bye #bye It's sad to see you go %user.name%...`
+        `{ctx.prefix}bye #bye It's sad to see you go %user.name%...`
         (says goodbye in #bye to members that left using a customized message)
-        `{0.prefix}bye`
+        `{ctx.prefix}bye`
         (disables this feature)
         """
         if not channel:
@@ -296,10 +296,10 @@ class Moderation(commands.Cog):
         """Bans a user for a specified period of time or indefinitely.
 
         **Examples:**
-            `{0.prefix}ban @Mido` (bans permanently)
-            `{0.prefix}ban @Mido toxic` (bans permanently with a reason)
-            `{0.prefix}ban @Mido 30m` (bans for 30 minutes)
-            `{0.prefix}ban @Mido 3d toxic` (bans for 3 days with reason)
+            `{ctx.prefix}ban @Mido` (bans permanently)
+            `{ctx.prefix}ban @Mido toxic` (bans permanently with a reason)
+            `{ctx.prefix}ban @Mido 30m` (bans for 30 minutes)
+            `{ctx.prefix}ban @Mido 3d toxic` (bans for 3 days with reason)
 
         **Available time length letters:**
             `s` -> seconds
@@ -377,10 +377,10 @@ class Moderation(commands.Cog):
         """Mutes a user for a specified period of time or indefinitely.
 
         **Examples:**
-            `{0.prefix}mute @Mido` (mutes permanently)
-            `{0.prefix}mute @Mido shitposting` (mutes permanently with a reason)
-            `{0.prefix}mute @Mido 30m` (mutes for 30 minutes)
-            `{0.prefix}mute @Mido 3d shitposting` (mutes for 3 days with reason)
+            `{ctx.prefix}mute @Mido` (mutes permanently)
+            `{ctx.prefix}mute @Mido shitposting` (mutes permanently with a reason)
+            `{ctx.prefix}mute @Mido 30m` (mutes for 30 minutes)
+            `{ctx.prefix}mute @Mido 3d shitposting` (mutes for 3 days with reason)
 
         **Available time length letters:**
             `s` -> seconds

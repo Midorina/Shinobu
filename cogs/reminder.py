@@ -1,13 +1,14 @@
 import asyncio
-from typing import Union
-
 import discord
 from discord.ext import commands
+from typing import Union
 
 import mido_utils
 from midobot import MidoBot
 from models.db import ReminderDB
 
+
+# todo: share reminders across clusters so that not all of them send a message
 
 class Reminder(commands.Cog):
     def __init__(self, bot: MidoBot):
@@ -44,7 +45,11 @@ class Reminder(commands.Cog):
                     value=f"{reminder.time_obj.start_date_string}\n"
                           f"(**{reminder.time_obj.initial_remaining_string} ago**)")
 
-        await channel.send(embed=e)
+        try:
+            await channel.send(embed=e)
+        except discord.Forbidden:
+            pass
+
         await reminder.complete()
 
     def add_reminder(self, reminder: ReminderDB):
@@ -80,9 +85,9 @@ class Reminder(commands.Cog):
         You can specify any other text channel to get the reminder on there.
 
         **Examples:**
-            `{0.prefix}remind me 10m check the oven.`
-            `{0.prefix}remind here 1h30m party!`
-            `{0.prefix}remind #general 12h Avengers spoilers are no longer forbidden.`
+            `{ctx.prefix}remind me 10m check the oven.`
+            `{ctx.prefix}remind here 1h30m party!`
+            `{ctx.prefix}remind #general 12h Avengers spoilers are no longer forbidden.`
 
         **Available time length letters:**
             `s` -> seconds
@@ -161,7 +166,7 @@ class Reminder(commands.Cog):
         """
         Delete a reminder you have using its index.
 
-        You can see a complete list of your reminders and their indexes using `{0.prefix}remindlist`
+        You can see a complete list of your reminders and their indexes using `{ctx.prefix}remindlist`
         """
 
         reminders = await ReminderDB.get_uncompleted_reminders(bot=ctx.bot, user_id=ctx.author.id)

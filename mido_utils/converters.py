@@ -1,14 +1,12 @@
-import json
-from datetime import datetime
-from typing import Optional, Union
-
 import discord
+import json
 import wavelink
+from datetime import datetime
 from discord import ShardInfo
 from discord.ext import commands
+from typing import Optional, Union
 
 import mido_utils
-from midobot import MidoBot
 
 
 class NotDict(Exception):
@@ -116,7 +114,7 @@ def readable_currency(number: int) -> str:
     return readable_bigint(number) + mido_utils.emotes.currency
 
 
-async def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild, author: discord.Member,
+async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: discord.Member,
                                   channel: discord.TextChannel,
                                   message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
     # missing or not-properly-working placeholders:
@@ -249,10 +247,11 @@ async def parse_text_with_context(text: str, bot: MidoBot, guild: discord.Guild,
         content = embed.get('plainText', None) or embed.get('content', None)
         embed = embed.get('embed', None) or embed
 
-        # if image is just a str, we need to convert it to dict
+        # if image/thumbnail is just a str, we need to convert it to dict
         # legacy, again
-        if 'image' in embed.keys() and isinstance(embed['image'], str):
-            embed['image'] = {'url': embed['image']}
+        for field in ('image', 'thumbnail'):
+            if field in embed.keys() and isinstance(embed[field], str):
+                embed[field] = {'url': embed[field]}
 
         return content, discord.Embed.from_dict(embed)
 
