@@ -26,7 +26,7 @@ def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
     return lvl, total_xp - used_xp, required_xp_to_level_up
 
 
-class XP(commands.Cog):
+class Leveling(commands.Cog):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -192,7 +192,6 @@ class XP(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
-    @commands.guild_only()
     async def show_global_leaderboard(self, ctx: mido_utils.Context):
         """See the global XP leaderboard."""
         top_10 = await ctx.user_db.get_top_10(ctx.bot)
@@ -388,4 +387,4 @@ class XP(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(XP(bot))
+    bot.add_cog(Leveling(bot))

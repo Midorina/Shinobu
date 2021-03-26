@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+import aiohttp
 import asyncio
+import asyncpg
+import discord
 import json
 import random
 import re
+from asyncpg import Record
 from datetime import datetime, timedelta, timezone
+from discord.ext.commands import BadArgument
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple, Union
-
-import aiohttp
-import asyncpg
-import discord
-from asyncpg import Record
-from discord.ext.commands import BadArgument
 
 import mido_utils
 import models
@@ -279,7 +278,7 @@ class UserDB(BaseDBModel):
         return result['row_number']
 
     @classmethod
-    async def get_top_10(cls, bot):
+    async def get_top_10(cls, bot) -> List[UserDB]:
         top_10 = await bot.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
         return [UserDB(user, bot) for user in top_10]
 
@@ -445,7 +444,7 @@ class GuildDB(BaseDBModel):
 
     @classmethod
     async def get_guilds_that_are_active_in_last_x_hours(cls, bot, hours: int = 24):
-        ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (now() - $1::interval) "
+        ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (NOW() - $1::interval) "
                                  "AND id=ANY($2);",  # clustering
                                  timedelta(hours=hours), [x.id for x in bot.guilds])
 
@@ -453,7 +452,7 @@ class GuildDB(BaseDBModel):
 
     @staticmethod
     async def update_active_guilds(bot, guild_id_list: List[int]):
-        await bot.db.execute("UPDATE guilds SET last_message_date=now() WHERE id=ANY($1);", guild_id_list)
+        await bot.db.execute("UPDATE guilds SET last_message_date=NOW() WHERE id=ANY($1);", guild_id_list)
 
     @classmethod
     async def get_or_create(cls, bot, guild_id: int) -> GuildDB:
@@ -541,13 +540,13 @@ class GuildDB(BaseDBModel):
     async def add_assignable_role(self, role_id: int):
         self.assignable_role_ids.append(role_id)
         await self.db.execute(
-            """UPDATE guilds SET assignable_role_ids = array_append(assignable_role_ids, $1) WHERE id=$2;""",
+            """UPDATE guilds SET assignable_role_ids = ARRAY_APPEND(assignable_role_ids, $1) WHERE id=$2;""",
             role_id, self.id)
 
     async def remove_assignable_role(self, role_id: int):
         self.assignable_role_ids.remove(role_id)
         await self.db.execute(
-            """UPDATE guilds SET assignable_role_ids = array_remove(assignable_role_ids, $1) WHERE id=$2;""",
+            """UPDATE guilds SET assignable_role_ids = ARRAY_REMOVE(assignable_role_ids, $1) WHERE id=$2;""",
             role_id, self.id)
 
     async def toggle_exclusive_assignable_roles(self):
@@ -829,8 +828,8 @@ class CustomReaction(BaseDBModel):
         # guild crs
         ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
         WHERE (trigger = $1
-        OR (contains_anywhere=TRUE AND ($1 LIKE concat('%', f_like_escape(trigger), '%')) 
-        OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%')))
+        OR (contains_anywhere=TRUE AND ($1 LIKE CONCAT('%', f_like_escape(trigger), '%')) 
+        OR (response LIKE '%\%target\%%' AND $1 LIKE CONCAT(trigger, '%')))
         ) AND guild_id=$2;""", msg, guild_id)
 
         if not ret:
@@ -838,8 +837,8 @@ class CustomReaction(BaseDBModel):
             ret = await bot.db.fetch("""SELECT * FROM custom_reactions 
             WHERE (
             trigger = $1 
-            OR contains_anywhere=TRUE AND ($1 LIKE concat('%', f_like_escape(trigger), '%')) 
-            OR (response LIKE '%\%target\%%' AND $1 LIKE concat(trigger, '%'))
+            OR contains_anywhere=TRUE AND ($1 LIKE CONCAT('%', f_like_escape(trigger), '%')) 
+            OR (response LIKE '%\%target\%%' AND $1 LIKE CONCAT(trigger, '%'))
             ) AND guild_id IS NULL;""", msg)
 
             if not ret:
@@ -935,13 +934,13 @@ class CachedImage(BaseDBModel, NSFWImage):
         if not allow_gif:
             ret = await bot.db.fetch("SELECT * FROM api_cache "
                                      "WHERE api_name = ANY($1) AND is_gif IS FALSE "
-                                     "ORDER BY random() LIMIT $2;",
+                                     "ORDER BY RANDOM() LIMIT $2;",
                                      [x.db_name for x in subreddits], limit)
         else:
             ret = await bot.db.fetch(
                 "SELECT * FROM api_cache "
                 "WHERE api_name = ANY($1) "
-                "ORDER BY random() LIMIT $2;",
+                "ORDER BY RANDOM() LIMIT $2;",
                 [x.db_name for x in subreddits], limit)
 
         return [cls(img, bot) for img in ret]
@@ -979,7 +978,7 @@ class CachedImage(BaseDBModel, NSFWImage):
             return False
 
     async def url_is_just_checked(self):
-        await self.bot.db.execute("UPDATE api_cache SET last_url_check=now() WHERE id=$1;", self.id)
+        await self.bot.db.execute("UPDATE api_cache SET last_url_check=NOW() WHERE id=$1;", self.id)
 
 
 class DonutEvent(BaseDBModel):
@@ -1031,7 +1030,7 @@ class DonutEvent(BaseDBModel):
 
     async def add_attender(self, attender_id: int):
         self.attenders.add(attender_id)
-        await self.db.execute("UPDATE donut_events SET attenders=array_append(attenders, $1) WHERE id=$2;",
+        await self.db.execute("UPDATE donut_events SET attenders=ARRAY_APPEND(attenders, $1) WHERE id=$2;",
                               attender_id, self.id)
 
     def user_is_eligible(self, user):
@@ -1173,7 +1172,7 @@ class HangmanWord(BaseDBModel):
 
     @classmethod
     async def get_categories_and_counts(cls, bot) -> Dict[str, int]:
-        ret = await bot.db.fetch("SELECT category, count(category) AS count FROM hangman_words GROUP BY category;")
+        ret = await bot.db.fetch("SELECT category, COUNT(category) AS count FROM hangman_words GROUP BY category;")
         return {category: count for category, count in ret}
 
     @classmethod
@@ -1184,6 +1183,6 @@ class HangmanWord(BaseDBModel):
 
     @classmethod
     async def get_random_word(cls, bot, category: str):
-        ret = await bot.db.fetchrow("SELECT * FROM hangman_words WHERE category = $1 ORDER BY random() LIMIT 1;",
+        ret = await bot.db.fetchrow("SELECT * FROM hangman_words WHERE category = $1 ORDER BY RANDOM() LIMIT 1;",
                                     category)
         return cls(ret, bot)

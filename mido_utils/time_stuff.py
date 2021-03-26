@@ -1,8 +1,7 @@
 import math
 from datetime import datetime, timedelta, timezone
-from functools import cached_property
-
 from discord.ext.commands import BadArgument
+from functools import cached_property
 
 time_multipliers = {
     's' : 1,
