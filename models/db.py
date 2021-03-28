@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import aiohttp
 import asyncio
-import asyncpg
-import discord
 import json
 import random
 import re
-from asyncpg import Record
 from datetime import datetime, timedelta, timezone
-from discord.ext.commands import BadArgument
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple, Union
+
+import aiohttp
+import asyncpg
+import discord
+from asyncpg import Record
+from discord.ext.commands import BadArgument
 
 import mido_utils
 import models
@@ -655,6 +656,8 @@ class LoggedMessage(BaseDBModel):
         self.guild_id: int = data.get('guild_id')
         self.content: str = data.get('message_content')
         self.embeds: List[discord.Embed] = [discord.Embed.from_dict(json.loads(x)) for x in data.get('message_embeds')]
+
+        self.created_at = data.get('created_at')
 
     @property
     def guild(self) -> discord.Guild:

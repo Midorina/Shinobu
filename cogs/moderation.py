@@ -1,5 +1,6 @@
-import discord
 import typing
+
+import discord
 from discord.ext import commands, tasks
 
 import mido_utils
@@ -7,9 +8,9 @@ from midobot import MidoBot
 from models.db import GuildDB, ModLog
 
 action_emotes = {
-    'kick': '👢',
-    'ban': '🔨',
-    'mute': '🔇',
+    'kick'  : '👢',
+    'ban'   : '🔨',
+    'mute'  : '🔇',
     'unmute': '🔈'
 }
 
@@ -83,11 +84,11 @@ class Moderation(commands.Cog):
                 await channel.send(content=content,
                                    embed=embed,
                                    delete_after=guild_db.welcome_delete_after)
-            except discord.Forbidden:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
             except Exception as e:
                 await self.bot.get_cog('ErrorHandling').on_error(
-                    f"Error happened while sending bye message for guild id `{member.guild.id}`: {e}")
+                    f"Error happened while sending welcome message for guild id `{member.guild.id}`: {e}")
                 return
 
     @commands.Cog.listener()

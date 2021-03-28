@@ -75,6 +75,8 @@ class SerializedObject:
 
 
 class _InternalIPCHandler:
+    """Handles receiving and sending requests."""
+
     # noinspection PyTypeChecker
     def __init__(self, server: _IPCServer):
         self.server = server
@@ -131,8 +133,9 @@ class _InternalIPCHandler:
                     if item.key == str(key):
                         ret.append(item)
                     else:
+                        # todo: throw the response away if it was sent more than 6 seconds ago
                         await self.responses.put(item)
-                        await asyncio.sleep(0.05)
+                        await asyncio.sleep(0.01)
         except asyncio.TimeoutError:
             pass
 
@@ -217,8 +220,23 @@ class _InternalIPCHandler:
 
 
 class _IPCServer:
+    """Gives data from the bot"""
+
     def __init__(self, bot):
         self.bot = bot
+
+        self.process = psutil.Process(os.getpid())
+
+        self.cpu_usage_cache = 0
+
+        self.bot.loop.create_task(self.update_cpu_usage_cache())
+
+    async def update_cpu_usage_cache(self):
+        """Calculates the cpu usage in the last second in a non-blocking way"""
+        while True:
+            self.process.cpu_percent(interval=0)
+            await asyncio.sleep(1.0)
+            self.cpu_usage_cache = self.process.cpu_percent(interval=0)
 
     async def send_to_log_channel(self, data: IPCMessage):
         if self.bot.log_channel:
@@ -248,8 +266,6 @@ class _IPCServer:
         await self.bot.close()
 
     async def get_cluster_stats(self, data: IPCMessage):
-        process = psutil.Process(os.getpid())
-
         return {
             "uptime"       : self.bot.uptime.passed_seconds_in_float,
             "cluster_id"   : self.bot.cluster_id,
@@ -259,9 +275,9 @@ class _IPCServer:
             "channels"     : len([channel for guild in self.bot.guilds for channel in guild.channels]),
             "members"      : len(list(self.bot.get_all_members())),
 
-            "memory"       : process.memory_info().rss / 10 ** 6,
-            "threads"      : process.num_threads(),
-            "cpu_usage"    : process.cpu_percent(interval=0),
+            "memory"       : self.process.memory_info().rss / 10 ** 6,
+            "threads"      : self.process.num_threads(),
+            "cpu_usage"    : self.cpu_usage_cache,
             "music_players": len(self.bot.wavelink.players)
         }
 
@@ -274,6 +290,7 @@ class _IPCServer:
 
 
 class IPCClient:
+    """Makes requests and parses args/returned values"""
     def __init__(self, bot):
         self.bot = bot
 
