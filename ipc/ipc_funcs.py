@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import discord
 import psutil
@@ -288,9 +288,15 @@ class _IPCServer:
             if ret:
                 return ret.to_str()
 
+    async def convert_currency(self, data: IPCMessage):
+        cog = self.bot.get_cog('Searches')
+        if hasattr(cog, 'exchange_api'):
+            return await cog.exchange_api.convert(data.amount, data.base_currency, data.target_currency)
+
 
 class IPCClient:
     """Makes requests and parses args/returned values"""
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -333,6 +339,16 @@ class IPCClient:
         for response in responses:
             if response.return_value is not None:
                 return UserAndPledgerCombined.from_str(response.return_value)
+
+    async def convert_currency(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
+        """Returns result and exchange rate"""
+        responses = await self.handler.request('convert_currency',
+                                               amount=amount,
+                                               base_currency=base_currency,
+                                               target_currency=target_currency)
+        for response in responses:
+            if response.return_value is not None:
+                return response.return_value
 
 # class IPCCommand(IPCMessage):
 #     def __init__(self, author: str, key: str, endpoint: str, **command_kwargs):

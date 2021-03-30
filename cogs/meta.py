@@ -293,10 +293,12 @@ class Meta(commands.Cog):
         memory = mido_utils.readable_bigint(sum(x.memory for x in cluster_stats), small_precision=True)
 
         cpu_usages = [x.cpu_usage for x in cluster_stats]
+        # this caused division by zero once, idk how
         average_cpu = sum(cpu_usages) / len(cpu_usages)
+
         embed.add_field(name="Performance",
                         value=f"Clusters: {self.bot.cluster_count}\n"
-                              f"Average CPU: {average_cpu}%\n"
+                              f"Average CPU: {average_cpu:.2f}%\n"
                               f"Total Memory: {memory} MB\n"
                               f"Music Players: {music_players}\n",
                         inline=True)

@@ -142,7 +142,7 @@ class VoicePlayer(Player):
 
             await self.next.wait()
 
-    def get_current(self):
+    def get_current(self) -> Song:
         return self.current or self.last_song
 
 

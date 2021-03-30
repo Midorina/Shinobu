@@ -18,7 +18,9 @@ class Searches(commands.Cog):
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop, session=self.bot.http_session)
         self.some_random_api = mido_utils.SomeRandomAPI(self.bot.http_session)
         self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config['blizzard_credentials'])
-        self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session)
+
+        if self.bot.cluster_id == 0:
+            self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session, self.bot.config['currency_api_key'])
 
     @commands.command()
     async def color(self, ctx: mido_utils.Context, *, color: str):
@@ -39,7 +41,9 @@ class Searches(commands.Cog):
     @commands.command(aliases=['exchange'])
     async def convert(self, ctx: mido_utils.Context,
                       amount: Union[float, str], base_currency: str, target_currency: str = None):
-        """Convert a specified amount of currency to another one using the latest exchange rates."""
+        """Convert a specified amount of currency to another one using the latest exchange rates.
+
+        List of supported currencies: https://currencyapi.net/currency-list"""
         if not target_currency:
             base_currency, target_currency = amount, base_currency
             amount = 1
@@ -47,7 +51,7 @@ class Searches(commands.Cog):
         if amount < 0:
             amount = 0
 
-        result, exchange_rate = await self.exchange_api.convert(amount, base_currency, target_currency)
+        result, exchange_rate = await self.bot.ipc.convert_currency(amount, base_currency, target_currency)
 
         readable = mido_utils.readable_bigint
 

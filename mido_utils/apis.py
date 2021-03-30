@@ -48,7 +48,8 @@ class MidoBotAPI:
                            params: dict = None,
                            headers: dict = None,
                            return_url=False,
-                           return_json=False) -> Union[str, dict, ClientResponse]:
+                           return_json=False,
+                           return_text=False) -> Union[str, dict, ClientResponse]:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
                 if not response.status == 200:
@@ -73,9 +74,11 @@ class MidoBotAPI:
 
                     return js
 
+                elif return_text is True:
+                    return await response.text()
                 else:
                     return response
-        except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError):
+        except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError, aiohttp.ClientConnectorError):
             raise mido_utils.APIError
 
 
@@ -649,22 +652,23 @@ class Google(MidoBotAPI):
 class ExchangeAPI(MidoBotAPI):
     class Response:
         def __init__(self, data: dict):
-            self.date: mido_utils.Time = mido_utils.Time()
             self.base: str = data.get('base')
             self.rates: dict = data.get('rates')
+            self.updated = mido_utils.Time.from_timestamp(data.get('updated'))
 
-    def __init__(self, session: ClientSession):
+    def __init__(self, session: ClientSession, api_key: str):
         super().__init__(session)
 
-        self.rate_cache: ExchangeAPI.Response = None
+        self.api_key = api_key
+        self.rate_cache: Optional[ExchangeAPI.Response] = None
 
     @property
     def api_url(self) -> str:
-        return "https://api.exchangeratesapi.io/latest"
+        return "https://currencyapi.net/api/v1/rates"
 
     async def convert(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
         """Converts any amount of currency to the other one and returns both the result and the exchange rate."""
-        if not self.rate_cache or self.rate_cache.date.passed_seconds > 60:
+        if not self.rate_cache or self.rate_cache.updated.passed_seconds > 60 * 60:
             await self.update_rate_cache()
 
         base_currency = base_currency.upper()
@@ -680,7 +684,23 @@ class ExchangeAPI(MidoBotAPI):
         return exchange_rate * amount, exchange_rate
 
     async def update_rate_cache(self):
-        r = await self._request_get(url=self.api_url, return_json=True)
+        try:
+            r = await self._request_get(url=self.api_url, params={'key': self.api_key}, return_json=True)
+        except mido_utils.APIError:
+            # in midobot, the public api key is used and it is refreshed every day
+            # so refresh that
+            try:
+                r = await self._request_get(url='https://currencyapi.net/documentation#rates', return_text=True)
+            except mido_utils.APIError:
+                # even if this fails, we're either banned or the website is down
+                return
+            else:
+                tag = BeautifulSoup(r).find(
+                    lambda _tag: _tag.name == 'a' and 'https://currencyapi.net/api/v1/rates?key=' in _tag.text)
+
+                self.api_key = tag.attrs['href'].split('=')[-1]
+                return await self.update_rate_cache()
+
         self.rate_cache = self.Response(r)
 
 
@@ -845,18 +865,47 @@ class BlizzardAPI(OAuthAPI):
 
 
 class PatreonAPI(OAuthAPI):
-    def __init__(self, session: ClientSession, credentials: dict):
-        super().__init__(session, credentials)
+    def __init__(self, bot, credentials: dict):
+        super().__init__(bot.http_session, credentials)
+
+        self.bot = bot
 
         self.campaign_id = credentials.get('campaign_id')
+        self.refresh_token = credentials.get('creator_refresh_token')
 
-        # we set these manually, because patreon api is confusing af.
         # todo: get access token dynamically
+        # we set these manually, because patreon api is confusing af.
         self.token = credentials.get('creator_access_token')
         self.token_type = 'Bearer'
         self.expire_date = mido_utils.Time(end_date=datetime.now(timezone.utc) + timedelta(days=30))
 
         self.cache: List[models.UserAndPledgerCombined] = []
+
+        self.cache_task = self.bot.loop.create_task(self.refresh_patron_cache_loop())
+
+    # async def get_token(self):
+    #     param = {'grant_type': 'refresh_token',
+    #              'refresh_token': self.refresh_token,
+    #              'client_id': self.client_id,
+    #              'client_secret': self.client_secret}
+    #
+    #     # base_64 = base64.b64encode(
+    #     #     f'{self.client_id}:{self.client_secret}'.encode('ascii'))
+    #     #
+    #     # header = {'Authorization': f'Basic {base_64.decode("ascii")}'}
+    #
+    #     async with self.session.post(self.url_to_get_token, data=param) as r:
+    #         print("made request. response:", r)
+    #         token_dict = await r.json()
+    #         print(token_dict)
+    #
+    #         self.token = token_dict['access_token']
+    #         self.refresh_token = token_dict['refresh_token']
+    #         self.expire_date = mido_utils.Time.add_to_current_date_and_get(token_dict['expires_in'])
+    #         self.token_type = token_dict['token_type']
+    #
+    #         print("GOT TOKEN!!!", self.token)
+    #         print(token_dict)
 
     @property
     def api_url(self) -> str:
@@ -865,6 +914,15 @@ class PatreonAPI(OAuthAPI):
     @property
     def url_to_get_token(self) -> str:
         return "https://www.patreon.com/api/oauth2/token"
+
+    @property
+    def url_to_get_code(self) -> str:
+        return "https://www.patreon.com/oauth2/authorize"
+
+    async def refresh_patron_cache_loop(self):
+        while True:
+            await self.refresh_patron_cache()
+            await asyncio.sleep(60 * 30)  # sleep 30 minutes
 
     async def _pagination_get(self, url, **kwargs):
         first_page = await self._request_get(url, **kwargs)

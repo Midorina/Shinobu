@@ -50,5 +50,6 @@
   "patreon_credentials" : {
     "creator_access_token": "",
     "campaign_id"         : 0
-  }
+  },
+  "currency_api_key"    : ""
 }

@@ -685,24 +685,22 @@ class LoggedMessage(BaseDBModel):
 
     @classmethod
     async def insert(cls, bot, message: discord.Message):
-        await bot.db.execute(
-            """INSERT 
-            INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING;""",
-            message.id, message.author.id, message.channel.id, message.guild.id if message.guild else None,
-            message.content, (json.dumps(e.to_dict()) for e in message.embeds),
-            message.created_at)  # created_at is UTC, check if we handle this properly
+        await cls.insert_bulk(bot, [message])
 
     @classmethod
     async def insert_bulk(cls, bot, messages: List[discord.Message]):
         tup = (
-            (message.id, message.author.id, message.channel.id,
-             message.guild.id if message.guild else None, message.content,
-             tuple(json.dumps(e.to_dict()) for e in message.embeds), message.created_at
+            (message.id,
+             message.author.id,
+             message.channel.id,
+             message.guild.id if message.guild else None,
+             message.content,
+             tuple(json.dumps(e.to_dict()) for e in message.embeds),
+             message.created_at  # created_at is UTC, check if we handle this properly
              ) for message in messages)
 
         await bot.db.executemany("""
-            INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, time) 
+            INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, created_at) 
             VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING *;
             """, tup)
 
@@ -968,8 +966,10 @@ class CachedImage(BaseDBModel, NSFWImage):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status == 429 or response.status >= 500:
+                elif response.status in (400, 429) or response.status >= 500:
                     # if we are rate limited or the target server is dying, return None to try again later
+                    # 400 is an indication of bad request but how could be a simple get check
+                    # to a public image is a bad request? we ignore those too
                     return None
                 elif response.status in (404, 403):
                     return False

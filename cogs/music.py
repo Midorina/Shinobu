@@ -142,6 +142,57 @@ class Music(commands.Cog, WavelinkMixin):
         await ctx.voice_player.set_pause(pause=False)
         await ctx.message.add_reaction("⏯")
 
+    @commands.command(name='seek')
+    async def _seek(self, ctx: mido_utils.Context, seconds: mido_utils.Int32()):
+        """Seek forwards by x seconds. Enter a negative number to seek backwards.
+
+        Use `{ctx.prefix}skipto` to go to a certain time."""
+        if seconds == 0:
+            raise commands.BadArgument("Please input a different value than 0.")
+
+        song = ctx.voice_player.get_current()
+
+        # calculate new position and change it
+        new_position = ctx.voice_player.position_in_seconds + seconds
+        if new_position > song.duration_in_seconds:
+            new_position = song.duration_in_seconds
+        elif new_position < 0:
+            new_position = 0
+
+        await ctx.voice_player.seek(position=new_position * 1000)
+
+        # prepare the embed
+        e = mido_utils.Embed(ctx.bot)
+        if seconds > 0:
+            e.description = f"Seeked **{seconds}** seconds forwards 👌"
+        else:
+            e.description = f"Seeked **{0 - seconds}** seconds backwards 👌"
+
+        new_position_str = mido_utils.Time.parse_seconds_to_str(new_position, short=True, sep=':')
+        e.set_footer(text=f"New player position: {new_position_str}/{song.duration_str}")
+
+        await ctx.send(embed=e)
+
+    @commands.command(name='skipto', aliases=['goto'])
+    async def _goto(self, ctx: mido_utils.Context, seconds: mido_utils.Int32()):
+        """Go to a certain time in the song.
+
+        Use `{ctx.prefix}seek` to seek forwards or backwards from the current position."""
+        if seconds < 0:
+            seconds = 0
+
+        await ctx.voice_player.seek(position=seconds * 1000)
+
+        # prepare the embed
+        song = ctx.voice_player.get_current()
+        new_position_str = mido_utils.Time.parse_seconds_to_str(seconds, short=True, sep=':')
+
+        e = mido_utils.Embed(ctx.bot)
+        e.description = 'Adjusted the song position 👌'
+        e.set_footer(text=f"New player position: {new_position_str}/{song.duration_str}")
+
+        await ctx.send(embed=e)
+
     @commands.command(name='skip', aliases=['next'])
     async def _skip(self, ctx: mido_utils.Context):
         """Skip the currently playing song."""
@@ -334,6 +385,7 @@ class Music(commands.Cog, WavelinkMixin):
     @_skip.before_invoke
     @_force_skip.before_invoke
     @_loop.before_invoke
+    @_seek.before_invoke
     async def ensure_playing(self, ctx: mido_utils.Context):
         """This func ensures that the voice player is playing something."""
         voice_player: mido_utils.VoicePlayer = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)

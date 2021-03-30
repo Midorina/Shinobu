@@ -1,9 +1,10 @@
-import dbl
-import discord
 import math
 import random
-from discord.ext import commands, tasks
 from typing import List, Union
+
+import dbl
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -52,7 +53,7 @@ class Gambling(commands.Cog):
             self.votes = set()
 
             # patreon
-            self.patreon_api = mido_utils.PatreonAPI(self.bot.http_session, self.bot.config['patreon_credentials'])
+            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
@@ -62,11 +63,6 @@ class Gambling(commands.Cog):
                                                  guild_count=await self.bot.ipc.get_guild_count(),
                                                  shard_count=None,
                                                  shard_no=None)
-
-    @tasks.loop(minutes=30.0)
-    async def update_patreon_cache(self):
-        if hasattr(self, 'patreon_api'):
-            await self.patreon_api.refresh_patron_cache()
 
     async def get_active_donut_events(self):
         await self.bot.wait_until_ready()

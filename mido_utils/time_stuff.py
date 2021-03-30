@@ -1,7 +1,8 @@
 import math
 from datetime import datetime, timedelta, timezone
-from discord.ext.commands import BadArgument
 from functools import cached_property
+
+from discord.ext.commands import BadArgument
 
 time_multipliers = {
     's' : 1,
@@ -44,7 +45,7 @@ class Time:
 
     @classmethod
     def from_timestamp(cls, timestamp: int):
-        return cls(datetime.fromtimestamp(timestamp))
+        return cls(datetime.fromtimestamp(timestamp), offset_naive=True)
 
     @cached_property
     def start_date_string(self):
