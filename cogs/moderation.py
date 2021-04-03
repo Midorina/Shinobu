@@ -711,7 +711,7 @@ class Moderation(commands.Cog):
                         inline=True)
 
         creation_date = mido_utils.Time(start_date=server.created_at, offset_naive=True)
-        embed.add_field(name="Joined Discord at",
+        embed.add_field(name="Created in",
                         value=f"{creation_date.start_date_string}\n"
                               f"({creation_date.remaining_days} days ago)",
                         inline=True)
