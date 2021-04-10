@@ -1,5 +1,4 @@
 import ast
-import multiprocessing
 import os
 from datetime import datetime
 
@@ -320,13 +319,13 @@ class Meta(commands.Cog):
 
     @commands.command(hidden=True)
     @mido_utils.is_owner()
-    async def shutdown(self, ctx, *, force: str = None):
-        await ctx.send("Shutting down...")
-
-        if force == '-f':
-            multiprocessing.Process(target=os.system, args=(f'pm2 stop {self.bot.name}',)).start()
+    async def shutdown(self, ctx, *, cluster_id: int = None):
+        if cluster_id:
+            await ctx.send(f"Shutting down cluster **{cluster_id}**...")
         else:
-            await self.bot.ipc.shutdown()
+            await ctx.send("Shutting down all shards...")
+
+        await self.bot.ipc.shutdown(cluster_id)
 
     @mido_utils.is_owner()
     @commands.command(name='setavatar', hidden=True)

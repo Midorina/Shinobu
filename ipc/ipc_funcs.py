@@ -263,7 +263,11 @@ class _IPCServer:
         return self.bot.load_or_reload_cogs(target_cog)
 
     async def shutdown(self, data: IPCMessage):
-        await self.bot.close()
+        if data.cluster_id is None or data.cluster_id == self.bot.cluster_id:
+            await self.bot.close()
+            return True
+
+        return False
 
     async def get_cluster_stats(self, data: IPCMessage):
         return {
@@ -325,8 +329,8 @@ class IPCClient:
         responses = await self.handler.request('reload', target_cog=target_cog)
         return sum(x.return_value for x in responses)
 
-    async def shutdown(self) -> None:
-        await self.handler.request('shutdown')
+    async def shutdown(self, cluster_id: int = None) -> None:
+        await self.handler.request('shutdown', cluster_id=cluster_id)
 
     async def close_ipc(self, reason: str = None) -> None:
         await self.handler.close(reason)
