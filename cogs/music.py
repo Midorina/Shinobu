@@ -270,7 +270,7 @@ class Music(commands.Cog, WavelinkMixin):
                                   f"{queue_duration} in Total",
                              icon_url=mido_utils.images.volume)
                  )
-        await embed.paginate(ctx, blocks, item_per_page=5, add_page_info_to='author')
+        await embed.paginate(ctx, blocks, item_per_page=10, add_page_info_to='author')
 
     @commands.command(name='shuffle')
     async def _shuffle(self, ctx: mido_utils.Context):
