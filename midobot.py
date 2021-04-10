@@ -101,7 +101,7 @@ class MidoBot(commands.AutoShardedBot):
             if guild and not guild.chunked:
                 await self.chunk_guild(guild)
                 i += 1
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(5)
 
         self.logger.info(f'Chunked {i} active guilds.')
 
