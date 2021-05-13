@@ -66,6 +66,13 @@ class Moderation(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=member.guild.id)
+
+        # welcome role
+        if guild_db.welcome_role_id:
+            role = member.guild.get_role(guild_db.welcome_role_id)
+            await member.add_roles(role, reason="Welcome role.")
+
+        # welcome message
         if guild_db.welcome_channel_id:
             if guild_db.welcome_channel_id == 1:
                 channel = member
@@ -777,6 +784,60 @@ class Moderation(commands.Cog):
                             inline=False)
 
         await ctx.send(embed=embed)
+
+    @commands.command(name='welcomerole', aliases=['newmemberrole'])
+    @commands.has_permissions(manage_roles=True)
+    async def new_member_role(self,
+                              ctx: mido_utils.Context,
+                              *,
+                              role: mido_utils.RoleConverter() = None):
+        """Set a role to give to new members automatically.
+
+        Provide no arguments to disable it. For example: `{ctx.prefix}welcomerole`
+        """
+        existing_welcome_role = ctx.guild_db.welcome_role_id
+
+        if role:
+            mido_utils.ensure_role_hierarchy(ctx, role)
+
+        await ctx.guild_db.set_welcome_role(role.id if role else None)
+
+        if existing_welcome_role:
+            if not role:
+                return await ctx.send_success(f"Previous welcome role <@&{existing_welcome_role}> has been disabled.")
+            else:
+                base_message = f"I've successfully changed the welcome role " \
+                               f"from <@&{existing_welcome_role}> to {role.mention}."
+        else:
+            if not role:
+                raise commands.BadArgument("This server does not have any welcome role set.")
+
+            base_message = f"I've successfully set {role.mention} as the welcome role."
+
+        m = await ctx.send_success(f"{base_message}\n"
+                                   f"\n"
+                                   f"Would you like me to give this role to everyone in this server?")
+        yes = await mido_utils.Embed.yes_no(ctx.bot, ctx.author.id, m)
+        if yes:
+            await ctx.edit_custom(m, f"{base_message}\n"
+                                     f"\n"
+                                     f"Alright! I'll give this role to everyone in this server. "
+                                     f"This will take a while...\n"
+                                     f"*You can type `{ctx.prefix}inrole {role.name}` to see the progress.*")
+
+            for member in ctx.guild.members:
+                if role.id not in [x.id for x in member.roles]:
+                    await member.add_roles(role, reason="New welcome role.")
+
+            await ctx.edit_custom(m, f"{base_message}\n"
+                                     f"\n"
+                                     f"~~Alright! I'll give this role to everyone in this server. "
+                                     f"This will take a while...~~\n"
+                                     f"\n"
+                                     f"Done.")
+        else:
+            await ctx.edit_custom(m, base_message)
+            await m.clear_reactions()
 
 
 def setup(bot):

@@ -409,6 +409,8 @@ class GuildDB(BaseDBModel):
         self.xp_excluded_channels: List[int] = guild_db.get('xp_excluded_channels')
 
         # welcome
+        self.welcome_role_id: int = guild_db.get('welcome_role_id')
+
         self.welcome_channel_id: int = guild_db.get('welcome_channel_id')
         self.welcome_message: str = guild_db.get('welcome_message')
         self.welcome_delete_after: int = guild_db.get('welcome_delete_after') or None
@@ -517,6 +519,12 @@ class GuildDB(BaseDBModel):
                                      self.id)
         return [await MemberDB.get_or_create(bot=self.bot, guild_id=member['guild_id'], member_id=member['user_id'])
                 for member in top_10]
+
+    async def set_welcome_role(self, role_id: int = None):
+        self.welcome_role_id = role_id
+        await self.db.execute(
+            """UPDATE guilds SET welcome_role_id=$1 WHERE id=$2;""",
+            role_id, self.id)
 
     async def set_welcome(self, channel_id: int = None, msg: str = None):
         await self.db.execute(
