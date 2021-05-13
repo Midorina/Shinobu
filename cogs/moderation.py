@@ -273,7 +273,9 @@ class Moderation(commands.Cog):
     @commands.command()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter(), *,
+    async def kick(self, ctx: mido_utils.Context,
+                   target: mido_utils.MemberConverter(),
+                   *,
                    reason: commands.clean_content = None):
         """Kicks a user.
 
@@ -465,6 +467,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def mod_logs(self,
                        ctx: mido_utils.Context,
+                       *,
                        target: mido_utils.MemberConverter()):
         """See the logs of a user.
 
@@ -501,6 +504,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def clear_modlogs(self,
                             ctx: mido_utils.Context,
+                            *,
                             target: mido_utils.MemberConverter()):
         """Clears the logs of a user.
 
@@ -542,6 +546,7 @@ class Moderation(commands.Cog):
     async def set_role(self,
                        ctx: mido_utils.Context,
                        member: mido_utils.MemberConverter(),
+                       *,
                        role: mido_utils.RoleConverter()):
         """Give a role to a member.
 
@@ -560,6 +565,7 @@ class Moderation(commands.Cog):
     async def remove_role(self,
                           ctx: mido_utils.Context,
                           member: mido_utils.MemberConverter(),
+                          *,
                           role: mido_utils.RoleConverter()):
         """Remove a role from a member.
 
@@ -578,6 +584,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     async def create_role(self,
                           ctx: mido_utils.Context,
+                          *,
                           role_name: str):
         """Create a role.
 
@@ -592,6 +599,7 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_roles=True)
     async def delete_role(self,
                           ctx: mido_utils.Context,
+                          *,
                           role: mido_utils.RoleConverter()):
         """Delete a role from the server.
 
@@ -646,7 +654,7 @@ class Moderation(commands.Cog):
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
     @commands.command(name='inrole')
-    async def in_role(self, ctx: mido_utils.Context, role: mido_utils.RoleConverter()):
+    async def in_role(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter()):
         """See the people in a specific role."""
         ppl = [member for member in ctx.guild.members if role in member.roles]
 
@@ -730,6 +738,7 @@ class Moderation(commands.Cog):
     @commands.command(name="userinfo", aliases=['uinfo'])
     @commands.guild_only()
     async def user_info(self, ctx: mido_utils.Context,
+                        *,
                         user: typing.Union[mido_utils.MemberConverter, mido_utils.UserConverter] = None):
         """Shows the information of a user."""
         user = user or ctx.author

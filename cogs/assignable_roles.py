@@ -12,6 +12,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
     @commands.has_permissions(manage_roles=True)
     async def add_assignable_role(self,
                                   ctx: mido_utils.Context,
+                                  *,
                                   role: mido_utils.RoleConverter()):
         """Add an assignable role.
 
@@ -28,6 +29,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
     @commands.has_permissions(manage_roles=True)
     async def remove_assignable_role(self,
                                      ctx: mido_utils.Context,
+                                     *,
                                      role: mido_utils.RoleConverter()):
         """Remove a role from the assignable role list.
 
@@ -83,6 +85,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
     @commands.command(name='iam')
     async def join_role(self,
                         ctx: mido_utils.Context,
+                        *,
                         role: mido_utils.RoleConverter()):
         """Join an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
@@ -109,6 +112,7 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
     @commands.command(name='iamnot', aliases=['iamn'])
     async def leave_role(self,
                          ctx: mido_utils.Context,
+                         *,
                          role: mido_utils.RoleConverter()):
         """Leave an assignable role."""
         if role.id not in ctx.guild_db.assignable_role_ids:
