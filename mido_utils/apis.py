@@ -193,7 +193,7 @@ class RedditAPI(CachedImageAPI):
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
                 await asyncio.sleep(0.1)
-        except (asyncprawcore.NotFound, asyncprawcore.Forbidden) as e:
+        except (asyncprawcore.NotFound, asyncprawcore.Forbidden, asyncprawcore.ServerError) as e:
             logging.error(f"Subreddit '{subreddit_name}' caused error: {e}")
             return
 
