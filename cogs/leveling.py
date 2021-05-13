@@ -1,7 +1,8 @@
-import discord
 from datetime import datetime
-from discord.ext import commands
 from typing import List, Tuple, Union
+
+import discord
+from discord.ext import commands
 
 import mido_utils
 from midobot import MidoBot
@@ -244,6 +245,8 @@ class Leveling(commands.Cog):
                 await ctx.send_success(f"I've successfully reset the role reward for level **{level}**.")
 
         else:
+            mido_utils.ensure_role_hierarchy(ctx, role)
+
             if already_existing_reward:
                 old_role_id = already_existing_reward.role_id
                 await already_existing_reward.set_role_reward(role_id=role.id)
