@@ -24,7 +24,7 @@ class PatreonPledger(BasePatreonModel):
             self.patron_pays_fees: bool = data.pop('patron_pays_fees')
             self.pledge_cap_cents: int = data.pop('pledge_cap_cents')
 
-            self.decline_date = data.pop('declined_since')
+            self.declined_since = data.pop('declined_since')
             self.created_at = data.pop('created_at')
 
     class Relationships(BasePatreonModel):
