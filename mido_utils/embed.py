@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import discord
 
-from mido_utils import MessageTooLong
+from .exceptions import MessageTooLong
 
 
 class Embed(discord.Embed):

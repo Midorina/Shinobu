@@ -100,6 +100,10 @@ class Moderation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
+        if member.id == self.bot.user.id:
+            # if we're the one who left, ignore
+            return
+
         guild_db = await GuildDB.get_or_create(bot=self.bot, guild_id=member.guild.id)
         if guild_db.bye_channel_id:
             channel = self.bot.get_channel(guild_db.bye_channel_id)

@@ -1,9 +1,10 @@
-import discord
 from datetime import datetime
-from discord.ext import commands, tasks
 from enum import Enum, auto
 from io import StringIO
 from typing import Dict, List, Optional, Union
+
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -282,10 +283,13 @@ class Logging(commands.Cog):
             else:
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
-        await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
-                                       embed=e,
-                                       file=file,
-                                       allowed_mentions=discord.AllowedMentions.none())
+        try:
+            await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
+                                           embed=e,
+                                           file=file,
+                                           allowed_mentions=discord.AllowedMentions.none())
+        except discord.Forbidden:
+            pass
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
@@ -298,6 +302,10 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
+        if member.id == self.bot.user.id:
+            # if we're the one who got removed, ignore
+            return
+
         await self.base_logging_func(LoggedEvents.MEMBER_REMOVE, member)
 
     @commands.Cog.listener()
