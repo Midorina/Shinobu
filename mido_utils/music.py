@@ -71,15 +71,23 @@ class VoicePlayer(Player):
     async def _get_tracks_from_query(self, ctx, query: str) -> List[Song]:
         original_query = query
         if not query.startswith('http'):  # if not a link
-            query = f'ytsearch:{query}'
+            query = f'ytsearch:{query} Audio'
 
         song = None
-        attempt = 0
-        while attempt < 5:
-            song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
-            if song:
+        while not song:
+            attempt = 0
+            while attempt < 5:
+                song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
+                if song:
+                    break
+                attempt += 1
+
+            if not song and query.endswith(' Audio'):
+                # if we couldn't find the song and it ends with "Audio"
+                # the audio keyword might be the cause, so remove it and try again
+                query = query[:-6]
+            else:
                 break
-            attempt += 1
 
         if not song:
             raise mido_utils.NotFoundError(f"Couldn't find anything that matches the query:\n"
@@ -172,7 +180,7 @@ class BaseSong:
 
     @property
     def search_query(self) -> str:
-        return self.title + ' Audio'
+        return self.title
 
     @classmethod
     def convert_from_spotify_track(cls, ctx, track: dict):

@@ -1,8 +1,9 @@
 import asyncio
-import discord
 import random
-from discord.ext import commands, tasks
 from typing import Dict, List
+
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -298,7 +299,7 @@ class NSFW(commands.Cog):
 
             else:
                 self.cancel_auto_nsfw_task(guild=ctx.guild_db, nsfw_type=nsfw_type)
-                await ctx.guild_db.set_auto_nsfw(nsfw_type=nsfw_type)  # disable
+                await ctx.guild_db.set_auto_nsfw(nsfw_type=nsfw_type, channel_id=None)  # disable
 
                 return await ctx.send_success(f"Auto-{nsfw_type.name} service has successfully been disabled.")
 
@@ -316,8 +317,6 @@ class NSFW(commands.Cog):
         return await ctx.send_success(f"Success! I'll automatically post {nsfw_type.name} in this channel "
                                       f"every **{mido_utils.Time.parse_seconds_to_str(interval)}** "
                                       f"with these tags: `{tags if tags else 'random'}`")
-
-    # todo: fix multiple auto nsfws in a server
 
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autohentai')
