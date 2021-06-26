@@ -48,6 +48,9 @@ class Searches(commands.Cog):
             base_currency, target_currency = amount, base_currency
             amount = 1
 
+        if isinstance(amount, str):
+            raise commands.BadArgument("You need to put the amount first.")
+
         if amount < 0:
             amount = 0
 
