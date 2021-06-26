@@ -1,10 +1,11 @@
-import discord
 import json
-import wavelink
 from datetime import datetime
+from typing import Optional, Union
+
+import discord
+import wavelink
 from discord import ShardInfo
 from discord.ext import commands
-from typing import Optional, Union
 
 import mido_utils
 
@@ -57,31 +58,32 @@ class UserConverter(commands.UserConverter):
         return user
 
 
-# these are implemented but not used and tested yet
+def base_bit_length_check(argument, max_bit_length: int):
+    try:
+        arg = int(argument)
+    except ValueError:
+        raise commands.BadArgument("Please input a proper integer.")
+    else:
+        if arg.bit_length() >= max_bit_length:
+            raise commands.BadArgument(
+                f"Please input an integer that is withing the {max_bit_length} bit integer range.")
+
+        return arg
+
+
+class Int16(commands.Converter):
+    async def convert(self, ctx: mido_utils.Context, argument) -> int:
+        return base_bit_length_check(argument, 16)
+
+
 class Int32(commands.Converter):
     async def convert(self, ctx: mido_utils.Context, argument) -> int:
-        try:
-            arg = int(argument)
-        except ValueError:
-            raise commands.BadArgument("Please input a proper integer.")
-        else:
-            if arg.bit_length() > 31:
-                raise commands.BadArgument("Please input an integer that is withing the 32 bit integer range.")
-
-            return arg
+        return base_bit_length_check(argument, 32)
 
 
 class Int64(commands.Converter):
     async def convert(self, ctx: mido_utils.Context, argument) -> int:
-        try:
-            arg = int(argument)
-        except ValueError:
-            raise commands.BadArgument("Please input a proper integer.")
-        else:
-            if arg.bit_length() > 63:
-                raise commands.BadArgument("Please input an integer that is withing the 64 bit integer range.")
-
-            return arg
+        return base_bit_length_check(argument, 64)
 
 
 # todo: add 'k' support

@@ -90,7 +90,7 @@ class Music(commands.Cog, WavelinkMixin):
             raise mido_utils.MusicError("I'm not currently not in a voice channel!")
 
     @commands.command(name='volume', aliases=['vol', 'v'])
-    async def _volume(self, ctx: mido_utils.Context, volume: mido_utils.Int64() = None):
+    async def _volume(self, ctx: mido_utils.Context, volume: mido_utils.Int16() = None):
         """Change or see the volume."""
         if volume is None:
             return await ctx.send_success(f'Current volume: **{ctx.voice_player.volume}**%')
