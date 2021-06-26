@@ -78,7 +78,7 @@ class Embed(discord.Embed):
                     if _reaction.me:
                         await _reaction.remove(user=ctx.bot.user)
 
-        async def update_message(msg=None, _item_per_page: int = 1):
+        async def update_message(msg=None, _item_per_page: int = item_per_page):
             if _item_per_page == 0:
                 # we might hit 0 while trying to avoid the character length limit
                 # in that case, raise MessageTooLong
