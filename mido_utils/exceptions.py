@@ -78,3 +78,9 @@ class UnknownNSFWType(Exception):
     def __init__(self, nsfw_type):
         self.nsfw_type = nsfw_type
         super().__init__(f'Unsupported NSFW type: {nsfw_type.name}')
+
+
+class MessageTooLong(Exception):
+    def __init__(self, message_content: str):
+        self.message_content = message_content
+        super().__init__(f'Message is too long to post on Discord: {message_content}')

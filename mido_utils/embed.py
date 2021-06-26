@@ -6,6 +6,8 @@ from typing import List, Optional
 
 import discord
 
+from mido_utils import MessageTooLong
+
 
 class Embed(discord.Embed):
     def __init__(self, bot, default_footer=False, image_url=None, **kwargs):
@@ -76,12 +78,17 @@ class Embed(discord.Embed):
                     if _reaction.me:
                         await _reaction.remove(user=ctx.bot.user)
 
-        async def update_message(msg=None):
+        async def update_message(msg=None, _item_per_page: int = 1):
+            if _item_per_page == 0:
+                # we might hit 0 while trying to avoid the character length limit
+                # in that case, raise MessageTooLong
+                raise MessageTooLong(filtered_blocks[0])
+
             msg_for_embed = ""
             # get a copy of the embed
             _e = discord.Embed.from_dict(deepcopy(self.to_dict()))
 
-            for i in range(page * item_per_page - item_per_page, page * item_per_page):
+            for i in range(page * _item_per_page - _item_per_page, page * _item_per_page):
                 try:
                     msg_for_embed += f"{filtered_blocks[i]}\n" + extra_sep
                 except IndexError:
@@ -104,10 +111,15 @@ class Embed(discord.Embed):
 
             _e.description = msg_for_embed
 
-            if not msg:
-                return await ctx.send(embed=_e)
-            else:
-                await msg.edit(embed=_e)
+            try:
+                if not msg:
+                    return await ctx.send(embed=_e)
+                else:
+                    await msg.edit(embed=_e)
+            except discord.HTTPException:
+                # we've probably hit 2048 character limit.
+                # in this case, decrease _item_per_page and try again
+                await update_message(msg, _item_per_page - 1)
 
         filtered_blocks = self.filter_blocks(blocks)
 
