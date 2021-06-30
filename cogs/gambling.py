@@ -223,7 +223,7 @@ class Gambling(commands.Cog):
     async def claim_patreon_rewards(self, ctx: mido_utils.Context):
         """Claim the donut reward you'll be getting by [supporting this project.]({mido_utils.links.patreon}) ♥"""
         patron_obj = await self.bot.ipc.get_patron(ctx.author.id)
-        await ctx.user_db.claim_patreon_reward(self.bot, patron_obj)
+        await ctx.user_db.claim_patreon_reward(patron_obj)
         await ctx.send_success(f"You've successfully claimed "
                                f"**{mido_utils.readable_currency(patron_obj.level_status.monthly_donut_reward)}**!")
 

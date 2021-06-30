@@ -298,7 +298,7 @@ class UserDB(BaseDBModel):
         await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
         await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
 
-    async def claim_patreon_reward(self, bot, patron_obj: models.UserAndPledgerCombined):
+    async def claim_patreon_reward(self, patron_obj: models.UserAndPledgerCombined):
         amount = patron_obj.level_status.monthly_donut_reward
         if not self.last_patreon_claim_date.end_date_has_passed:
             if self.last_patreon_claim_amount < patron_obj.level_status.monthly_donut_reward:
@@ -307,6 +307,8 @@ class UserDB(BaseDBModel):
                 raise mido_utils.CantClaimRightNow(f"You're on cooldown. Increase your pledge to get more rewards "
                                                    f"or wait **{self.last_patreon_claim_date.remaining_string}**.")
 
+        await self.db.execute("UPDATE users SET last_patreon_claim_date=$1, last_patreon_claim_amount=$2 WHERE id=$3;",
+                              datetime.now(timezone.utc), amount, self.id)
         await self.add_cash(amount=amount, reason='Claimed Patreon reward.')
 
     def __eq__(self, other):

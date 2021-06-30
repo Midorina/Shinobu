@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 
 __all__ = ['PatreonPledger', 'PatreonUser', 'UserAndPledgerCombined']
@@ -40,6 +41,8 @@ class PatreonPledger(BasePatreonModel):
             self.rewards: dict = data.pop('rewards', None)
 
     def __init__(self, data: dict):
+        self._data = copy.deepcopy(data)
+
         self.attributes = self.Attributes(data.pop('attributes'))
         self.id: int = int(data.pop('id'))
         self.relationships = self.Relationships(data.pop('relationships'))
@@ -51,8 +54,8 @@ class PatreonUser(BasePatreonModel):
         class SocialConnections(BasePatreonModel):
             class Discord(BasePatreonModel):
                 def __init__(self, data: dict):
-                    self.url = data.pop('url')
-                    self.user_id = data.pop('user_id')
+                    self.url = data.pop('url') if data else None
+                    self.user_id = int(data.pop('user_id')) if data else None
 
             def __init__(self, data: dict):
                 self.deviantart = data.pop('deviantart')
@@ -90,6 +93,8 @@ class PatreonUser(BasePatreonModel):
             self.youtube = data.pop('youtube')
 
     def __init__(self, data: dict):
+        self._data = copy.deepcopy(data)
+
         self.attributes = self.Attributes(data.pop('attributes'))
         self.id: int = int(data.pop('id'))
         self.relationships: dict = data.pop('relationships')
@@ -103,7 +108,6 @@ class Level:
 
         self.can_claim_daily_without_voting = False
         self.can_use_premium_music = False
-        self.monthly_donut_reward = 0
 
         # permissions
         if self.level >= 1:
@@ -118,7 +122,7 @@ class Level:
     def get_with_pledge_amount(cls, amount: int) -> Level:
         """1, 5, 10, 15, 30, 50, 100"""
         # convert from cents
-        amount = amount % 100
+        amount = amount // 100
 
         if amount < 0:
             return Level(0, amount)
@@ -162,4 +166,8 @@ class UserAndPledgerCombined(BasePatreonModel):
     @classmethod
     def from_str(cls, data: str) -> UserAndPledgerCombined:
         data = json.loads(data)
-        return cls(user=data['user'], pledger=data['pledger'])
+
+        return cls(user=PatreonUser(data['user']), pledger=PatreonPledger(data['pledger']))
+
+    def to_str(self):
+        return json.dumps({'user': self.user._data, 'pledger': self.pledger._data})
