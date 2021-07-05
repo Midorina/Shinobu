@@ -1,5 +1,6 @@
 import ast
 import os
+import traceback
 from datetime import datetime
 
 import discord
@@ -175,6 +176,7 @@ class Meta(commands.Cog):
             result = await eval(f"{fn_name}()", env) or 'None'
         except Exception as e:
             result = e
+            traceback.print_exc()
 
         return result
 
