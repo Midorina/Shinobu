@@ -44,7 +44,7 @@ def is_patron_decorator(level: int = 1, allow_owner=True):
     return commands.check(predicate)
 
 
-async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True, raise_exceptions=False):
+async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True, raise_exceptions=False) -> bool:
     if allow_owner is True and user_id in bot.owner_ids:
         return True
 

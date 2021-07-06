@@ -174,49 +174,54 @@ class Gambling(commands.Cog):
             raise mido_utils.OnCooldownError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
-        try:
-            has_voted = await self.bot.ipc.user_has_voted(ctx.author.id)
-        except dbl.HTTPException:
-            raise mido_utils.APIError
-
-        if not has_voted:
-            raise mido_utils.DidntVoteError(f"It seems like you haven't voted yet.\n\n"
-                                            f"Vote [here]({mido_utils.links.upvote}), "
-                                            f"then use this command again "
-                                            f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
-                                            f"*You can receive dailies without voting, get more donuts and other "
-                                            f"cool stuff by [supporting this project]({mido_utils.links.patreon}).*")
-        else:
-            if hasattr(self, 'votes'):
-                try:
-                    self.votes.remove(ctx.author.id)
-                except KeyError:
-                    pass
-
-            await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
-
-            base_msg = f"You've successfully claimed your daily **{mido_utils.readable_currency(daily_amount)}**!\n\n"
-
-            m = await ctx.send_success(base_msg + "Would you like to get reminded when you can vote again?")
-
-            yes = await mido_utils.Embed.yes_no(self.bot, ctx.author.id, m)
-            if yes:
-                reminder = await ReminderDB.create(
-                    bot=ctx.bot,
-                    author_id=ctx.author.id,
-                    channel_id=ctx.author.id,
-                    channel_type=ReminderDB.ChannelType.DM,
-                    content=f"Your daily is ready! You can vote [here]({mido_utils.links.upvote}).",
-                    date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
-                )
-                ctx.bot.get_cog('Reminder').add_reminder(reminder)
-
-                await ctx.edit_custom(m,
-                                      base_msg + f"Success! I will remind you to get your daily again "
-                                                 f"in {reminder.time_obj.initial_remaining_string}.")
+        # patron check
+        is_patron = await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=True)
+        if not is_patron:
+            # vote check
+            try:
+                has_voted = await self.bot.ipc.user_has_voted(ctx.author.id)
+            except dbl.HTTPException:
+                raise mido_utils.APIError
             else:
-                await ctx.edit_custom(m,
-                                      base_msg + f"Alright, you won't be reminded when you can get your daily again.")
+                if not has_voted:
+                    raise mido_utils.DidntVoteError(
+                        f"It seems like you haven't voted yet.\n\n"
+                        f"Vote [here]({mido_utils.links.upvote}), "
+                        f"then use this command again "
+                        f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
+                        f"*You can receive dailies without voting, get more donuts and other "
+                        f"cool stuff by [supporting this project]({mido_utils.links.patreon}).*")
+
+        if hasattr(self, 'votes'):
+            try:
+                self.votes.remove(ctx.author.id)
+            except KeyError:
+                pass
+
+        await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
+
+        base_msg = f"You've successfully claimed your daily **{mido_utils.readable_currency(daily_amount)}**!\n\n"
+
+        m = await ctx.send_success(base_msg + "Would you like to get reminded when you can vote again?")
+
+        yes = await mido_utils.Embed.yes_no(self.bot, ctx.author.id, m)
+        if yes:
+            reminder = await ReminderDB.create(
+                bot=ctx.bot,
+                author_id=ctx.author.id,
+                channel_id=ctx.author.id,
+                channel_type=ReminderDB.ChannelType.DM,
+                content=f"Your daily is ready! You can vote [here]({mido_utils.links.upvote}).",
+                date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
+            )
+            ctx.bot.get_cog('Reminder').add_reminder(reminder)
+
+            await ctx.edit_custom(m,
+                                  base_msg + f"Success! I will remind you to get your daily again "
+                                             f"in {reminder.time_obj.initial_remaining_string}.")
+        else:
+            await ctx.edit_custom(m,
+                                  base_msg + f"Alright, you won't be reminded when you can get your daily again.")
 
     @commands.command(name='claimrewards', aliases=['claimpatreonrewards', 'clparew'])
     @mido_utils.is_patron_decorator(allow_owner=False)
