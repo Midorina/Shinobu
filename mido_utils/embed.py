@@ -105,7 +105,7 @@ class Embed(discord.Embed):
 
             elif add_page_info_to == 'author':
                 try:
-                    _e._author['name'] += f" | Page {page}/{total_pages}"
+                    _e._author['name'] += f" |  Page {page}/{total_pages}"
                 except AttributeError:
                     _e.set_author(name=f"Page {page}/{total_pages}")
 

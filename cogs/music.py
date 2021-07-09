@@ -262,12 +262,17 @@ class Music(commands.Cog, WavelinkMixin):
             queue_duration += song.duration_in_seconds
 
         queue_duration = mido_utils.Time.parse_seconds_to_str(queue_duration, short=True, sep=':')
+        footer_text = f"{ctx.voice_player.volume}%  |  " \
+                      f"{len(ctx.voice_player.song_queue) + 1} Songs  |  " \
+                      f"{queue_duration} in Total"
+
+        # loop info
+        if ctx.voice_player.loop is True:
+            footer_text += "  |  Loop Enabled 🔄"
 
         embed = (mido_utils.Embed(self.bot)
-                 .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue - ")
-                 .set_footer(text=f"{ctx.voice_player.volume}% | "
-                                  f"{len(ctx.voice_player.song_queue) + 1} Songs | "
-                                  f"{queue_duration} in Total",
+                 .set_author(icon_url=ctx.guild.icon_url, name=f"{ctx.guild.name} Music Queue ")
+                 .set_footer(text=footer_text,
                              icon_url=mido_utils.images.volume)
                  )
         await embed.paginate(ctx, blocks, item_per_page=10, add_page_info_to='author')
