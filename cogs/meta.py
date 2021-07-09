@@ -261,12 +261,12 @@ class Meta(commands.Cog):
 
         embed = mido_utils.Embed(bot=ctx.bot)
 
-        embed.description = f"I'm a general purpose bot that features various features! " \
+        embed.description = f"I'm a general purpose bot that provides various features! " \
                             f"Type `{ctx.prefix}help` to learn more.\n\n" \
                             f"Type `{ctx.prefix}invite` to invite me to your server.\n\n" \
                             f"**I've recently got re-written, so some features might be missing or misbehaving.**\n\n" \
                             f"Join the [support server]({mido_utils.links.support_server}) " \
-                            f"if you want to provide feedback, get the latest news and join donut events."
+                            f"if you would like to provide feedback, get the latest news and/or join donut events."
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
