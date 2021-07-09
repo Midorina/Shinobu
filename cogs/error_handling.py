@@ -95,7 +95,12 @@ class ErrorHandling(commands.Cog):
                 return await ctx.send_error("This command is temporarily disabled. Sorry for the inconvenience.")
 
             # cooldown errors
+            # TODO: merge commands.CommandOnCooldown with mido_utils.OnCooldownError
             elif better_is_instance(error, commands.CommandOnCooldown):
+                # if remaining seconds are less than 0.7, ignore
+                if error.retry_after < 0.7:
+                    return
+
                 remaining = mido_utils.Time.parse_seconds_to_str(total_seconds=error.retry_after)
                 return await ctx.send_error(f"You're on cooldown! Try again after **{remaining}**.")
             elif better_is_instance(error, mido_utils.OnCooldownError):
