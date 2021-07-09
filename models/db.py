@@ -976,7 +976,7 @@ class CachedImage(BaseDBModel, NSFWImage):
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
-                elif response.status in (400, 429) or response.status >= 500:
+                elif response.status in (400, 409, 429) or response.status >= 500:
                     # if we are rate limited or the target server is dying, return None to try again later
                     # 400 is an indication of bad request but how could be a simple get check
                     # to a public image is a bad request? we ignore those too
