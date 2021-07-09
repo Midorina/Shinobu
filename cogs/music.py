@@ -303,14 +303,14 @@ class Music(commands.Cog, WavelinkMixin):
 
     @commands.command(name='loop', aliases=['repeat'])
     async def _loop(self, ctx: mido_utils.Context):
-        """Enable the loop feature to play the same song over and over."""
-        # Inverse boolean value to loop and unloop.
+        """Enable the loop feature to keep playing the current queue."""
         ctx.voice_player.loop = not ctx.voice_player.loop
 
         if ctx.voice_player.loop:
-            await ctx.send_success("I will play the same song from now on.")
+            await ctx.send_success("**🔄 Loop feature has been enabled.**\n\n"
+                                   "Finished songs will be put back to the end of the queue.")
         else:
-            await ctx.send_success("The loop feature has been disabled.")
+            await ctx.send_success("Loop feature has been disabled.")
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(name='play', aliases=['p'])

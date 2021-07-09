@@ -125,24 +125,25 @@ class VoicePlayer(Player):
             self.next.clear()
             self.skip_votes.clear()
 
-            if self.loop is False:
-                try:
-                    async with timeout(180):
-                        try:
-                            self.current = await self.parse_and_get_the_next_song()
-                        except mido_utils.NotFoundError as e:  # might be annoying
-                            await self.bot.get_cog('ErrorHandling').on_error(e)
-                            continue
-                        else:
-                            self.last_song = self.current
-                except asyncio.TimeoutError:
-                    return await self.destroy()
-            else:
-                self.current = self.last_song
+            if self.loop is True:
+                await self.song_queue.put(self.last_song)
+
+            try:
+                async with timeout(180):
+                    try:
+                        self.current = await self.parse_and_get_the_next_song()
+                    except mido_utils.NotFoundError as e:
+                        await self.bot.get_cog('ErrorHandling').on_error(e)
+                        continue
+                    else:
+                        self.last_song = self.current
+            except asyncio.TimeoutError:
+                return await self.destroy()
 
             await self.play(self.current)
 
-            if not self.loop:
+            # if loop is disabled or the song queue contains multiple songs
+            if self.loop is False or len(self.song_queue) > 0:
                 try:
                     await self.current.send_np_embed()
                 except (discord.Forbidden, discord.NotFound):
