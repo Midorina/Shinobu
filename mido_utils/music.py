@@ -76,7 +76,7 @@ class VoicePlayer(Player):
         song = None
         while not song:
             attempt = 0
-            while attempt < 3:
+            while attempt < 4:
                 song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
                 if song:
                     break
