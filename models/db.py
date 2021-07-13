@@ -721,6 +721,11 @@ class LoggedMessage(BaseDBModel):
     def jump_url(self):
         return 'https://discord.com/channels/{0}/{1.channel.id}/{1.id}'.format(self.guild_id, self)
 
+    @classmethod
+    async def delete_old_messages(cls, bot):
+        # delete messages that are older than 7 days
+        await bot.db.execute("DELETE FROM message_log WHERE created_at < (now() - INTERVAL '7 days')")
+
 
 class ReminderDB(BaseDBModel):
     class ChannelType(Enum):

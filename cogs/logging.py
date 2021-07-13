@@ -35,6 +35,9 @@ class Logging(commands.Cog):
 
         self.message_cache = list()
 
+        # delete old messages
+        self.bot.loop.create_task(LoggedMessage.delete_old_messages(self.bot))
+
         self.cache_to_db_task.start()
 
     async def insert_cache_to_db(self):
@@ -46,6 +49,7 @@ class Logging(commands.Cog):
     @tasks.loop(minutes=1.0)
     async def cache_to_db_task(self):
         await self.bot.wait_until_ready()
+
         await self.insert_cache_to_db()
 
     @cache_to_db_task.after_loop

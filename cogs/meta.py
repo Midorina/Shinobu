@@ -11,6 +11,7 @@ import mido_utils
 from midobot import MidoBot
 
 
+# TODO: place commands under groups and overhaul the help command according to that
 class MidoHelp(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
