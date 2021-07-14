@@ -628,7 +628,12 @@ class Google(MidoBotAPI):
             title = next(link_and_title.stripped_strings)
 
             # for descriptions, just use the longest one
-            description = max(list(map(lambda x: x.get_text(), descriptions[i].find_all('span'))), key=len)
+            try:
+                description = max(list(map(lambda x: x.get_text(), descriptions[i].find_all('span'))), key=len)
+            except ValueError:
+                # sometimes the description is there as a normal string instead of a span.
+                # in that case, just use the string
+                description = descriptions[i].string
 
             ret.append(self.SearchResult(title, url, description))
 
