@@ -65,11 +65,12 @@ class Searches(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    @commands.command(aliases=['g'], enabled=False)  # todo: fix google
+    @commands.command(aliases=['g'])
     async def google(self, ctx: mido_utils.Context, *, search: str):
         """Makes a Google search."""
 
         results = await self.google.search(query=search)
+
         e = mido_utils.Embed(self.bot)
         e.set_author(icon_url=mido_utils.images.google,
                      name=f"Google: {search}")

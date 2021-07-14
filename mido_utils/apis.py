@@ -565,6 +565,9 @@ class SomeRandomAPI(MidoBotAPI):
 
 
 class Google(MidoBotAPI):
+    LINK_AND_TITLE_CLASS = 'yuRUbf'
+    DESCRIPTION_CLASS = 'IsZvec'
+
     class SearchResult:
         def __init__(self, title, url, description):
             self.title = title
@@ -573,6 +576,7 @@ class Google(MidoBotAPI):
 
         @property
         def url_simple(self):
+            # remove http/https
             simple = '/'.join(self.url.split('/')[2:])
 
             # if there's a slash at the end, remove it for clarity
@@ -599,54 +603,36 @@ class Google(MidoBotAPI):
             if r.status == 200:
                 soup = BeautifulSoup(await r.text(), "html.parser")
 
-                return self.parse_results(soup.find_all("div", {'class': ['r', 's']}))
+                return self.parse_results(soup.find_all("div",
+                                                        {'class': [self.LINK_AND_TITLE_CLASS, self.DESCRIPTION_CLASS]}))
 
             else:
                 raise mido_utils.APIError
 
     def parse_results(self, results):
-        actual_results = []
+        links_and_titles = []
+        descriptions = []
 
-        # migrate the r and s classes
-        for i in range(0, len(results), 2):
-            try:
-                r = next(results[i].children)
-                s = None
-
-                # find the span
-                for children in results[i + 1].children:
-                    try:
-                        if children.span:
-                            s = children
-                            break
-                    except AttributeError:
-                        pass
-
-                if not s:  # its probably a book or something at this point
-                    continue
-                else:
-                    actual_results.append((r, s))
-
-            except IndexError:
-                break
-
-        search_results = []
-
-        for main, description in actual_results:
-            try:
-                url = main["href"]
-                title = next(main.stripped_strings)
-                description = description.span.get_text()
-                if not title:
-                    continue
-
-            except KeyError:
-                continue
-
+        # put results into respective arrays
+        for result in results:
+            if result['class'][0] == self.LINK_AND_TITLE_CLASS:
+                links_and_titles.append(result)
             else:
-                search_results.append(self.SearchResult(title, url, description))
+                descriptions.append(result)
 
-        return search_results
+        ret = []
+        # extract information
+        for i, link_and_title in enumerate(links_and_titles):
+            # url and title
+            url = link_and_title.a['href']
+            title = next(link_and_title.stripped_strings)
+
+            # for descriptions, just use the longest one
+            description = max(list(map(lambda x: x.get_text(), descriptions[i].find_all('span'))), key=len)
+
+            ret.append(self.SearchResult(title, url, description))
+
+        return ret
 
 
 class ExchangeAPI(MidoBotAPI):
