@@ -46,7 +46,7 @@ class Logging(commands.Cog):
         await LoggedMessage.insert_bulk(self.bot, to_db)
         self.bot.logger.debug("Inserting cached messages to DB took:\t" + time.passed_seconds_in_float_formatted)
 
-    @tasks.loop(minutes=1.0)
+    @tasks.loop(seconds=30.0)
     async def cache_to_db_task(self):
         await self.bot.wait_until_ready()
 
