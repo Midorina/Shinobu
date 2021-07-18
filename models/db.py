@@ -704,7 +704,7 @@ class LoggedMessage(BaseDBModel):
              message.author.id,
              message.channel.id,
              message.guild.id if message.guild else None,
-             message.content,
+             message.content.replace("\u0000", ""),
              tuple(json.dumps(e.to_dict()) for e in message.embeds),
              message.created_at  # created_at is UTC, check if we handle this properly
              ) for message in messages)
