@@ -21,14 +21,14 @@ class IPCMessage:
     MANDATORY_ATTRS = ('author', 'type', 'key')
 
     def __init__(self, author: id, type: str, key: str, data: dict):
+        self._data = data
+
         # cluster id
         self.author = author
-        # response or command
+        # 'response' or 'command'
         self.type = type
         # unique key to identify the requester
         self.key = key
-
-        self._data = data
 
     def __getattr__(self, item):
         if self.type == 'response' and isinstance(self._data['return_value'], dict):
@@ -78,7 +78,7 @@ class _InternalIPCHandler:
     """Handles receiving and sending requests."""
 
     # noinspection PyTypeChecker
-    def __init__(self, server: _IPCServer):
+    def __init__(self, server: IPCServer):
         self.server = server
         self.bot = self.server.bot
 
@@ -219,7 +219,7 @@ class _InternalIPCHandler:
                 return
 
 
-class _IPCServer:
+class IPCServer:
     """Gives data from the bot"""
 
     def __init__(self, bot):
@@ -243,10 +243,6 @@ class _IPCServer:
             embed = discord.Embed.from_dict(data.embed) if data.embed else None
             await self.bot.log_channel.send(content=data.content, embed=embed)
             return True
-
-        # if not bot.log_channel:
-        #     return IPCResponse(successful=False, data={'reason': "Can't see the log channel."})
-        return False
 
     async def get_guild_count(self, data: IPCMessage):
         return len(self.bot.guilds)
@@ -304,7 +300,7 @@ class IPCClient:
     def __init__(self, bot):
         self.bot = bot
 
-        self.server = _IPCServer(bot=self.bot)
+        self.server = IPCServer(bot=self.bot)
         self.handler = _InternalIPCHandler(self.server)
 
     async def send_to_log_channel(self, content: str, embed: discord.Embed = None) -> None:
