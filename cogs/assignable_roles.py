@@ -348,7 +348,6 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
 
     @add_assignable_role.before_invoke
     @remove_assignable_role.before_invoke
-    @new_member_role.before_invoke
     async def _ensure_role_hierarchy(self, ctx):
         mido_utils.ensure_role_hierarchy(ctx)
 
