@@ -7,7 +7,11 @@ import models
 
 def ensure_role_hierarchy(ctx, role: discord.Role = None):
     command_args = ctx.args + list(ctx.kwargs.values())
-    role = role or next(arg for arg in command_args if isinstance(arg, discord.Role))
+
+    try:
+        role = role or next(arg for arg in command_args if isinstance(arg, discord.Role))
+    except StopIteration:
+        return
 
     # author top role check
     top_member_role = ctx.author.top_role

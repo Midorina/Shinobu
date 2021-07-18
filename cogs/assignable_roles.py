@@ -25,7 +25,14 @@ class AssignableRoles(commands.Cog, name='Assignable Roles'):
         # welcome role
         if guild_db.welcome_role_id:
             role = member.guild.get_role(guild_db.welcome_role_id)
-            await member.add_roles(role, reason="Welcome role.")
+            try:
+                await member.add_roles(role, reason="Welcome role.")
+            except discord.Forbidden:
+                await member.guild.owner.send(f"I've tried to add the {role.mention} role "
+                                              f"to the new member {member.mention} "
+                                              f"but I'm missing permissions. Please make sure "
+                                              f"my role is higher than {role.mention} in the role hierarchy "
+                                              f"and my role has Manage Roles permission.")
 
         # welcome message
         if guild_db.welcome_channel_id:
