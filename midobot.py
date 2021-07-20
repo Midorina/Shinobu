@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import multiprocessing
 import os
 import re
 from typing import Dict, Optional, Union
@@ -8,6 +9,7 @@ from typing import Dict, Optional, Union
 import aiohttp
 import asyncpg
 import discord
+from async_timeout import timeout
 from discord.ext import commands
 
 # anything not imported here will not be reloaded once the cluster is shut down.
@@ -38,10 +40,9 @@ class MidoBot(commands.AutoShardedBot):
             intents=discord.Intents.all(),
             **cluster_kwargs,
 
-            # status=discord.Status.dnd,
-            # activity=discord.Game("Getting ready..."),
-            status=discord.Status.online,
-            activity=discord.Game(name=self.config["playing"])
+            # getting ready status
+            status=discord.Status.dnd,
+            activity=discord.Game("Getting ready...")
         )
 
         # case insensitive cogs
@@ -50,6 +51,7 @@ class MidoBot(commands.AutoShardedBot):
         self.db: asyncpg.pool.Pool = None
         self.prefix_cache = {}
         self.owner_ids = set(self.config['owner_ids'])
+        self.updated_status: bool = False
 
         self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_id}\t')
         self.logger.info(f'Shard IDs: {cluster_kwargs["shard_ids"]} ({cluster_kwargs["shard_count"]})')
@@ -106,7 +108,15 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(f'Chunked {i} active guilds.')
 
     async def on_ready(self):
-        self.logger.info(f'[Cluster#{self.cluster_id}] Ready called.')
+        self.logger.info(f'Ready called.')
+
+        if not self.updated_status:
+            # change the getting ready status
+            self.status = discord.Status.online
+            self.activity = discord.Game(name=self.config["playing"])
+
+            await self.change_presence(status=self.status, activity=self.activity)
+            self.updated_status = True
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
         return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
@@ -294,6 +304,22 @@ class MidoBot(commands.AutoShardedBot):
             return mido_utils.Color.shino_yellow()
         else:
             return mido_utils.Color.mido_green()
+
+    @property
+    def status(self):
+        """Returns the status of the bot."""
+        return self._connection._status
+
+    @status.setter
+    def status(self, value=None):
+        """Sets the status of the bot which will be automatically refreshed with each identify call"""
+        if value:
+            if value is discord.Status.offline:
+                value = 'invisible'
+            else:
+                value = str(value)
+
+        self._connection._status = value
 
     def get_guild_id_list(self):
         return [x.id for x in self.guilds]
