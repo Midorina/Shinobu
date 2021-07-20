@@ -165,7 +165,7 @@ class Gambling(commands.Cog):
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
-        Claim {bot.config[daily_amount]} {mido_utils.emotes.currency} for free every 12 hours.
+        Claim **{mido_utils.emotes.currency} {bot.config[daily_amount]}** for free every 12 hours.
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']
@@ -175,7 +175,7 @@ class Gambling(commands.Cog):
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
         # patron check
-        is_patron = await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=True)
+        is_patron = await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=False)
         if not is_patron:
             # vote check
             try:
@@ -189,8 +189,8 @@ class Gambling(commands.Cog):
                         f"Vote [here]({mido_utils.links.upvote}), "
                         f"then use this command again "
                         f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
-                        f"*You can receive dailies without voting, get more donuts and other "
-                        f"cool stuff by [supporting this project]({mido_utils.links.patreon}).*")
+                        f"*You can receive dailies without voting and **{mido_utils.readable_currency(1500)}** "
+                        f"by [donating just $1!]({mido_utils.links.patreon})*")
 
         if hasattr(self, 'votes'):
             try:
