@@ -23,8 +23,9 @@ class MidoBot(commands.AutoShardedBot):
         self.name = cluster_kwargs.pop('bot_name')
         self.config: dict = self.get_config(self.name)
 
-        self.cluster_id = cluster_kwargs.pop('cluster_id')
+        self.cluster_id: int = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
+        self.pipe_connection: multiprocessing.connection.Connection = cluster_kwargs.pop('pipe')
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -51,8 +52,7 @@ class MidoBot(commands.AutoShardedBot):
         self.owner_ids = set(self.config['owner_ids'])
 
         self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_id}\t')
-        self.logger.info(
-            f'[Cluster#{self.cluster_id}] {cluster_kwargs["shard_ids"]}, {cluster_kwargs["shard_count"]}')
+        self.logger.info(f'Shard IDs: {cluster_kwargs["shard_ids"]} ({cluster_kwargs["shard_count"]})')
 
         self.message_counter = 0
         self.command_counter = 0
@@ -302,7 +302,17 @@ class MidoBot(commands.AutoShardedBot):
         super().run(self.config['token'])
 
     async def close(self):
-        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
-        await super().close()
-        await self.http_session.close()
-        await self.db.close()
+        try:
+            async with timeout(30.0):
+                # close ipc connection
+                await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
+
+                # close the bot
+                await super().close()
+
+                # close the http session and the db connection
+                await self.http_session.close()
+                await self.db.close()
+        except asyncio.TimeoutError:
+            # if it takes too long to shutdown, just kill the process
+            os.system(f'kill {os.getpid()}')

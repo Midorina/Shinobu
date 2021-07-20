@@ -1,6 +1,5 @@
 import asyncio
 import importlib
-import itertools
 import logging
 import multiprocessing
 import os
@@ -50,12 +49,14 @@ def reload_package(package):
 
 
 class Launcher:
+    SHARDS_PER_CLUSTER = 2
+
     def __init__(self, loop, bot_name: str = 'midobot'):
         self.cluster_count = 0
 
         self.clusters: List[Cluster] = []
 
-        self.fut = None
+        self.future = None
         self.loop = loop
         self.alive = True
 
@@ -66,17 +67,19 @@ class Launcher:
         self.bot_token = midobot.MidoBot.get_config(bot_name)['token']
 
     def get_shard_count(self):
-        data = requests.get('https://discordapp.com/api/v7/gateway/bot', headers={
+        data = requests.get('https://discord.com/api/v7/gateway/bot', headers={
             "Authorization": "Bot " + self.bot_token,
-            "User-Agent"   : "DiscordBot (https://github.com/Rapptz/discord.py 1.3.0a) Python/3.7 aiohttp/3.6.1"
+            "User-Agent"   : "DiscordBot (https://github.com/Rapptz/discord.py 1.7.3) Python/3.8 aiohttp/3.6.1"
         })
         data.raise_for_status()
+
         content = data.json()
         log.info(f"Successfully got shard count of {content['shards']} ({data.status_code, data.reason})")
+
         return content['shards']
 
     def start(self):
-        self.fut = asyncio.ensure_future(self.startup(), loop=self.loop)
+        self.future = asyncio.ensure_future(self.startup(), loop=self.loop)
 
         try:
             self.loop.run_forever()
@@ -85,36 +88,32 @@ class Launcher:
         finally:
             self.cleanup()
 
-    def cleanup(self):
-        self.loop.stop()
-        if sys.platform == 'win32':
-            print("press ^C again")
-        self.loop.close()
-
-    def task_complete(self, task):
-        if task.exception():
-            task.print_stack()
-            self.keep_alive = self.loop.create_task(self.rebooter())
-            self.keep_alive.add_done_callback(self.task_complete)
-
     async def startup(self):
         shards = list(range(self.get_shard_count()))
-        cluster_shard_ids = [shards[x:x + 4] for x in range(0, len(shards), 4)]
+        cluster_shard_ids = [shards[x:x + self.SHARDS_PER_CLUSTER]
+                             for x in range(0, len(shards), self.SHARDS_PER_CLUSTER)]
 
         self.cluster_count = len(cluster_shard_ids)
-        log.info(f"Preparing {self.cluster_count} clusters")
+        log.info(f"Preparing {self.cluster_count} clusters.")
 
-        counter = itertools.count()
-        for shard_ids in cluster_shard_ids:
+        for i, shard_ids in enumerate(cluster_shard_ids, 0):
             self.clusters.append(
-                Cluster(bot_name=self.bot_name, cluster_id=next(counter),
+                Cluster(bot_name=self.bot_name, cluster_id=i,
                         launcher=self, shard_ids=shard_ids, max_shards=len(shards),
                         total_clusters=self.cluster_count))
+
         await self.start_clusters()
 
         self.keep_alive = self.loop.create_task(self.rebooter())
         self.keep_alive.add_done_callback(self.task_complete)
+
         log.info(f"Startup completed in {time.perf_counter() - self.init}s")
+
+    async def start_clusters(self):
+        for cluster in self.clusters:
+            if not cluster.is_alive():
+                await cluster.start()
+                log.info(f"Started Cluster#{cluster.id}")
 
     async def shutdown(self):
         log.info("Shutting down clusters")
@@ -127,38 +126,47 @@ class Launcher:
 
     async def rebooter(self):
         while self.alive:
-            if not self.clusters:
-                log.warning("All clusters appear to be dead")
-                asyncio.ensure_future(self.shutdown())
-
             for cluster in self.clusters:
                 if not cluster.process.is_alive():
                     log.warning(f"Cluster#{cluster.id} exited with code {cluster.process.exitcode}.")
+
                     cluster.stop()  # ensure stopped
+
                     log.info(f"Restarting cluster#{cluster.id}")
                     await cluster.start()
 
             await asyncio.sleep(5)
 
-    async def start_clusters(self):
-        for cluster in self.clusters:
-            if not cluster.is_alive():
-                await cluster.start()
-                log.info(f"Started Cluster#{cluster.id}")
+    def task_complete(self, task):
+        if task.exception():
+            task.print_stack()
+            self.keep_alive = self.loop.create_task(self.rebooter())
+            self.keep_alive.add_done_callback(self.task_complete)
+
+    def cleanup(self):
+        self.loop.stop()
+        if sys.platform == 'win32':
+            log.info("press ^C again")
+        self.loop.close()
 
 
 class Cluster:
-    def __init__(self, bot_name: str, cluster_id: str, launcher: Launcher, shard_ids: List[int], max_shards: int,
+    def __init__(self, bot_name: str, cluster_id: int, launcher: Launcher, shard_ids: List[int], max_shards: int,
                  total_clusters: int):
         self.bot_name = bot_name
         self.launcher = launcher
+
+        self.parent_pipe, self.child_pipe = multiprocessing.Pipe()
+
         self.kwargs = dict(
             shard_ids=shard_ids,
             shard_count=max_shards,
             cluster_id=cluster_id,
             bot_name=bot_name,
-            total_clusters=total_clusters
+            total_clusters=total_clusters,
+            pipe=self.child_pipe
         )
+
         self.id = cluster_id
         self.bot = None
         self.process = None

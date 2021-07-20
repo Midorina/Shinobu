@@ -259,7 +259,7 @@ class IPCServer:
         return self.bot.load_or_reload_cogs(target_cog)
 
     async def shutdown(self, data: IPCMessage):
-        if data.cluster_id is None or data.cluster_id == self.bot.cluster_id:
+        if data.cluster_id is None or int(data.cluster_id) == self.bot.cluster_id:
             await self.bot.close()
             return True
 
