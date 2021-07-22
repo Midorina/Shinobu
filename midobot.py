@@ -115,7 +115,9 @@ class MidoBot(commands.AutoShardedBot):
             self.status = discord.Status.online
             self.activity = discord.Game(name=self.config["playing"])
 
+            # todo: do this in somewhere else
             await self.change_presence(status=self.status, activity=self.activity)
+
             self.updated_status = True
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
@@ -141,15 +143,30 @@ class MidoBot(commands.AutoShardedBot):
         await guild.chunk(cache=True)
         self.logger.info(f'Chunked {guild.member_count} members of guild: {guild.name}')
 
-    async def on_guild_join(self, guild):
+    async def _guild_announcer(self, guild: discord.Guild, left=False):
         guild_count = await self.ipc.get_guild_count()
+
+        humans = 0
+        bots = 0
+
+        for member in guild.members:
+            if member.bot:
+                bots += 1
+            else:
+                humans += 1
+
+        keyword = "left" if left else "joined"
+
+        # todo: use the s.sinfo embed
         await self.ipc.send_to_log_channel(
-            f"I just joined the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {guild_count}")
+            f"I just {keyword} the guild **{guild.name}** with ID `{guild.id}` [**{bots}** Bots, **{humans}** Humans]. "
+            f"Guild counter: {guild_count}")
+
+    async def on_guild_join(self, guild):
+        await self._guild_announcer(guild, left=False)
 
     async def on_guild_remove(self, guild):
-        guild_count = await self.ipc.get_guild_count()
-        await self.ipc.send_to_log_channel(
-            f"I just left the guild **{guild.name}** with ID `{guild.id}`. Guild counter: {guild_count}")
+        await self._guild_announcer(guild, left=True)
 
     def log_command(self, ctx: mido_utils.Context, error: Exception = None):
         if isinstance(error, commands.CommandNotFound):
