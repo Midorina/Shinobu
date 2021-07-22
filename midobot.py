@@ -287,12 +287,17 @@ class MidoBot(commands.AutoShardedBot):
             del self.webhook_cache[channel.id]
             return await self.send_as_webhook(channel, *args, **kwargs)
 
-        except (discord.DiscordServerError, discord.HTTPException, aiohttp.ServerDisconnectedError) as e:
+        except (discord.DiscordServerError,
+                discord.HTTPException,
+                aiohttp.ServerDisconnectedError,
+                aiohttp.ClientOSError) as e:
             # probably discord servers dying
+            # or it is dropping our connection for attempting too many requests
             if isinstance(e, discord.HTTPException) and e.code < 500:
                 raise e
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(5.0)
+
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except Exception as e:
