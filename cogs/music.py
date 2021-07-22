@@ -119,7 +119,7 @@ class Music(commands.Cog, WavelinkMixin):
         await ctx.send_success(f'**Earrape mode:** Volume is set to **{400}**%\n'
                                f'(Can be increased further using `{ctx.prefix}volume` but 400% is suggested.)')
 
-    @commands.command(name='now', aliases=['current', 'playing', 'nowplaying', 'np'])
+    @commands.command(name='nowplaying', aliases=['current', 'playing', 'now', 'np'])
     async def _now_playing(self, ctx: mido_utils.Context):
         """See what's currently playing."""
         await ctx.send(embed=ctx.voice_player.get_current().create_np_embed())
@@ -231,16 +231,17 @@ class Music(commands.Cog, WavelinkMixin):
 
         await ctx.message.add_reaction('⏭')
 
-    @commands.command(name='forceskip', aliases=['fskip'])
-    @commands.has_permissions(manage_guild=True)
-    async def _force_skip(self, ctx: mido_utils.Context):
-        """Skip the currently playing song without requiring votes if enabled.
+    # TODO: add a way to toggle vote requirement and enable this
+    # @commands.command(name='forceskip', aliases=['fskip'])
+    # @commands.has_permissions(manage_guild=True)
+    # async def _force_skip(self, ctx: mido_utils.Context):
+    #     """Skip the currently playing song without requiring votes if enabled.
+    #
+    #     You need the **Manage Server** permission to use this command."""
+    #     await ctx.voice_player.skip()
+    #     await ctx.message.add_reaction('⏭')
 
-        You need the **Manage Server** permission to use this command."""
-        await ctx.voice_player.skip()
-        await ctx.message.add_reaction('⏭')
-
-    @commands.command(name='queue', aliases=['q'])
+    @commands.command(name='queue', aliases=['q', 'songlist'])
     async def _queue(self, ctx: mido_utils.Context):
         """See the current song queue."""
         if len(ctx.voice_player.song_queue) == 0 and not ctx.voice_player.current:
