@@ -74,9 +74,20 @@ class Race:
             self.id = self.member_db.id
 
             self.emoji = emoji
-            self.bet_amount = bet_amount
+
+            self._bet_amount = bet_amount
+            self.previous_bet = bet_amount
 
             self.progress = 0
+
+        @property
+        def bet_amount(self):
+            return self._bet_amount
+
+        @bet_amount.setter
+        def bet_amount(self, value: int):
+            self.previous_bet = self._bet_amount
+            self._bet_amount = value
 
         def add_random_progress(self):
             self.progress += random.randint(3, 10)
@@ -181,26 +192,35 @@ class Race:
             if m:
                 self.message_counter += 1
 
-    def add_participant(self, member_db: MemberDB, bet_amount: int):
+    def add_participant(self, member_db: MemberDB, bet_amount: int) -> Tuple[Participant, bool]:
+        """Add a participant to the race and returns whether the participant just increased bet or not."""
         p = self.get_participant(member_db.id)
         if p:
-            raise mido_utils.RaceError(f"**You've already joined the race** as {p.emoji} "
-                                       f"and bet **{mido_utils.readable_currency(p.bet_amount)}**.")
+            # if they entered the same or less amount
+            if bet_amount <= p.bet_amount:
+                raise mido_utils.RaceError(
+                    f"{p.emoji} **You can only increase your bet.** "
+                    f"Your current bet amount is **{mido_utils.readable_currency(p.bet_amount)}**.")
 
-        if self.has_started:
-            raise mido_utils.RaceError("You can't join the race as it has already started.")
+            p.bet_amount = bet_amount
 
-        # set emoji
-        used_emojis = [x.emoji for x in self.participants]
-        remaining_emojis = [x for x in mido_utils.emotes.race_emotes if x not in used_emojis]
-        if not remaining_emojis:
-            raise mido_utils.RaceError("Race is full.")
+            return p, True
+        else:
+            if self.has_started:
+                raise mido_utils.RaceError("You can't join the race as it has already started.")
 
-        emoji = random.choice(remaining_emojis)
+            # set emoji
+            used_emojis = [x.emoji for x in self.participants]
+            remaining_emojis = [x for x in mido_utils.emotes.race_emotes if x not in used_emojis]
+            if not remaining_emojis:
+                raise mido_utils.RaceError("Race is full.")
 
-        p = self.Participant(member_db, emoji, bet_amount)
-        self.participants.append(p)
-        return p
+            emoji = random.choice(remaining_emojis)
+
+            p = self.Participant(member_db, emoji, bet_amount)
+            self.participants.append(p)
+
+            return p, False
 
     def get_participant(self, user_id: int) -> Optional[Participant]:
         try:
@@ -386,28 +406,39 @@ class Games(commands.Cog):
             bet_amount = await mido_utils.ensure_not_broke_and_parse_bet(ctx, bet_amount)
 
         race, just_created = self.get_or_create_race(ctx)
+
         try:
-            participant_obj = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
+            participant_obj, increased_bet = race.add_participant(member_db=ctx.member_db, bet_amount=bet_amount)
         except mido_utils.RaceError as e:
             if bet_amount:  # if errored and they put a bet, give it back
                 await ctx.user_db.add_cash(bet_amount, reason=f"Race errored: {e}")
             raise e
 
         e = mido_utils.Embed(bot=ctx.bot, title="Race")
-        if just_created:
-            e.description = f"**{ctx.author}** has successfully created a new race and joined it" \
-                            f" as {participant_obj.emoji}!"
+
+        if increased_bet:
+            # give back their previous bet
+            await ctx.user_db.add_cash(participant_obj.previous_bet, reason="Giving back the previous bet on the race.")
+
+            e.description = f"**{participant_obj.emoji} {ctx.author}** increased their bet " \
+                            f"from **{mido_utils.readable_currency(participant_obj.previous_bet)}** " \
+                            f"to **{mido_utils.readable_currency(bet_amount)}**!"
         else:
-            e.description = f"**{ctx.author}** has successfully joined the race" \
-                            f" as {participant_obj.emoji}!"
+            if just_created:
+                e.description = f"**{ctx.author}** has successfully created a new race and joined it" \
+                                f" as {participant_obj.emoji}!"
+            else:
+                e.description = f"**{ctx.author}** has successfully joined the race" \
+                                f" as {participant_obj.emoji}!"
 
-        if bet_amount:
-            e.description += f"\n\n" \
-                             f"And they've bet **{mido_utils.readable_currency(bet_amount)}**!"
+            if bet_amount:
+                e.description += f"\n\n" \
+                                 f"And they've bet **{mido_utils.readable_currency(bet_amount)}**!"
 
-        if just_created:
-            e.description += f"\n\n" \
-                             f"Race starts in **{Race.STARTS_IN}** seconds."
+            if just_created:
+                e.description += f"\n\n" \
+                                 f"Race starts in **{Race.STARTS_IN}** seconds.\n\n" \
+                                 f"*You can join this race by typing `{ctx.prefix}race [bet_amount]`*"
 
         e.set_footer(text=f"Prize Pool: {mido_utils.readable_bigint(race.prize_pool)} Donuts")
 
