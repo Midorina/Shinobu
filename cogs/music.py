@@ -391,7 +391,7 @@ class Music(commands.Cog, WavelinkMixin):
     @_pause.before_invoke
     @_resume.before_invoke
     @_skip.before_invoke
-    @_force_skip.before_invoke
+    # @_force_skip.before_invoke
     @_loop.before_invoke
     @_seek.before_invoke
     async def ensure_playing(self, ctx: mido_utils.Context):
