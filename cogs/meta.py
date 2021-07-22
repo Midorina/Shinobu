@@ -232,10 +232,10 @@ class Meta(commands.Cog):
             await ctx.guild_db.change_prefix(prefix)
 
             await ctx.send_success(f"The prefix has been successfully changed to: `{prefix}`\n\n"
-                                   f"*You can call me without paying attention to the letter case.*")
+                                   f"*My prefixes are case insensitive.*")
         else:
             await ctx.send_success(f"Current prefix for this server: `{ctx.prefix}`\n\n"
-                                   f"*You can call me without paying attention to the letter case.*")
+                                   f"*My prefixes are case insensitive.*")
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
