@@ -315,7 +315,8 @@ class Music(commands.Cog, WavelinkMixin):
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(name='play', aliases=['p'])
     async def _play(self, ctx: mido_utils.Context, *, query: str):
-        """Queue a song to play!"""
+        """Queue a song to play! You can use YouTube or Spotify links as well."""
+
         task = None
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
