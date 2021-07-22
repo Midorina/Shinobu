@@ -385,6 +385,7 @@ class Music(commands.Cog, WavelinkMixin):
             extra_sep='\n')
 
     @_volume.before_invoke
+    @_earrape.before_invoke
     @_now_playing.before_invoke
     @_pause.before_invoke
     @_resume.before_invoke
