@@ -1,10 +1,9 @@
-import math
-import random
-from typing import List, Union
-
 import dbl
 import discord
+import math
+import random
 from discord.ext import commands, tasks
+from typing import List, Union
 
 import mido_utils
 from midobot import MidoBot
@@ -39,7 +38,10 @@ COIN_SIDES = {
 }
 
 
-class Gambling(commands.Cog):
+class Gambling(
+    commands.Cog,
+    description='Use the `{ctx.prefix}daily` command to get '
+                '**{mido_utils.emotes.currency} {bot.config[daily_amount]}** and use them in gambling and other games!'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

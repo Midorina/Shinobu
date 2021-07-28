@@ -1,7 +1,6 @@
 import asyncio
-import math
-
 import discord
+import math
 from discord.ext import commands
 from wavelink import Client, Node, WavelinkMixin, ZeroConnectedNodes, events
 
@@ -9,7 +8,7 @@ import mido_utils
 from midobot import MidoBot
 
 
-class Music(commands.Cog, WavelinkMixin):
+class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.prefix}play`. **Spotify is supported.**'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

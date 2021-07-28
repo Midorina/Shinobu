@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Optional, Tuple, Union
-
 from discord.ext import commands
+from typing import Optional, Tuple, Union
 
 import mido_utils
 from models.db import HangmanWord, MemberDB
@@ -240,7 +239,7 @@ class Race:
         await self.race_loop_task
 
 
-class Games(commands.Cog):
+class Games(commands.Cog, description="Play games!"):
     def __init__(self, bot):
         self.bot = bot
 

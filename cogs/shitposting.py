@@ -1,8 +1,7 @@
-import random
-from typing import Union
-
 import discord
+import random
 from discord.ext import commands
+from typing import Union
 
 import mido_utils
 from midobot import MidoBot
@@ -21,7 +20,7 @@ class Shitposting(commands.Cog):
         return self.bot.get_cog('NSFW').reddit
 
     @commands.command(name='8ball')
-    async def _8ball(self, ctx: mido_utils.Context, *, question: str):
+    async def eight_ball(self, ctx: mido_utils.Context, *, question: str):
         """Ask a question to 8ball."""
         answer_index = random.randint(0, 19)
 

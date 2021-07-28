@@ -1,10 +1,9 @@
+import discord
 from datetime import datetime
+from discord.ext import commands, tasks
 from enum import Enum, auto
 from io import StringIO
 from typing import Dict, List, Optional, Union
-
-import discord
-from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -27,7 +26,10 @@ class LoggedEvents(Enum):
     VOICE_STATE_UPDATE = auto()
 
 
-class Logging(commands.Cog):
+class Logging(
+    commands.Cog,
+    description="Disable or enable logging in the current channel using `{ctx.prefix}logging` "
+                "and toggle between simple and detailed mode using `{ctx.prefix}loggingmode`."):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -365,7 +367,7 @@ class Logging(commands.Cog):
 
         self.guild_config_cache[ctx.guild.id] = guild_settings
 
-    @commands.command(aliaseS=['logmode'])
+    @commands.command(aliases=['logmode'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def loggingmode(self, ctx: mido_utils.Context):

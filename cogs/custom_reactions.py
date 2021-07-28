@@ -15,7 +15,9 @@ def cr_toggle_message(option_name: str, cr: CustomReaction, option_status: bool)
            f' for custom reaction with ID `{cr.id}`.'
 
 
-class CustomReactions(commands.Cog, name='Custom Reactions'):
+class CustomReactions(
+    commands.Cog, name='Custom Reactions',
+    description='You can add custom reactions with a trigger and a response using `{ctx.prefix}acr`.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -24,7 +26,7 @@ class CustomReactions(commands.Cog, name='Custom Reactions'):
     async def check_cr_db_func(self):
         """PSQL function to escape special characters"""
         time = mido_utils.Time()
-        exists = await self.bot.db.fetchval("SELECT exists(SELECT * FROM pg_proc WHERE proname = 'f_like_escape');")
+        exists = await self.bot.db.fetchval("SELECT EXISTS(SELECT * FROM pg_proc WHERE proname = 'f_like_escape');")
         if not exists:
             await self.bot.db.execute("""
                 CREATE OR REPLACE FUNCTION f_like_escape(text)

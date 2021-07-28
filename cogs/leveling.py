@@ -1,8 +1,7 @@
-from datetime import datetime
-from typing import List, Tuple, Union
-
 import discord
+from datetime import datetime
 from discord.ext import commands
+from typing import List, Tuple, Union
 
 import mido_utils
 from midobot import MidoBot
@@ -27,7 +26,11 @@ def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
     return lvl, total_xp - used_xp, required_xp_to_level_up
 
 
-class Leveling(commands.Cog):
+class Leveling(
+    commands.Cog,
+    description="Check your xp status using `{ctx.prefix}xp`, "
+                "set level rewards using `{ctx.prefix}xprolereward` "
+                "and compete against others in `{ctx.prefix}xplb` and `{ctx.prefix}xpglb`!"):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

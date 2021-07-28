@@ -1,16 +1,16 @@
 import asyncio
-import random
-from typing import Dict, List
-
 import discord
+import random
 from discord.ext import commands, tasks
+from typing import Dict, List
 
 import mido_utils
 from midobot import MidoBot
 from models.db import CachedImage, GuildDB, NSFWImage
 
 
-class NSFW(commands.Cog):
+class NSFW(commands.Cog,
+           description='Get quality NSFW images. Check out `{ctx.prefix}autohentai` to have them posted automatically.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

@@ -1,10 +1,9 @@
 import ast
+import discord
 import os
+import psutil
 import traceback
 from datetime import datetime
-
-import discord
-import psutil
 from discord.ext import commands
 
 import mido_utils
@@ -81,10 +80,14 @@ class MidoHelp(commands.HelpCommand):
         if len(_commands) == 0:
             raise commands.CheckFailure("That is a hidden module. Sorry.")
 
+        description = cog.description.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
+
         e = mido_utils.Embed(self.context.bot,
                              title=f'Shinobu {cog.qualified_name} Commands',
-                             description=f'You can type `{self.context.prefix}help <command>` '
-                                         f'to see additional info about a command.',
+                             description=
+                             f'{description}\n\n'
+                             f'You can type `{self.context.prefix}help <command>` '
+                             f'to see additional info about a command.',
                              default_footer=True)
 
         for i, chunk in enumerate(chunks(_commands, 5), 1):
@@ -100,6 +103,7 @@ class MidoHelp(commands.HelpCommand):
 
     def common_command_formatting(self, embed, command):
         embed.title = self.context.prefix + self.get_command_signature(command)
+
         if command.description:
             embed.description = f'{command.description}\n\n{command.help}'
         else:
@@ -117,7 +121,8 @@ class MidoHelp(commands.HelpCommand):
         await self.context.send(content=content, embed=embed)
 
 
-class Meta(commands.Cog):
+class Meta(commands.Cog,
+           description='This module contains commands that are used to get more information about myself.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

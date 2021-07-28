@@ -1,6 +1,5 @@
-import typing
-
 import discord
+import typing
 from discord.ext import commands
 
 import mido_utils
@@ -8,7 +7,12 @@ from midobot import MidoBot
 from models import GuildDB
 
 
-class AssignableRoles(commands.Cog, name='Assignable Roles'):
+class AssignableRoles(
+    commands.Cog, name='Assignable Roles',
+    description='You can use the `{ctx.prefix}welcomerole` command to '
+                'automatically assign a role to new members '
+                'or `{ctx.prefix}aar` to add a self assignable role for all members '
+                'which can be acquired using `{ctx.prefix}iam`.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

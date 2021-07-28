@@ -11,7 +11,11 @@ from models.db import UserDB
 from models.waifu import Item
 
 
-class Waifu(commands.Cog):
+class Waifu(
+    commands.Cog,
+    description='Claim someone as your waifu using `{ctx.prefix}claim`, '
+                'send gifts to them using `{ctx.prefix}gift` '
+                'and check your stats using `{ctx.prefix}waifustats`.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

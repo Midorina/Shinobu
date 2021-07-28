@@ -1,6 +1,5 @@
-import typing
-
 import discord
+import typing
 from discord.ext import commands, tasks
 
 import mido_utils
@@ -15,7 +14,10 @@ action_emotes = {
 }
 
 
-class Moderation(commands.Cog):
+class Moderation(
+    commands.Cog,
+    description="Ban/mute temporarily, hold logs, manage roles, "
+                "prune messages quickly to moderate your server easily."):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

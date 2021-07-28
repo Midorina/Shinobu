@@ -1,7 +1,6 @@
-from typing import Union
-
 import asyncurban
 from discord.ext import commands
+from typing import Union
 
 import mido_utils
 from midobot import MidoBot
@@ -10,7 +9,10 @@ from midobot import MidoBot
 # TODO: pokemon
 
 
-class Searches(commands.Cog):
+class Searches(
+    commands.Cog,
+    description="Search something using `{ctx.prefix}google`/`{ctx.prefix}urban` "
+                "or convert currencies using `{ctx.prefix}convert`."):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

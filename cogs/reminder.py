@@ -10,7 +10,7 @@ from models.db import ReminderDB
 
 # todo: share reminders across clusters so that not all of them send a message
 
-class Reminder(commands.Cog):
+class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind yourself or someone of something.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
