@@ -1,9 +1,10 @@
-import dbl
-import discord
 import math
 import random
-from discord.ext import commands, tasks
 from typing import List, Union
+
+import dbl
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -53,6 +54,8 @@ class Gambling(
             # dbl stuff
             self.dbl = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'], autopost=False)
             self.votes = set()
+
+            self.post_guild_count.start()
 
             # patreon
             self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])

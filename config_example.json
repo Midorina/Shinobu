@@ -26,8 +26,7 @@
     "token"       : "token",
     "webhook_auth": "auth",
     "webhook_port": 0,
-    "webhook_path": "/path",
-    "auto"        : true
+    "webhook_path": "/path"
   },
   "lavalink_nodes"      : [
     {
