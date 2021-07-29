@@ -7,7 +7,10 @@ import mido_utils
 from midobot import MidoBot
 
 
-class Shitposting(commands.Cog):
+class Shitposting(
+    commands.Cog,
+    description="RNG shitposting using `{ctx.prefix}8ball`, `{ctx.prefix}pp` and `{ctx.prefix}howgay`.\n"
+                "Image filters using `{ctx.prefix}gay`, `{ctx.prefix}wasted`, `{ctx.prefix}triggered` and `{ctx.prefix}ytcomment`."):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

@@ -83,7 +83,7 @@ class MidoHelp(commands.HelpCommand):
         description = cog.description.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
         e = mido_utils.Embed(self.context.bot,
-                             title=f'Shinobu {cog.qualified_name} Commands',
+                             title=f'{cog.qualified_name} Commands',
                              description=
                              f'{description}\n\n'
                              f'You can type `{self.context.prefix}help <command>` '
@@ -122,7 +122,9 @@ class MidoHelp(commands.HelpCommand):
 
 
 class Meta(commands.Cog,
-           description='This module contains commands that are used to get more information about myself.'):
+           description='Use `{ctx.prefix}prefix` to change the way you call me, '
+                       '`{ctx.prefix}invite` to get invite links and '
+                       '`{ctx.prefix}deletedata` to delete everything I know about you.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 

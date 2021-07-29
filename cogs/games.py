@@ -239,7 +239,7 @@ class Race:
         await self.race_loop_task
 
 
-class Games(commands.Cog, description="Play games!"):
+class Games(commands.Cog, description="Play race with friends (with bets if you want) or Hangman."):
     def __init__(self, bot):
         self.bot = bot
 
