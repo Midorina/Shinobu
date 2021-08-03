@@ -658,16 +658,29 @@ class GuildLoggingDB(BaseDBModel):
 
 
 class LoggedMessage(BaseDBModel):
-    def __init__(self, data: Record, bot):
+    class UnknownUser:
+        def __init__(self):
+            self.id = 0
+            self.mention = '__UNKNOWN__'
+            self.avatar_url = 'https://cdn.discordapp.com/embed/avatars/0.png'
+
+        def __str__(self):
+            return '**UNKNOWN**'
+
+    def __init__(self, data: Union[Record, dict], bot):
         super().__init__(data, bot)
         self.id: int = data.get('message_id')
+
         self.author_id: int = data.get('author_id')
         self.channel_id: int = data.get('channel_id')
         self.guild_id: int = data.get('guild_id')
-        self.content: str = data.get('message_content')
-        self.embeds: List[discord.Embed] = [discord.Embed.from_dict(json.loads(x)) for x in data.get('message_embeds')]
 
-        self.created_at = data.get('created_at')
+        self.content: str = data.get('message_content') or '**UNKNOWN**'
+
+        self.embeds: List[discord.Embed] = [discord.Embed.from_dict(json.loads(x))
+                                            for x in data.get('message_embeds', [])]
+
+        self.created_at: datetime = data.get('created_at') or datetime(1970, 1, 1, tzinfo=timezone.utc)
 
     @property
     def guild(self) -> discord.Guild:
@@ -678,20 +691,42 @@ class LoggedMessage(BaseDBModel):
         return self.guild.get_channel(self.channel_id)
 
     @property
-    def author(self) -> discord.User:
-        return self.bot.get_user(self.author_id)
+    def author(self) -> Union[discord.Member, LoggedMessage.UnknownUser]:
+        return self.guild.get_member(self.author_id) or self.UnknownUser()
+
+    @property
+    def jump_url(self):
+        return 'https://discord.com/channels/{0}/{1.channel.id}/{1.id}'.format(self.guild_id, self)
 
     @classmethod
-    async def get(cls, bot, message_id: int) -> Optional[LoggedMessage]:
+    def _uncached_msg_obj(cls, bot, guild_id: int, channel_id: int, message_id: int) -> LoggedMessage:
+        return cls(
+            {'guild_id': guild_id, 'channel_id': channel_id, 'message_id': message_id},
+            bot)
+
+    @classmethod
+    async def get(cls, bot, guild_id: int, channel_id: int, message_id: int) -> LoggedMessage:
         msg = await bot.db.fetchrow("SELECT * FROM message_log WHERE message_id=$1;", message_id)
 
-        return cls(msg, bot) if msg else None
+        return cls(msg, bot) if msg else cls._uncached_msg_obj(bot, guild_id, channel_id, message_id)
 
     @classmethod
-    async def get_bulk(cls, bot, message_ids: Union[Set[int], List[int]]) -> List[LoggedMessage]:
+    async def get_bulk(cls, bot, guild_id: int, channel_id: int,
+                       message_ids: Union[Set[int], List[int]]) -> List[LoggedMessage]:
+        ret = []
+
         msgs = await bot.db.fetch("SELECT * FROM message_log WHERE message_id=ANY($1);", message_ids)
 
-        return [cls(msg, bot) for msg in msgs]
+        # append uncached message objects to the ret list
+        cached_id_list = [msg.get('message_id') for msg in msgs]
+        for msg_id in message_ids:
+            if msg_id not in cached_id_list:
+                ret.append(cls._uncached_msg_obj(bot, guild_id, channel_id, msg_id))
+
+        # append cached messages
+        ret.extend([cls(msg, bot) for msg in msgs])
+
+        return ret
 
     @classmethod
     async def insert(cls, bot, message: discord.Message):
@@ -706,7 +741,7 @@ class LoggedMessage(BaseDBModel):
              message.guild.id if message.guild else None,
              message.content.replace("\u0000", ""),
              tuple(json.dumps(e.to_dict()) for e in message.embeds),
-             message.created_at  # created_at is UTC, check if we handle this properly
+             message.created_at
              ) for message in messages)
 
         await bot.db.executemany("""
@@ -717,9 +752,6 @@ class LoggedMessage(BaseDBModel):
         # update active guilds with this info
         guild_id_list = list(dict.fromkeys([x.guild.id for x in messages if x.guild]))
         await GuildDB.update_active_guilds(bot, guild_id_list)
-
-    def jump_url(self):
-        return 'https://discord.com/channels/{0}/{1.channel.id}/{1.id}'.format(self.guild_id, self)
 
     @classmethod
     async def delete_old_messages(cls, bot):

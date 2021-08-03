@@ -1,9 +1,10 @@
-import discord
 from datetime import datetime
-from discord.ext import commands, tasks
 from enum import Enum, auto
 from io import StringIO
 from typing import Dict, List, Optional, Union
+
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
@@ -63,15 +64,16 @@ class Logging(
     async def on_cache_to_db_error(self, error):
         await self.bot.get_cog('ErrorHandling').on_error(error)
 
-    async def get_cached_message(self, message_id: int) -> Union[discord.Message, LoggedMessage, None]:
+    async def get_cached_message(self, guild_id: int, channel_id: int, message_id: int) -> Union[
+        discord.Message, LoggedMessage]:
         for msg in self.message_cache:
             if msg.id == message_id:
                 return msg
 
-        return await LoggedMessage.get(bot=self.bot, message_id=message_id)
+        return await LoggedMessage.get(self.bot, guild_id, channel_id, message_id)
 
-    async def get_cached_message_bulk(self, message_ids: List[int]) -> List[
-        Union[discord.Message, LoggedMessage, None]]:
+    async def get_cached_message_bulk(self, guild_id: int, channel_id: int, message_ids: List[int]) -> List[
+        Union[discord.Message, LoggedMessage]]:
         ret = []
         for msg in self.message_cache:
             if msg.id in message_ids:
@@ -79,7 +81,7 @@ class Logging(
                 message_ids.remove(msg.id)
 
         if message_ids:  # if there are messages left
-            ret.extend(await LoggedMessage.get_bulk(self.bot, message_ids))
+            ret.extend(await LoggedMessage.get_bulk(self.bot, guild_id, channel_id, message_ids))
 
         return ret
 
@@ -214,11 +216,8 @@ class Logging(
                 or logging_type is LoggedEvents.MESSAGE_EDIT:
             payload: Union[discord.RawMessageDeleteEvent, discord.RawMessageUpdateEvent] = args[0]
 
-            if not payload.cached_message:
-                # todo: handle message not being in the cache
-                msg = await self.get_cached_message(message_id=payload.message_id)
-            else:
-                msg: discord.Message = payload.cached_message
+            msg: Union[discord.Message, LoggedMessage] = payload.cached_message or await self.get_cached_message(
+                payload.guild_id, payload.channel_id, payload.message_id)
 
             if logging_type is LoggedEvents.MESSAGE_EDIT:
                 try:
@@ -232,16 +231,16 @@ class Logging(
                     return
 
                 if guild_settings.simple_mode_is_enabled:
-                    e = self.get_member_event_embed(msg.author)
-                    e.description = f"**Message sent by {msg.author.mention} in {msg.channel.mention} " \
+                    e = self.get_member_event_embed(new_msg.author)
+                    e.description = f"**Message sent by {new_msg.author.mention} in {msg.channel.mention} " \
                                     f"has just been edited.** [Jump]({msg.jump_url})\n\n" \
                                     f"**Before:**\n" \
                                     f"{msg.content}\n" \
                                     f"**After:**\n" \
                                     f"{new_msg.content}"
-                    e.set_footer(text=f"Author ID: {msg.author.id} | Message ID: {msg.id}")
+                    e.set_footer(text=f"Author ID: {new_msg.author.id} | Message ID: {msg.id}")
                 else:
-                    content = f"{time} :x: {self.detailed(msg.author)} edited their message (`{msg.id}`) " \
+                    content = f"{time} :x: {self.detailed(new_msg.author)} edited their message (`{msg.id}`) " \
                               f"in {self.detailed(msg.channel)}.\n" \
                               f"**Before:**\n" \
                               f"```{msg.content}```\n" \
@@ -266,10 +265,9 @@ class Logging(
             payload: discord.RawBulkMessageDeleteEvent = args[0]
             channel: discord.TextChannel = self.bot.get_channel(payload.channel_id)
 
-            if not payload.cached_messages:
-                msgs = await self.get_cached_message_bulk(payload.message_ids)
-            else:
-                msgs: List[discord.Message] = list(payload.cached_messages)
+            msgs: List[Union[discord.Message, LoggedMessage]] = list(
+                payload.cached_messages) or await self.get_cached_message_bulk(payload.guild_id, payload.channel_id,
+                                                                               payload.message_ids)
 
             # prepare the log file
             s = StringIO()
@@ -289,13 +287,10 @@ class Logging(
             else:
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
-        try:
-            await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
-                                           embed=e,
-                                           file=file,
-                                           allowed_mentions=discord.AllowedMentions.none())
-        except discord.Forbidden:
-            pass
+        await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
+                                       embed=e,
+                                       file=file,
+                                       allowed_mentions=discord.AllowedMentions.none())
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
