@@ -63,6 +63,8 @@ class Gambling(
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
         """Manual posting is required due to clustering"""
+        await self.bot.wait_until_ready()
+
         if hasattr(self, 'dbl'):
             await self.dbl.http.post_guild_count(bot_id=self.bot.user.id,
                                                  guild_count=await self.bot.ipc.get_guild_count(),
