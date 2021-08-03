@@ -7,6 +7,7 @@ from models.db import CustomReaction
 
 
 # todo: cooldown to crs
+# todo: try to post the custom reaction before it is set and check if it errors
 def cr_toggle_message(option_name: str, cr: CustomReaction, option_status: bool) -> str:
     def keyword(_enabled: bool):
         return 'enabled' if _enabled else 'disabled'

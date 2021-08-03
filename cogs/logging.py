@@ -223,7 +223,6 @@ class Logging(
                 try:
                     new_msg = await msg.channel.fetch_message(msg.id)
                 except discord.Forbidden:
-                    # todo: this
                     return
 
                 if new_msg.content == msg.content:

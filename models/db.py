@@ -24,6 +24,8 @@ __all__ = ['XpAnnouncement', 'ModLog', 'UserDB', 'MemberDB',
            'BlacklistDB', 'XpRoleReward', 'HangmanWord']
 
 
+# todo: create create table queries
+
 class XpAnnouncement(Enum):
     SILENT = 0
     DM = 1
@@ -756,7 +758,7 @@ class LoggedMessage(BaseDBModel):
     @classmethod
     async def delete_old_messages(cls, bot):
         # delete messages that are older than 7 days
-        await bot.db.execute("DELETE FROM message_log WHERE created_at < (now() - INTERVAL '7 days')")
+        await bot.db.execute("DELETE FROM message_log WHERE created_at < (NOW() - INTERVAL '7 days')")
 
 
 class ReminderDB(BaseDBModel):

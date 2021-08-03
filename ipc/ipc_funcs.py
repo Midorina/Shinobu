@@ -16,7 +16,7 @@ from models.patreon import UserAndPledgerCombined
 
 __all__ = ['IPCClient', 'SerializedObject']
 
-
+# todo: possibly rewrite this
 class IPCMessage:
     MANDATORY_ATTRS = ('author', 'type', 'key')
 
