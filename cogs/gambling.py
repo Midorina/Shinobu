@@ -42,7 +42,7 @@ COIN_SIDES = {
 class Gambling(
     commands.Cog,
     description='Use the `{ctx.prefix}daily` command to get '
-                '**{mido_utils.emotes.currency} {bot.config[daily_amount]}** and use them in gambling and other games!'):
+                '**{bot.config[daily_amount]}{mido_utils.emotes.currency}** and use them in gambling and other games!'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
@@ -172,7 +172,7 @@ class Gambling(
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
-        Claim **{mido_utils.emotes.currency} {bot.config[daily_amount]}** for free every 12 hours.
+        Claim **{bot.config[daily_amount]}{mido_utils.emotes.currency}** for free every 12 hours.
         """
         daily_status = ctx.user_db.daily_date_status
         daily_amount = self.bot.config['daily_amount']

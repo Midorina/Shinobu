@@ -113,7 +113,7 @@ def readable_bigint(number: Union[int, float], small_precision=False) -> str:
 
 
 def readable_currency(number: int) -> str:
-    return mido_utils.emotes.currency + readable_bigint(number)
+    return readable_bigint(number) + mido_utils.emotes.currency
 
 
 async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: discord.Member,
