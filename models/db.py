@@ -358,7 +358,7 @@ class MemberDB(BaseDBModel):
 
         return member_obj
 
-    async def add_xp(self, amount: int, owner=False):
+    async def add_xp(self, amount: int):
         # if not self.xp_date_status.end_date_has_passed and not owner:
         #     raise mido_utils.OnCooldownError(f"You're still on cooldown! "
         #                                      f"Try again after **{self.xp_date_status.remaining_string}**.")
@@ -963,10 +963,14 @@ class NSFWImage:
         porn = auto()
         hentai = auto()
 
-    def __init__(self, url: str, tags: str = None, api_name: str = None):
+    def __init__(self, url: str, tags: List[str] = None, api_name: str = None):
         self.url = url
         self.tags = tags
         self.api_name = api_name
+
+    @property
+    def readable_tags(self):
+        return ", ".join(self.tags).replace("_", " ")
 
     def get_embed(self, bot) -> mido_utils.Embed:
         e = mido_utils.Embed(bot=bot,
@@ -977,7 +981,7 @@ class NSFWImage:
         if self.api_name:
             stuff_to_add_to_footer.append(f"API: {self.api_name}")
         if self.tags:
-            stuff_to_add_to_footer.append(f"Tags: {self.tags}")
+            stuff_to_add_to_footer.append(f"Tags: {self.readable_tags}")
 
         if stuff_to_add_to_footer:
             e.set_footer(text=' | '.join(stuff_to_add_to_footer))
@@ -986,8 +990,8 @@ class NSFWImage:
 
     def get_send_kwargs(self, bot) -> dict:
         should_send_as_embed = False
-        for format in self.EMBED_PREVIEW_FORMATS:
-            if self.url.endswith(format):
+        for _format in self.EMBED_PREVIEW_FORMATS:
+            if self.url.endswith(_format):
                 should_send_as_embed = True
                 break
 
@@ -1002,7 +1006,7 @@ class CachedImage(BaseDBModel, NSFWImage):
         super().__init__(data, bot)
 
         self.url: str = data.get('url')
-        self.tags: str = "+".join(data.get('tags'))
+        self.tags: str = data.get('tags')
         # self.api_name: str = data.get('api_name')
         self.api_name: str = 'Shinobu NSFW API'
 

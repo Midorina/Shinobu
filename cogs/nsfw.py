@@ -11,11 +11,12 @@ from models.db import CachedImage, GuildNSFWDB, NSFWImage
 
 
 class NSFW(commands.Cog,
-           description='Get quality NSFW images. Check out `{ctx.prefix}autohentai` to have them posted automatically.'):
+           description='Get quality NSFW images. '
+                       'Check out `{ctx.prefix}autohentai` to have them posted automatically.'):
     def __init__(self, bot: MidoBot):
         self.bot = bot
 
-        self.api = mido_utils.NSFW_DAPIs(self.bot.http_session, self.bot.db)
+        self.api = mido_utils.NSFW_DAPIs(self.bot.http_session, self.bot)
         self.reddit = mido_utils.RedditAPI(self.bot.config['reddit_credentials'], self.bot.http_session, self.bot.db)
         self.neko = mido_utils.NekoAPI(session=self.bot.http_session, db=self.bot.db)
 
@@ -39,34 +40,72 @@ class NSFW(commands.Cog,
         else:
             raise mido_utils.UnknownNSFWType
 
-    async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags: str, limit=1, allow_video=False) -> List[NSFWImage]:
+    async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags: str, limit=1, allow_video=False,
+                             guild_id: int = None) -> List[NSFWImage]:
+        tag_list = tags.replace(' ', '_').lower().split('+') if tags else []
+        blacklisted_tags = await self.api.get_blacklisted_tags(guild_id)
+
         if not allow_video and tags:
             allow_video = 'video' in tags
 
         ret = []
 
-        while len(ret) < limit:
-            cache = self.get_nsfw_cache(nsfw_type)
+        cache = self.get_nsfw_cache(nsfw_type)
 
+        i = 0
+        while len(ret) < limit:
             try:
-                ret.append(cache[tags].pop(0))
+                pulled = cache[tags].pop(0)
+
+                add = True
+                # check for blacklisted tags
+                for tag in pulled.tags:
+                    if tag in blacklisted_tags:
+                        # image is blacklisted
+                        add = False
+                        break
+
+                if add is True:
+                    # make additional tag check.
+                    # if the pulled image does not contain the tags we want,
+                    # it was most likely added by a server with blacklisted tags
+                    for tag in tag_list:
+                        if tag not in pulled.tags and tag not in blacklisted_tags:
+                            # image doesnt contain a tag we want
+                            add = False
+                            break
+
+                if add is True:
+                    ret.append(pulled)
+                else:
+                    cache[tags].append(pulled)
+                    i += 1
+
+                    # if we scanned the whole cache, raise IndexError to get more images
+                    if i >= len(cache[tags]):
+                        raise IndexError
+
             except (KeyError, IndexError):
                 # if porn is requested or tags are not provided, pull from db
                 if nsfw_type is NSFWImage.Type.porn or not tags:
-                    cache[tags] = await self.reddit.get_reddit_post_from_db(
+                    new_images = await self.reddit.get_reddit_post_from_db(
                         self.bot,
                         category=nsfw_type.name,
                         tags=[tags] if tags else None,
                         limit=500,
                         allow_gif=True)
                 else:
-                    cache[tags] = await self.api.get_bomb(tags=tags,
-                                                          limit=500,
-                                                          allow_video=allow_video)
-                if len(cache[tags]) < limit:
-                    ret.extend(cache[tags])
-                    cache[tags].clear()
-                    return ret
+                    new_images = await self.api.get_bomb(tags=tags,
+                                                         limit=500,
+                                                         allow_video=allow_video,
+                                                         guild_id=guild_id)
+
+                if tags in cache.keys():
+                    cache[tags].extend(new_images)
+                else:
+                    cache[tags] = new_images
+
+                ret.append(cache[tags].pop(0))
 
         return ret
 
@@ -127,7 +166,7 @@ class NSFW(commands.Cog,
 
             tags = random.choice(db_tags) if db_tags else None
             try:
-                image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags=tags, limit=1))[0]
+                image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags=tags, limit=1, guild_id=guild.id))[0]
             except mido_utils.NotFoundError:
                 e = mido_utils.Embed(bot=self.bot,
                                      colour=discord.Colour.red(),
@@ -191,32 +230,37 @@ class NSFW(commands.Cog,
     @commands.command()
     async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags=tag, limit=1))[0]
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags=tag, limit=1,
+                                           guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx: mido_utils.Context):
         """Get a random boob picture."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='boobs', limit=1))[0]
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='boobs', limit=1,
+                                           guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['butt', 'ass'])
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='butts', limit=1))[0]
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='butts', limit=1,
+                                           guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='pussy', limit=1))[0]
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='pussy', limit=1,
+                                           guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def asian(self, ctx: mido_utils.Context):
         """Get a random asian porn content."""
 
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='asian', limit=1))[0]
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='asian', limit=1,
+                                           guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
@@ -226,7 +270,9 @@ class NSFW(commands.Cog,
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
 
-        image = (await self.api.get('gelbooru', tags))[0]
+        image = (
+            await self.api.get('gelbooru', tags, guild_id=ctx.guild.id if ctx.guild else None)
+        )[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
@@ -236,7 +282,7 @@ class NSFW(commands.Cog,
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
 
-        image = (await self.api.get('rule34', tags))[0]
+        image = (await self.api.get('rule34', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['sankakucomplex'])
@@ -246,7 +292,7 @@ class NSFW(commands.Cog,
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
 
-        image = (await self.api.get('sankaku_complex', tags))[0]
+        image = (await self.api.get('sankaku_complex', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
@@ -257,7 +303,7 @@ class NSFW(commands.Cog,
         `{ctx.prefix}hentaibomb yuri+group`
 
         **Danbooru doesn't allow more than 2 tags.**"""
-        image = (await self.api.get('danbooru', tags))[0]
+        image = (await self.api.get('danbooru', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(name='lewdneko')
@@ -274,7 +320,9 @@ class NSFW(commands.Cog,
 
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
-        image = (await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1))[0]
+        image = \
+            (await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1, guild_id=getattr(ctx.guild, 'id', None)))[
+                0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(name='hentaibomb')
@@ -283,7 +331,8 @@ class NSFW(commands.Cog,
 
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
-        images = await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=3, allow_video=True)
+        images = await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=3, allow_video=True,
+                                           guild_id=getattr(ctx.guild, 'id', None))
 
         await ctx.send(content="\n".join(im.url for im in images))
 
@@ -358,6 +407,47 @@ class NSFW(commands.Cog,
         You need Manage Messages permission to use this command."""
 
         await self.base_auto_nsfw_cmd(ctx, NSFWImage.Type.porn, interval, tags)
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
+    @commands.command(name="tagblacklist")
+    async def blacklist_tag(self, ctx: mido_utils.Context, *, tag: str = None):
+        """See the blacklisted tags or blacklist a tag. Provide a tag to blacklist it.
+        Any image with a blacklisted tag will not be posted."""
+        nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)
+
+        if not tag:
+            if not nsfw_db.blacklisted_tags:
+                raise commands.UserInputError("This server does not have any blacklisted tags.")
+
+            e = mido_utils.Embed(ctx.bot, title=f"{ctx.guild} Blacklisted NSFW Tags")
+
+            return await e.paginate(ctx, blocks=nsfw_db.blacklisted_tags, item_per_page=15)
+
+        tag = tag.lower()
+
+        if tag in nsfw_db.blacklisted_tags:
+            raise commands.UserInputError(f"Tag `{tag}` is already blacklisted.")
+
+        await nsfw_db.blacklist_tag(tag)
+
+        await ctx.send_success(f"Tag `{tag}` has been successfully blacklisted.")
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_messages=True)
+    @commands.command(name="tagwhitelist")
+    async def whitelist_tag(self, ctx: mido_utils.Context, *, tag: str):
+        """Whitelist/remove a blacklisted tag."""
+        nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)
+
+        tag = tag.lower()
+
+        if tag not in nsfw_db.blacklisted_tags:
+            raise commands.UserInputError(f"Tag `{tag}` is not blacklisted.")
+
+        await nsfw_db.whitelist_tag(tag)
+
+        await ctx.send_success(f"Tag `{tag}` has been successfully removed from the blacklist.")
 
 
 def setup(bot):

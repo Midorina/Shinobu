@@ -241,7 +241,7 @@ class RedditAPI(CachedImageAPI):
 
 
 class NSFW_DAPIs(CachedImageAPI):
-    BLACKLISTED_TAGS = [
+    _BLACKLISTED_TAGS = [
         'loli',
         'shota',
         'child',
@@ -250,7 +250,9 @@ class NSFW_DAPIs(CachedImageAPI):
         'guro',
         'blood',
         'gore',
-        'flat_chest'
+        'flat_chest',
+        'small breasts',
+        'small nipples'
     ]
 
     DAPI_LINKS = {
@@ -260,18 +262,21 @@ class NSFW_DAPIs(CachedImageAPI):
         'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
     }
 
-    def __init__(self, session: ClientSession, db: Pool):
-        super().__init__(session, db)
+    def __init__(self, session: ClientSession, bot):
+        super().__init__(session, bot.db)
 
-    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False) -> List[models.NSFWImage]:
+        self.bot = bot
+
+    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
+            List[models.NSFWImage]:
         base_tags = tags
-        tags = self._parse_tags(tags)
+        tags = await self._parse_tags(tags, guild_id)
 
         if nsfw_type in ('rule34', 'gelbooru'):
             tags.extend(('rating:explicit', 'sort:random', 'score:>=50'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video, limit]
+            args = [nsfw_type, tags, allow_video, limit, 100, guild_id]
 
         elif nsfw_type == 'sankaku_complex':
             # max 2 args
@@ -279,7 +284,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.extend(('rating:explicit', 'order:random', 'score:>=50'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video, limit]
+            args = [nsfw_type, tags, allow_video, limit, 100, guild_id]
 
         elif nsfw_type == 'danbooru':
             # max 2 args
@@ -287,7 +292,7 @@ class NSFW_DAPIs(CachedImageAPI):
             tags.append('rating:explicit')
 
             func = self._get_danbooru
-            args = [tags, allow_video, limit]
+            args = [tags, allow_video, limit, guild_id]
 
         else:
             raise Exception(f"Unknown nsfw type: {nsfw_type}")
@@ -299,47 +304,58 @@ class NSFW_DAPIs(CachedImageAPI):
 
         # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
 
-        fetched_imgs = [models.NSFWImage(x, tags=base_tags, api_name=nsfw_type) for x in fetched_imgs]
-
         try:
             return random.sample(fetched_imgs, limit)
         except ValueError:
             return fetched_imgs
 
-    async def get_bomb(self, tags, limit=3, allow_video: bool = True) -> List[models.NSFWImage]:
+    async def get_bomb(self, tags, limit=3, allow_video: bool = True, guild_id: int = None) -> List[models.NSFWImage]:
         sample = limit if limit <= len(self.DAPI_LINKS.keys()) else len(self.DAPI_LINKS.keys())
 
-        urls = []
+        images = []
         aws = []
         for dapi in random.sample(self.DAPI_LINKS.keys(), sample):
             aws.append(self.get(nsfw_type=dapi,
                                 tags=tags,
                                 limit=limit,
-                                allow_video=allow_video))
+                                allow_video=allow_video,
+                                guild_id=guild_id))
 
         for result in await asyncio.gather(*aws, return_exceptions=True):
             if isinstance(result, list):  # ignore exceptions
-                urls.extend(result)
+                images.extend(result)
 
         try:
-            return random.sample(urls, limit)
+            return random.sample(images, limit)
         except ValueError:
-            if not urls:
+            if not images:
                 raise mido_utils.NotFoundError
             else:
-                return urls
+                return images
 
-    def _parse_tags(self, tags: str) -> List[str]:
+    async def get_blacklisted_tags(self, guild_id: int = None):
+        if not guild_id:
+            return self._BLACKLISTED_TAGS
+
+        nsfw_db = await models.GuildNSFWDB.get_or_create(self.bot, guild_id)
+
+        return nsfw_db.blacklisted_tags + self._BLACKLISTED_TAGS
+
+    async def _parse_tags(self, tags: str, guild_id: int = None) -> List[str]:
         if tags is None:
             return []
 
         tags = tags.replace(' ', '_').lower().split('+')
 
-        return list(filter(lambda x: x not in self.BLACKLISTED_TAGS, tags))
+        blacklisted_tags = await self.get_blacklisted_tags(guild_id)
 
-    def is_blacklisted(self, tags):
+        return list(filter(lambda x: x not in blacklisted_tags, tags))
+
+    async def is_blacklisted(self, tags: List[str], guild_id: int = None):
+        blacklisted_tags = await self.get_blacklisted_tags(guild_id)
+
         for tag in tags:
-            if tag in self.BLACKLISTED_TAGS:
+            if tag in blacklisted_tags:
                 return True
         return False
 
@@ -352,8 +368,9 @@ class NSFW_DAPIs(CachedImageAPI):
                              tags: List[str],
                              allow_video=False,
                              limit: int = 100,
-                             score: int = 100) -> List[str]:
-        images = []
+                             score: int = 100,
+                             guild_id: int = None) -> List[models.NSFWImage]:
+        images: List[models.NSFWImage] = []
 
         if f'score:>={score}' in tags:
             pass
@@ -387,9 +404,6 @@ class NSFW_DAPIs(CachedImageAPI):
                     if not image_url:
                         continue
 
-                # elif dapi_name == 'sankaku_complex':
-                #     image_url = data.get('sample_url')
-
                 elif dapi_name == 'rule34':
                     image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
                 else:
@@ -400,15 +414,16 @@ class NSFW_DAPIs(CachedImageAPI):
                 else:
                     image_tags = data.get('tags').split(' ')
 
-                if self.is_blacklisted(image_tags) or (not allow_video and self.is_video(image_url)):
+                if await self.is_blacklisted(image_tags, guild_id) or (not allow_video and self.is_video(image_url)):
                     continue
                 else:
-                    images.append(image_url)
+                    images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi_name))
 
             return images
 
-    async def _get_danbooru(self, tags=None, allow_video=False, limit: int = 100):
-        images = []
+    async def _get_danbooru(self, tags=None, allow_video=False, limit: int = 100, guild_id: int = None) -> List[
+        models.NSFWImage]:
+        images: List[models.NSFWImage] = []
 
         response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
             'limit' : limit,
@@ -420,12 +435,13 @@ class NSFW_DAPIs(CachedImageAPI):
             raise mido_utils.NotFoundError
 
         for data in response:
-            if ('file_url' not in data
-                    or (not allow_video and self.is_video(data['file_url']))
-                    or self.is_blacklisted(data['tag_string'].split())):
+            img_url = data.get('large_file_url', data['file_url'])
+            tags = data['tag_string'].split()
+
+            if await self.is_blacklisted(tags, guild_id) or (not allow_video and self.is_video(img_url)):
                 continue
 
-            images.append(data.get('large_file_url', data['file_url']))
+            images.append(models.NSFWImage(img_url, tags, api_name='danbooru'))
 
         if not images:
             raise mido_utils.NotFoundError
