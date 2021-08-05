@@ -269,7 +269,6 @@ class NSFW_DAPIs(CachedImageAPI):
 
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
             List[models.NSFWImage]:
-        base_tags = tags
         tags = await self._parse_tags(tags, guild_id)
 
         if nsfw_type in ('rule34', 'gelbooru'):

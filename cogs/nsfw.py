@@ -40,13 +40,18 @@ class NSFW(commands.Cog,
         else:
             raise mido_utils.UnknownNSFWType
 
-    async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags: str, limit=1, allow_video=False,
+    async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags_str: str, limit=1, allow_video=False,
                              guild_id: int = None) -> List[NSFWImage]:
-        tag_list = tags.replace(' ', '_').lower().split('+') if tags else []
+        tag_list = tags_str.replace(' ', '_').lower().split('+') if tags_str else []
         blacklisted_tags = await self.api.get_blacklisted_tags(guild_id)
 
-        if not allow_video and tags:
-            allow_video = 'video' in tags
+        # remove blacklisted tags from requested tags
+        tag_list = list(filter(lambda x: x not in blacklisted_tags, tag_list))
+        # build tags_str back
+        tags_str = '+'.join(tag_list)
+
+        if not allow_video and tags_str:
+            allow_video = 'video' in tags_str
 
         ret = []
 
@@ -55,7 +60,7 @@ class NSFW(commands.Cog,
         i = 0
         while len(ret) < limit:
             try:
-                pulled = cache[tags].pop(0)
+                pulled = cache[tags_str].pop(0)
 
                 add = True
                 # check for blacklisted tags
@@ -66,46 +71,36 @@ class NSFW(commands.Cog,
                         break
 
                 if add is True:
-                    # make additional tag check.
-                    # if the pulled image does not contain the tags we want,
-                    # it was most likely added by a server with blacklisted tags
-                    for tag in tag_list:
-                        if tag not in pulled.tags and tag not in blacklisted_tags:
-                            # image doesnt contain a tag we want
-                            add = False
-                            break
-
-                if add is True:
                     ret.append(pulled)
                 else:
-                    cache[tags].append(pulled)
+                    cache[tags_str].append(pulled)
                     i += 1
 
                     # if we scanned the whole cache, raise IndexError to get more images
-                    if i >= len(cache[tags]):
+                    if i >= len(cache[tags_str]):
                         raise IndexError
 
             except (KeyError, IndexError):
                 # if porn is requested or tags are not provided, pull from db
-                if nsfw_type is NSFWImage.Type.porn or not tags:
+                if nsfw_type is NSFWImage.Type.porn or not tags_str:
                     new_images = await self.reddit.get_reddit_post_from_db(
                         self.bot,
                         category=nsfw_type.name,
-                        tags=[tags] if tags else None,
+                        tags=[tags_str] if tags_str else None,
                         limit=500,
                         allow_gif=True)
                 else:
-                    new_images = await self.api.get_bomb(tags=tags,
+                    new_images = await self.api.get_bomb(tags=tags_str,
                                                          limit=500,
                                                          allow_video=allow_video,
                                                          guild_id=guild_id)
 
-                if tags in cache.keys():
-                    cache[tags].extend(new_images)
+                if tags_str in cache.keys():
+                    cache[tags_str].extend(new_images)
                 else:
-                    cache[tags] = new_images
+                    cache[tags_str] = new_images
 
-                ret.append(cache[tags].pop(0))
+                ret.append(cache[tags_str].pop(0))
 
         return ret
 
@@ -166,7 +161,7 @@ class NSFW(commands.Cog,
 
             tags = random.choice(db_tags) if db_tags else None
             try:
-                image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags=tags, limit=1, guild_id=guild.id))[0]
+                image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags_str=tags, limit=1, guild_id=guild.id))[0]
             except mido_utils.NotFoundError:
                 e = mido_utils.Embed(bot=self.bot,
                                      colour=discord.Colour.red(),
@@ -230,28 +225,28 @@ class NSFW(commands.Cog,
     @commands.command()
     async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags=tag, limit=1,
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str=tag, limit=1,
                                            guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['boob'])
     async def boobs(self, ctx: mido_utils.Context):
         """Get a random boob picture."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='boobs', limit=1,
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='boobs', limit=1,
                                            guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['butt', 'ass'])
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='butts', limit=1,
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='butts', limit=1,
                                            guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='pussy', limit=1,
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='pussy', limit=1,
                                            guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
@@ -259,7 +254,7 @@ class NSFW(commands.Cog,
     async def asian(self, ctx: mido_utils.Context):
         """Get a random asian porn content."""
 
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags='asian', limit=1,
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='asian', limit=1,
                                            guild_id=getattr(ctx.guild, 'id', None)))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
