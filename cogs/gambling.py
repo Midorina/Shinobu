@@ -51,14 +51,15 @@ class Gambling(
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
         if self.bot.cluster_id == 0:
-            # dbl stuff
+            # patreon
+            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])
+
+            # DBL / TOP.GG
             self.dbl = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'], autopost=False)
             self.votes = set()
 
-            self.post_guild_count.start()
-
-            # patreon
-            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])
+            if self.bot.name.lower() == 'shinobu':
+                self.post_guild_count.start()
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
