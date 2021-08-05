@@ -18,8 +18,8 @@ import mido_utils
 import models
 
 __all__ = ['XpAnnouncement', 'ModLog', 'UserDB', 'MemberDB',
-           'GuildDB', 'GuildLoggingDB', 'LoggedMessage',
-           'ReminderDB', 'CustomReaction', 'NSFWImage',
+           'GuildDB', 'GuildLoggingDB', 'GuildNSFWDB',
+           'LoggedMessage', 'ReminderDB', 'CustomReaction', 'NSFWImage',
            'CachedImage', 'DonutEvent', 'TransactionLog',
            'BlacklistDB', 'XpRoleReward', 'HangmanWord']
 
@@ -401,6 +401,92 @@ class MemberDB(BaseDBModel):
             return self.id == other.id
 
 
+class GuildNSFWDB(BaseDBModel):
+    def __init__(self, nsfw_db: Record, bot):
+        super().__init__(nsfw_db, bot)
+
+        self.blacklisted_tags: List[str] = nsfw_db.get('blacklisted_tags')
+
+        # auto hentai
+        self.auto_hentai_channel_id: int = nsfw_db.get('auto_hentai_channel_id')
+        self.auto_hentai_tags: List[str] = nsfw_db.get('auto_hentai_tags')
+        self.auto_hentai_interval: int = nsfw_db.get('auto_hentai_interval')
+
+        # auto porn
+        self.auto_porn_channel_id: int = nsfw_db.get('auto_porn_channel_id')
+        self.auto_porn_tags: List[str] = nsfw_db.get('auto_porn_tags')
+        self.auto_porn_interval: int = nsfw_db.get('auto_porn_interval')
+
+    def get_auto_nsfw_properties(self, nsfw_type: NSFWImage.Type) -> Tuple[int, List[str], int]:
+        if nsfw_type is NSFWImage.Type.hentai:
+            return self.auto_hentai_channel_id, self.auto_hentai_tags, self.auto_hentai_interval
+        elif nsfw_type is NSFWImage.Type.porn:
+            return self.auto_porn_channel_id, self.auto_porn_tags, self.auto_porn_interval
+        else:
+            raise mido_utils.UnknownNSFWType(nsfw_type)
+
+    async def blacklist_tag(self, tag: str):
+        self.blacklisted_tags.append(tag.lower())
+
+        await self.bot.db.execute("UPDATE guilds_nsfw_settings "
+                                  "SET blacklisted_tags=ARRAY_APPEND(blacklisted_tags, $1) WHERE id=$2;",
+                                  tag.lower(), self.id)
+
+    async def whitelist_tag(self, tag: str):
+        self.blacklisted_tags.remove(tag.lower())
+
+        await self.bot.db.execute("UPDATE guilds_nsfw_settings "
+                                  "SET blacklisted_tags=ARRAY_REMOVE(blacklisted_tags, $1) WHERE id=$2;",
+                                  tag.lower(), self.id)
+
+    async def set_auto_nsfw(self, nsfw_type: NSFWImage.Type, channel_id: int = None, tags: List[str] = None,
+                            interval: int = None):
+        if nsfw_type is NSFWImage.Type.hentai:
+            self.auto_hentai_channel_id = channel_id
+            self.auto_hentai_tags = tags
+            self.auto_hentai_interval = interval
+            await self.db.execute(
+                """UPDATE guilds_nsfw_settings SET 
+                auto_hentai_channel_id=$1,
+                auto_hentai_tags=$2,
+                auto_hentai_interval=$3 
+                WHERE id=$4;""", channel_id, tags, interval, self.id)
+        elif nsfw_type is NSFWImage.Type.porn:
+            self.auto_porn_channel_id = channel_id
+            self.auto_porn_tags = tags
+            self.auto_porn_interval = interval
+            await self.db.execute(
+                """UPDATE guilds_nsfw_settings SET 
+                auto_porn_channel_id=$1,
+                auto_porn_tags=$2,
+                auto_porn_interval=$3 
+                WHERE id=$4;""", channel_id, tags, interval, self.id)
+        else:
+            raise mido_utils.UnknownNSFWType(nsfw_type)
+
+    @classmethod
+    async def get_or_create(cls, bot, guild_id: int) -> GuildNSFWDB:
+        nsfw_db = await bot.db.fetchrow("""SELECT * FROM guilds_nsfw_settings WHERE id=$1;""", guild_id)
+        if not nsfw_db:
+            try:
+                nsfw_db = await bot.db.fetchrow(
+                    """INSERT INTO guilds_nsfw_settings(id) VALUES ($1) RETURNING *;""",
+                    guild_id)
+            except asyncpg.UniqueViolationError:
+                return await cls.get_or_create(bot, guild_id)
+
+        return cls(nsfw_db, bot)
+
+    @classmethod
+    async def get_auto_nsfw_guilds(cls, bot):
+        ret = await bot.db.fetch("SELECT * FROM guilds_nsfw_settings "
+                                 "WHERE (auto_hentai_channel_id IS NOT NULL "
+                                 "OR auto_porn_channel_id IS NOT NULL) "
+                                 "AND id=ANY($1);", [x.id for x in bot.guilds]  # clustering
+                                 )
+        return [cls(guild, bot) for guild in ret]
+
+
 class GuildDB(BaseDBModel):
     def __init__(self, guild_db: Record, bot):
         super().__init__(guild_db, bot)
@@ -430,25 +516,6 @@ class GuildDB(BaseDBModel):
         # music
         self.volume: int = guild_db.get('volume')
 
-        # todo: move these to another table
-        # auto hentai
-        self.auto_hentai_channel_id: int = guild_db.get('auto_hentai_channel_id')
-        self.auto_hentai_tags: List[str] = guild_db.get('auto_hentai_tags')
-        self.auto_hentai_interval: int = guild_db.get('auto_hentai_interval')
-
-        # auto porn
-        self.auto_porn_channel_id: int = guild_db.get('auto_porn_channel_id')
-        self.auto_porn_tags: List[str] = guild_db.get('auto_porn_tags')
-        self.auto_porn_interval: int = guild_db.get('auto_porn_interval')
-
-    def get_auto_nsfw_properties(self, nsfw_type: NSFWImage.Type) -> Tuple[int, List[str], int]:
-        if nsfw_type is NSFWImage.Type.hentai:
-            return self.auto_hentai_channel_id, self.auto_hentai_tags, self.auto_hentai_interval
-        elif nsfw_type is NSFWImage.Type.porn:
-            return self.auto_porn_channel_id, self.auto_porn_tags, self.auto_porn_interval
-        else:
-            raise mido_utils.UnknownNSFWType(nsfw_type)
-
     @classmethod
     async def get_guilds_that_are_active_in_last_x_hours(cls, bot, hours: int = 24):
         ret = await bot.db.fetch("SELECT * FROM guilds WHERE last_message_date > (NOW() - $1::interval) "
@@ -473,15 +540,6 @@ class GuildDB(BaseDBModel):
                 return await cls.get_or_create(bot, guild_id)
 
         return cls(guild_db, bot)
-
-    @classmethod
-    async def get_auto_nsfw_guilds(cls, bot):
-        ret = await bot.db.fetch("SELECT * FROM guilds "
-                                 "WHERE (auto_hentai_channel_id IS NOT NULL "
-                                 "OR auto_porn_channel_id IS NOT NULL) "
-                                 "AND id=ANY($1);", [x.id for x in bot.guilds]  # clustering
-                                 )
-        return [cls(guild, bot) for guild in ret]
 
     async def change_prefix(self, new_prefix: str):
         self.prefix = new_prefix
@@ -571,31 +629,6 @@ class GuildDB(BaseDBModel):
             self.id)
 
         self.assignable_roles_are_exclusive = status.get('exclusive_assignable_roles')
-
-    async def set_auto_nsfw(self, nsfw_type: NSFWImage.Type, channel_id: int = None, tags: List[str] = None,
-                            interval: int = None):
-        if nsfw_type is NSFWImage.Type.hentai:
-            self.auto_hentai_channel_id = channel_id
-            self.auto_hentai_tags = tags
-            self.auto_hentai_interval = interval
-            await self.db.execute(
-                """UPDATE guilds SET 
-                auto_hentai_channel_id=$1,
-                auto_hentai_tags=$2,
-                auto_hentai_interval=$3 
-                WHERE id=$4;""", channel_id, tags, interval, self.id)
-        elif nsfw_type is NSFWImage.Type.porn:
-            self.auto_porn_channel_id = channel_id
-            self.auto_porn_tags = tags
-            self.auto_porn_interval = interval
-            await self.db.execute(
-                """UPDATE guilds SET 
-                auto_porn_channel_id=$1,
-                auto_porn_tags=$2,
-                auto_porn_interval=$3 
-                WHERE id=$4;""", channel_id, tags, interval, self.id)
-        else:
-            raise mido_utils.UnknownNSFWType(nsfw_type)
 
     def __eq__(self, other):
         if isinstance(other, GuildDB):

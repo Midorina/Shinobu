@@ -1,12 +1,13 @@
 import asyncio
-import discord
 import random
-from discord.ext import commands, tasks
 from typing import Dict, List
+
+import discord
+from discord.ext import commands, tasks
 
 import mido_utils
 from midobot import MidoBot
-from models.db import CachedImage, GuildDB, NSFWImage
+from models.db import CachedImage, GuildNSFWDB, NSFWImage
 
 
 class NSFW(commands.Cog,
@@ -90,29 +91,29 @@ class NSFW(commands.Cog,
         await self.bot.wait_until_ready()
 
         time = mido_utils.Time()
-        auto_nsfw_guilds = await GuildDB.get_auto_nsfw_guilds(bot=self.bot)
+        auto_nsfw_guilds = await GuildNSFWDB.get_auto_nsfw_guilds(bot=self.bot)
         for guild in auto_nsfw_guilds:
             self.add_auto_nsfw_tasks(guild)
             await asyncio.sleep(0.33)
 
         self.bot.logger.debug("Adding auto nsfw services took:\t" + time.passed_seconds_in_float_formatted)
 
-    def add_auto_nsfw_tasks(self, guild: GuildDB, nsfw_type: NSFWImage.Type = None):
+    def add_auto_nsfw_tasks(self, nsfw_db: GuildNSFWDB, nsfw_type: NSFWImage.Type = None):
         for base_nsfw_type in NSFWImage.Type:
-            db_channel_id, db_tags, db_interval = guild.get_auto_nsfw_properties(base_nsfw_type)
+            db_channel_id, db_tags, db_interval = nsfw_db.get_auto_nsfw_properties(base_nsfw_type)
 
             if (nsfw_type is None or nsfw_type is base_nsfw_type) and db_channel_id:
-                task = self.bot.loop.create_task(self.auto_nsfw_loop(guild, nsfw_type=base_nsfw_type),
-                                                 name=f'{guild.id}_{base_nsfw_type.name}')
+                task = self.bot.loop.create_task(self.auto_nsfw_loop(nsfw_db, nsfw_type=base_nsfw_type),
+                                                 name=f'{nsfw_db.id}_{base_nsfw_type.name}')
                 self.active_auto_nsfw_services.append(task)
 
-    def cancel_auto_nsfw_task(self, guild: GuildDB, nsfw_type: NSFWImage.Type):
+    def cancel_auto_nsfw_task(self, nsfw_db: GuildNSFWDB, nsfw_type: NSFWImage.Type):
         for task in self.active_auto_nsfw_services:  # find the guild
-            if task.get_name() == f'{guild.id}_{nsfw_type.name}':
+            if task.get_name() == f'{nsfw_db.id}_{nsfw_type.name}':
                 task.cancel()
                 self.active_auto_nsfw_services.remove(task)
 
-    async def auto_nsfw_loop(self, guild: GuildDB, nsfw_type: NSFWImage.Type):
+    async def auto_nsfw_loop(self, guild: GuildNSFWDB, nsfw_type: NSFWImage.Type):
 
         db_channel_id, db_tags, db_interval = guild.get_auto_nsfw_properties(nsfw_type)
 
@@ -291,28 +292,30 @@ class NSFW(commands.Cog,
                                  nsfw_type: NSFWImage.Type,
                                  interval: mido_utils.Int32() = None,
                                  tags: str = None):
-        db_channel_id, db_tags, db_interval = ctx.guild_db.get_auto_nsfw_properties(nsfw_type)
+        nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)
+
+        db_channel_id, db_tags, db_interval = nsfw_db.get_auto_nsfw_properties(nsfw_type)
 
         if not interval:
             if not db_channel_id:  # if already disabled
                 raise commands.BadArgument(f"Auto-{nsfw_type.name} is already disabled.")
 
             else:
-                self.cancel_auto_nsfw_task(guild=ctx.guild_db, nsfw_type=nsfw_type)
-                await ctx.guild_db.set_auto_nsfw(nsfw_type=nsfw_type, channel_id=None)  # disable
+                self.cancel_auto_nsfw_task(nsfw_db=nsfw_db, nsfw_type=nsfw_type)
+                await nsfw_db.set_auto_nsfw(nsfw_type=nsfw_type, channel_id=None)  # disable
 
                 return await ctx.send_success(f"Auto-{nsfw_type.name} service has successfully been disabled.")
 
         if interval < 3:
             raise commands.UserInputError("Interval can not be less than 3!")
 
-        await ctx.guild_db.set_auto_nsfw(nsfw_type=nsfw_type,
-                                         channel_id=ctx.channel.id,
-                                         tags=tags.split('|') if tags else None,
-                                         interval=interval)
+        await nsfw_db.set_auto_nsfw(nsfw_type=nsfw_type,
+                                    channel_id=ctx.channel.id,
+                                    tags=tags.split('|') if tags else None,
+                                    interval=interval)
 
-        self.cancel_auto_nsfw_task(guild=ctx.guild_db, nsfw_type=nsfw_type)
-        self.add_auto_nsfw_tasks(guild=ctx.guild_db, nsfw_type=nsfw_type)
+        self.cancel_auto_nsfw_task(nsfw_db=nsfw_db, nsfw_type=nsfw_type)
+        self.add_auto_nsfw_tasks(nsfw_db=nsfw_db, nsfw_type=nsfw_type)
 
         return await ctx.send_success(f"Success! I'll automatically post {nsfw_type.name} in this channel "
                                       f"every **{mido_utils.Time.parse_seconds_to_str(interval)}** "
