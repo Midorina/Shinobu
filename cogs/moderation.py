@@ -1,5 +1,6 @@
-import discord
 import typing
+
+import discord
 from discord.ext import commands, tasks
 
 import mido_utils
@@ -564,7 +565,7 @@ class Moderation(
                               f"`{server.owner.id}`",
                         inline=True)
 
-        embed.add_field(name=f"Members ({server.member_count})",
+        embed.add_field(name=f"Members ({server.member_count if hasattr(server, '_member_count') else 0})",
                         value=f"{humans} Humans\n"
                               f"{bots} Bots\n"
                               f"({online} Online)",

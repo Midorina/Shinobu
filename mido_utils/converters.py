@@ -156,7 +156,7 @@ async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: 
             # new
             "%server.id%"     : guild.id,
             "%server.name%"   : guild.name,
-            "%server.members%": guild.member_count,
+            "%server.members%": guild.member_count if hasattr(guild, '_member_count') else 0,
             "%server.time%"   : datetime.utcnow().strftime('%Y-%m-%d, %H:%M:%S UTC'),
         }
     )

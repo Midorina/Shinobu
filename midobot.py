@@ -143,7 +143,8 @@ class MidoBot(commands.AutoShardedBot):
 
     async def chunk_guild(self, guild: discord.Guild):
         await guild.chunk(cache=True)
-        self.logger.info(f'Chunked {guild.member_count} members of guild: {guild.name}')
+        self.logger.info(f'Chunked {guild.member_count if hasattr(guild, "_member_count") else 0} members '
+                         f'of guild: {guild.name}')
 
     async def _guild_announcer(self, guild: discord.Guild, left=False):
         guild_count = await self.ipc.get_guild_count()
