@@ -9,6 +9,7 @@ from typing import Dict, Optional, Union
 import aiohttp
 import asyncpg
 import discord
+import setproctitle
 from async_timeout import timeout
 from discord.ext import commands
 
@@ -70,6 +71,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.ipc: ipc.IPCClient = ipc.IPCClient(self)
 
+        setproctitle.setproctitle(f'{self.name.title()} Cluster#{self.cluster_id}')
         self.run()
 
     async def prepare_bot(self):

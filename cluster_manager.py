@@ -84,7 +84,7 @@ class Launcher:
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
-            self.loop.run_until_complete(self.shutdown())
+            self.loop.run_until_complete(self.shutdown_all())
         finally:
             self.cleanup()
 
@@ -115,7 +115,7 @@ class Launcher:
                 await cluster.start()
                 log.info(f"Started Cluster#{cluster.id}")
 
-    async def shutdown(self):
+    async def shutdown_all(self):
         log.info("Shutting down clusters")
         self.alive = False
         if self.keep_alive:
@@ -193,7 +193,8 @@ class Cluster:
         # reload the bot so that the changes we've made takes effect
         reload_package(midobot)
 
-        self.process = multiprocessing.Process(target=midobot.MidoBot, kwargs=self.kwargs, daemon=True)
+        self.process = multiprocessing.Process(name=f'{self.bot_name} #{self.kwargs["cluster_id"]}',
+                                               target=midobot.MidoBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
         self.log.info(f"Process started with PID {self.process.pid}")
 
