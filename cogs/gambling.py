@@ -166,7 +166,12 @@ class Gambling(
             ret = self.patreon_api.is_patron_and_can_claim_daily(user_id)
 
         if not ret and hasattr(self, 'dbl'):
-            ret = user_id in self.votes or await self.dbl.get_user_vote(user_id)
+            ret = user_id in self.votes
+            if not ret:
+                try:
+                    ret = await self.dbl.get_user_vote(user_id)
+                except dbl.HTTPException:
+                    raise mido_utils.APIError("Top.GG API is down. Please try again later.")
 
         return ret
 
@@ -182,23 +187,15 @@ class Gambling(
             raise mido_utils.OnCooldownError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
-        # patron check
-        is_patron = await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=False)
-        if not is_patron:
-            # vote check
-            try:
-                has_voted = await self.bot.ipc.user_has_voted(ctx.author.id)
-            except dbl.HTTPException:
-                raise mido_utils.APIError
-            else:
-                if not has_voted:
-                    raise mido_utils.DidntVoteError(
-                        f"It seems like you haven't voted yet.\n\n"
-                        f"Vote [here]({mido_utils.links.upvote}), "
-                        f"then use this command again "
-                        f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
-                        f"*You can receive dailies without voting and **{mido_utils.readable_currency(1500)}** "
-                        f"by [donating just $1!]({mido_utils.links.patreon})*")
+        if not await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=False):  # patron check
+            if not await self.bot.ipc.user_has_voted(ctx.author.id):  # vote check
+                raise mido_utils.DidntVoteError(
+                    f"It seems like you haven't voted yet.\n\n"
+                    f"Vote [here]({mido_utils.links.upvote}), "
+                    f"then use this command again "
+                    f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
+                    f"*You can receive dailies without voting and **{mido_utils.readable_currency(1500)}** "
+                    f"by [donating just $1!]({mido_utils.links.patreon})*")
 
         if hasattr(self, 'votes'):
             try:

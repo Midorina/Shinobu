@@ -16,19 +16,25 @@ from models.patreon import UserAndPledgerCombined
 
 __all__ = ['IPCClient', 'SerializedObject']
 
+
 # todo: possibly rewrite this
 class IPCMessage:
     MANDATORY_ATTRS = ('author', 'type', 'key')
 
-    def __init__(self, author: id, type: str, key: str, data: dict):
+    def __init__(self, author: id, type: str, key: str, data: dict, successful: bool = True):
         self._data = data
 
         # cluster id
         self.author = author
+
         # 'response' or 'command'
         self.type = type
+
         # unique key to identify the requester
         self.key = key
+
+        # whether the response is successful or not
+        self.successful = successful
 
     def __getattr__(self, item):
         if self.type == 'response' and isinstance(self._data['return_value'], dict):
@@ -48,10 +54,11 @@ class IPCMessage:
     #     self._data[key] = value
 
     def to_json(self) -> dict:
-        return {'author': self.author,
-                'type'  : self.type,
-                'key'   : self.key,
-                'data'  : self._data}
+        return {'author'    : self.author,
+                'type'      : self.type,
+                'key'       : self.key,
+                'successful': self.successful,
+                'data'      : self._data}
 
     def dumps(self) -> str:
         return json.dumps(self.to_json())
@@ -131,6 +138,12 @@ class _InternalIPCHandler:
                 while len(ret) < self.bot.cluster_count:
                     item: IPCMessage = await self.responses.get()
                     if item.key == str(key):
+                        print(item.return_value)
+                        print(item.successful)
+                        # if there was an error, raise it
+                        if item.successful is False:
+                            raise ipc_errors.RequestFailed(item.return_value)
+
                         ret.append(item)
                     else:
                         # todo: throw the response away if it was sent more than 6 seconds ago
@@ -143,6 +156,7 @@ class _InternalIPCHandler:
 
         # sort responses
         ret.sort(key=lambda x: x.author)
+
         return ret
 
     async def _websocket_loop(self):
@@ -159,11 +173,19 @@ class _InternalIPCHandler:
                     continue
 
                 elif data.type == 'command':
-                    returned_value = await getattr(self.server, data.endpoint)(data)
-                    ret = IPCMessage(author=self.bot.cluster_id,
-                                     type='response',
-                                     key=data.key,
-                                     data={'return_value': returned_value})
+                    try:
+                        returned_value = await getattr(self.server, data.endpoint)(data)
+                    except Exception as e:
+                        ret = IPCMessage(author=self.bot.cluster_id,
+                                         type='response',
+                                         key=data.key,
+                                         successful=False,
+                                         data={'return_value': str(e)})
+                    else:
+                        ret = IPCMessage(author=self.bot.cluster_id,
+                                         type='response',
+                                         key=data.key,
+                                         data={'return_value': returned_value})
                     await self._send(ret.dumps())
                     self.bot.logger.debug("Responded with: " + ret.dumps())
                 else:

@@ -6,7 +6,16 @@ import discord
 from discord.ext import commands
 
 import mido_utils
+from ipc import ipc_errors
 from midobot import MidoBot
+
+
+def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
+    # importlib.reload bug
+    if isinstance(cls, tuple):
+        return isinstance(org, cls) or str(type(org)) in [str(x) for x in cls]
+    else:
+        return isinstance(org, cls) or str(type(org)) == str(cls)
 
 
 class ErrorHandling(commands.Cog):
@@ -31,13 +40,6 @@ class ErrorHandling(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: mido_utils.Context, error):
-        def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
-            # importlib.reload bug
-            if isinstance(cls, tuple):
-                return isinstance(org, cls) or str(type(org)) in [str(x) for x in cls]
-            else:
-                return isinstance(org, cls) or str(type(org)) == str(cls)
-
         if hasattr(ctx.command, 'on_error'):
             return
 
@@ -147,7 +149,8 @@ class ErrorHandling(commands.Cog):
                                             mido_utils.UnknownCurrency,
                                             mido_utils.NotPatron,
                                             mido_utils.InsufficientPatronLevel,
-                                            mido_utils.CantClaimRightNow)):
+                                            mido_utils.CantClaimRightNow,
+                                            ipc_errors.RequestFailed)):
                 return await ctx.send_error(error)
 
             await ctx.send_error("**A critical error has occurred!** "
