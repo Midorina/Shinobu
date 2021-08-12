@@ -138,8 +138,6 @@ class _InternalIPCHandler:
                 while len(ret) < self.bot.cluster_count:
                     item: IPCMessage = await self.responses.get()
                     if item.key == str(key):
-                        print(item.return_value)
-                        print(item.successful)
                         # if there was an error, raise it
                         if item.successful is False:
                             raise ipc_errors.RequestFailed(item.return_value)
