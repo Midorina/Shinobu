@@ -225,6 +225,7 @@ class Logging(
                 except discord.Forbidden:
                     return
 
+                # todo: compare embed contents too
                 if new_msg.content == msg.content:
                     # if the contents are identical, return
                     return
@@ -244,7 +245,8 @@ class Logging(
                               f"**Before:**\n" \
                               f"```{msg.content}```\n" \
                               f"**After:**\n" \
-                              f"```{new_msg.content}```"
+                              f"```{new_msg.content}```\n" \
+                              f"<{msg.jump_url}>"
             else:
                 if guild_settings.simple_mode_is_enabled:
                     e = self.get_member_event_embed(msg.author)
