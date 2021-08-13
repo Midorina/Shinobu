@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import aiohttp
 import asyncio
-import asyncpg
-import discord
 import json
 import random
 import re
-from asyncpg import Record
 from datetime import datetime, timedelta, timezone
-from discord.ext.commands import BadArgument
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple, Union
+
+import aiohttp
+import asyncpg
+import discord
+from asyncpg import Record
+from discord.ext.commands import BadArgument
 
 import mido_utils
 import models
@@ -1076,11 +1077,24 @@ class DonutEvent(BaseDBModel):
         self.guild_id: int = data.get('guild_id')
         self.channel_id: int = data.get('channel_id')
         self.message_id: int = data.get('message_id')
+        self.message_is_deleted: bool = data.get('message_is_deleted')
 
         self.reward: int = data.get('reward')
 
+        self.start_date: mido_utils.Time = mido_utils.Time(start_date=data.get('start_date'))
         self.end_date: mido_utils.Time = mido_utils.Time(end_date=data.get('end_date'))
         self.attenders: Set[int] = set(data.get('attenders'))
+
+    @property
+    def channel(self) -> discord.TextChannel:
+        return self.bot.get_channel(self.channel_id)
+
+    async def fetch_message_object(self) -> Optional[discord.Message]:
+        if self.channel:
+            try:
+                return await self.channel.fetch_message(self.message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                return None
 
     @classmethod
     async def get(cls,
@@ -1088,7 +1102,7 @@ class DonutEvent(BaseDBModel):
                   event_id: int = None,
                   guild_id: int = None,
                   channel_id: int = None,
-                  message_id: int = None):
+                  message_id: int = None) -> List[DonutEvent]:
         ret = await bot.db.fetch("""SELECT * FROM donut_events 
         WHERE id=$1 OR guild_id=$2 OR channel_id=$3 OR message_id=$4;""", event_id, guild_id, channel_id, message_id)
 
@@ -1096,10 +1110,11 @@ class DonutEvent(BaseDBModel):
 
     @classmethod
     async def get_active_ones(cls, bot) -> List[DonutEvent]:
-        ret = await bot.db.fetch("SELECT * FROM donut_events WHERE guild_id=ANY($1);", [x.id for x in bot.guilds])
-        objects = [cls(x, bot) for x in ret]
+        ret = await bot.db.fetch("SELECT * FROM donut_events "
+                                 "WHERE guild_id=ANY($1) AND message_is_deleted IS FALSE;",
+                                 [x.id for x in bot.guilds])
 
-        return list(x for x in objects if x.end_date.end_date_has_passed is False)
+        return [cls(x, bot) for x in ret]
 
     @classmethod
     async def create(cls,
@@ -1110,9 +1125,9 @@ class DonutEvent(BaseDBModel):
                      message_id: int,
                      length: mido_utils.Time):
         ret = await bot.db.fetchrow(
-            """INSERT INTO donut_events(reward, guild_id, channel_id, message_id, end_date) 
-            VALUES ($1, $2, $3, $4, $5) RETURNING  *;""",
-            reward, guild_id, channel_id, message_id, length.end_date)
+            """INSERT INTO donut_events(reward, guild_id, channel_id, message_id, start_date, end_date) 
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING  *;""",
+            reward, guild_id, channel_id, message_id, datetime.now(timezone.utc), length.end_date)
 
         return cls(ret, bot)
 
@@ -1141,6 +1156,19 @@ class DonutEvent(BaseDBModel):
             await user_db.discord_obj.send(embed=e)
         except discord.Forbidden:
             pass
+
+    async def delete_msg_and_mark_as_deleted(self, delay: float = None):
+        """delay in seconds"""
+        if delay:
+            await asyncio.sleep(delay)
+
+        msg = await self.fetch_message_object()
+        if msg:
+            await msg.delete()
+
+        self.message_is_deleted = True
+
+        await self.bot.db.execute("UPDATE donut_events SET message_is_deleted = TRUE WHERE id=$1;", self.id)
 
     def __eq__(self, other):
         if isinstance(other, DonutEvent):

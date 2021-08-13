@@ -73,27 +73,30 @@ class Gambling(
                                                  shard_no=None)
 
     async def get_active_donut_events(self):
+        """This function gets active donut events and processes them"""
         await self.bot.wait_until_ready()
 
         self.active_donut_events = await DonutEvent.get_active_ones(self.bot)
 
         for donut_event in self.active_donut_events:
-            channel: discord.TextChannel = self.bot.get_channel(donut_event.channel_id)
-            if not channel:
+            msg_obj: discord.Message = await donut_event.fetch_message_object()
+
+            # if we can't fetch the msg object or the end date has passed, delete
+            if not msg_obj or donut_event.end_date.end_date_has_passed:
+                await donut_event.delete_msg_and_mark_as_deleted()
                 continue
 
-            msg_obj: discord.Message = await channel.fetch_message(donut_event.message_id)
-            if not msg_obj:
-                continue
-
-            self.bot.loop.create_task(msg_obj.delete(delay=donut_event.end_date.remaining_seconds))
+            self.bot.loop.create_task(
+                donut_event.delete_msg_and_mark_as_deleted(delay=donut_event.end_date.remaining_seconds))
 
             try:
+                # find the event reaction obj
                 event_reaction = next(x for x in msg_obj.reactions
                                       if str(x.emoji) == mido_utils.emotes.currency)
             except StopIteration:
                 continue
             else:
+                # get all users who reacted with event reaction
                 users = await event_reaction.users().flatten()
 
                 for user in users:
