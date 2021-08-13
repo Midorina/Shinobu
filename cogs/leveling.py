@@ -189,7 +189,7 @@ class Leveling(
     @commands.guild_only()
     async def show_leaderboard(self, ctx: mido_utils.Context):
         """See the XP leaderboard of the server."""
-        top_10 = await ctx.guild_db.get_top_10()
+        top_10 = await ctx.guild_db.get_top_xp_people(limit=1000)
 
         e = await self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
 
@@ -198,7 +198,7 @@ class Leveling(
     @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
     async def show_global_leaderboard(self, ctx: mido_utils.Context):
         """See the global XP leaderboard."""
-        top_10 = await ctx.user_db.get_top_10(ctx.bot)
+        top_10 = await ctx.user_db.get_top_xp_people(ctx.bot, limit=1000)
 
         e = await self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
 

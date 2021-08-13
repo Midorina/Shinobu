@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+import aiohttp
 import asyncio
+import asyncpg
+import discord
 import json
 import random
 import re
+from asyncpg import Record
 from datetime import datetime, timedelta, timezone
+from discord.ext.commands import BadArgument
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Tuple, Union
-
-import aiohttp
-import asyncpg
-import discord
-from asyncpg import Record
-from discord.ext.commands import BadArgument
 
 import mido_utils
 import models
@@ -281,9 +280,9 @@ class UserDB(BaseDBModel):
         return result['row_number']
 
     @classmethod
-    async def get_top_10(cls, bot) -> List[UserDB]:
-        top_10 = await bot.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT 10;""")
-        return [UserDB(user, bot) for user in top_10]
+    async def get_top_xp_people(cls, bot, limit: int = 10) -> List[UserDB]:
+        top = await bot.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT $1;""", limit)
+        return [UserDB(user, bot) for user in top]
 
     @classmethod
     async def get_claimed_waifus_by(cls, user_id: int, bot) -> List:
@@ -576,11 +575,11 @@ class GuildDB(BaseDBModel):
         self.level_up_notifs_silenced = not self.level_up_notifs_silenced
         return self.level_up_notifs_silenced
 
-    async def get_top_10(self) -> List[MemberDB]:
-        top_10 = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT 10;""",
-                                     self.id)
+    async def get_top_xp_people(self, limit: int = 10) -> List[MemberDB]:
+        top = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT $2;""",
+                                  self.id, limit)
         return [await MemberDB.get_or_create(bot=self.bot, guild_id=member['guild_id'], member_id=member['user_id'])
-                for member in top_10]
+                for member in top]
 
     async def set_welcome_role(self, role_id: int = None):
         self.welcome_role_id = role_id
