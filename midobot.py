@@ -1,16 +1,17 @@
-import aiohttp
 import asyncio
-import asyncpg
-import discord
 import json
 import logging
 import multiprocessing
 import os
 import re
+from typing import Dict, Optional, Union
+
+import aiohttp
+import asyncpg
+import discord
 import setproctitle
 from async_timeout import timeout
 from discord.ext import commands
-from typing import Dict, Optional, Union
 
 # anything not imported here will not be reloaded once the cluster is shut down.
 # so its important to import everything but cogs here
@@ -306,6 +307,8 @@ class MidoBot(commands.AutoShardedBot):
         except discord.NotFound:
             # webhook is probably deleted, so delete it from cache as well
             del self.webhook_cache[channel.id]
+
+            self.logger.info(f"The webhook of channel ID {channel.id} could not be found. Retrying...")
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except (discord.DiscordServerError,
@@ -318,6 +321,11 @@ class MidoBot(commands.AutoShardedBot):
                 raise e
 
             await asyncio.sleep(5.0)
+
+            # This recursive loop once gave "Fatal Python error: Cannot recover from stack overflow. Python runtime state: initialized"
+            # So I will use these log info messages if we happen to get this crash again
+            self.logger.info(f"There was an error while trying to send a webhook to {channel.id}. Error: {e}\n"
+                             f"Retrying...")
 
             return await self.send_as_webhook(channel, *args, **kwargs)
 
