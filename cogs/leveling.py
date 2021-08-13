@@ -1,7 +1,8 @@
-import discord
 from datetime import datetime
-from discord.ext import commands
 from typing import List, Tuple, Union
+
+import discord
+from discord.ext import commands
 
 import mido_utils
 from midobot import MidoBot
@@ -92,7 +93,7 @@ class Leveling(
         lvld_up_in_guild = progress < added
         lvld_up_globally = global_progress < added
 
-        if not lvld_up_globally or not lvld_up_in_guild:
+        if not (lvld_up_globally or lvld_up_in_guild):
             return
 
         msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
@@ -103,6 +104,7 @@ class Leveling(
             msg += f"You just have leveled up to **{global_level}** globally!"
 
         if member_db.user.level_up_notification == XpAnnouncement.DM or member_db.guild.level_up_notifs_silenced:
+            # if the preference is DMs or notifs are silenced in that guild, send it in DMs
             channel = message.author
         else:
             channel = message.channel
