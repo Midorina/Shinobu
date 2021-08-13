@@ -61,22 +61,22 @@ class Leveling(
 
         return e
 
-    async def get_leaderboard_embed(self, top_10: List[Union[UserDB, MemberDB]], title: str):
+    async def send_leaderboard_embed(self, ctx, top: List[Union[UserDB, MemberDB]], title: str):
         e = mido_utils.Embed(bot=self.bot, title=title)
 
         e.timestamp = datetime.utcnow()
 
-        e.description = ""
-        for i, user in enumerate(top_10, 1):
+        blocks = []
+        for i, user in enumerate(top, 1):
             user_discord = await self.bot.get_user_using_ipc(user.id)
             if i == 1 and user_discord:
                 e.set_thumbnail(url=user_discord.avatar_url)
 
             level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
-            e.description += f"`#{i}` **{user.discord_name}**\n" \
-                             f"Level: **{level}** | Total XP: **{user.total_xp}**\n\n"
+            blocks.append(f"`#{i}` **{user.discord_name}**\n"
+                          f"Level: **{level}** | Total XP: **{user.total_xp}**\n")
 
-        return e
+        await e.paginate(ctx, blocks=blocks, item_per_page=10)
 
     async def check_for_level_up(self,
                                  message: discord.Message,
@@ -189,20 +189,16 @@ class Leveling(
     @commands.guild_only()
     async def show_leaderboard(self, ctx: mido_utils.Context):
         """See the XP leaderboard of the server."""
-        top_10 = await ctx.guild_db.get_top_xp_people(limit=1000)
+        top = await ctx.guild_db.get_top_xp_people(limit=100)
 
-        e = await self.get_leaderboard_embed(top_10, title=f'XP Leaderboard of {ctx.guild}')
-
-        await ctx.send(embed=e)
+        await self.send_leaderboard_embed(ctx, top, title=f'XP Leaderboard of {ctx.guild}')
 
     @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
     async def show_global_leaderboard(self, ctx: mido_utils.Context):
         """See the global XP leaderboard."""
-        top_10 = await ctx.user_db.get_top_xp_people(ctx.bot, limit=1000)
+        top = await ctx.user_db.get_top_xp_people(ctx.bot, limit=100)
 
-        e = await self.get_leaderboard_embed(top_10, title='Global XP Leaderboard')
-
-        await ctx.send(embed=e)
+        await self.send_leaderboard_embed(ctx, top, title='Global XP Leaderboard')
 
     @commands.command(name='xpnotifs')
     async def change_level_up_notifications(self, ctx: mido_utils.Context, new_preference: str):
