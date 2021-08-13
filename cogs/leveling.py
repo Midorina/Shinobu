@@ -147,7 +147,7 @@ class Leveling(
         if message.channel.id in member_db.guild.xp_excluded_channels:
             return
 
-        can_gain_xp = member_db.xp_date_status.end_date_has_passed
+        can_gain_xp = member_db.xp_status.end_date_has_passed
         can_gain_xp_global = member_db.user.xp_status.end_date_has_passed
 
         # if on cooldown

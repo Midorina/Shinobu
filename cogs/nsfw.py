@@ -306,7 +306,7 @@ class NSFW(commands.Cog,
         """Get a random lewd neko image."""
 
         image = await self.neko.get_random_neko(nsfw=True)
-        image = NSFWImage(image.url, tags='neko', api_name='Nekos.Life')
+        image = NSFWImage(image.url, tags=['neko'], api_name='Nekos.Life')
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()

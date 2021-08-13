@@ -247,8 +247,10 @@ class UserDB(BaseDBModel):
 
     async def add_xp(self, amount: int, owner=False):
         if not self.xp_status.end_date_has_passed and not owner:
-            raise mido_utils.OnCooldownError(f"You're still on cooldown! "
-                                             f"Try again after **{self.xp_status.remaining_string}**.")
+            raise mido_utils.OnCooldownError(
+                f"User {self.discord_name} [{self.id}] "
+                f"still needs **{self.xp_status.remaining_string}** to be able to gain XP.")
+
         self.total_xp += amount
         await self.db.execute(
             """UPDATE users SET xp = $1, last_xp_gain = $2 WHERE id=$3""",
@@ -330,7 +332,7 @@ class MemberDB(BaseDBModel):
 
         self.total_xp: int = member_db.get('xp')
 
-        self.xp_date_status = mido_utils.Time.add_to_previous_date_and_get(
+        self.xp_status = mido_utils.Time.add_to_previous_date_and_get(
             member_db.get('last_xp_gain'), bot.config['cooldowns']['xp'])
 
     @property
@@ -358,10 +360,12 @@ class MemberDB(BaseDBModel):
 
         return member_obj
 
-    async def add_xp(self, amount: int):
-        # if not self.xp_date_status.end_date_has_passed and not owner:
-        #     raise mido_utils.OnCooldownError(f"You're still on cooldown! "
-        #                                      f"Try again after **{self.xp_date_status.remaining_string}**.")
+    async def add_xp(self, amount: int, owner: bool = False):
+        if not self.xp_status.end_date_has_passed and not owner:
+            raise mido_utils.OnCooldownError(
+                f"User {self.discord_name} [{self.id}] "
+                f"still needs **{self.xp_status.remaining_string}** to be able to gain XP.")
+
         self.total_xp += amount
         await self.db.execute(
             """UPDATE members SET xp = $1, last_xp_gain = $2 WHERE guild_id=$3 AND user_id=$4""",

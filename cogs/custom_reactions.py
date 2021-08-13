@@ -48,13 +48,16 @@ class CustomReactions(
 
         try:
             cr = await CustomReaction.try_get(self.bot, msg=message.content, guild_id=message.guild.id)
-        except Exception as e:
+        except Exception:
             await self.bot.get_cog('ErrorHandling').on_error(f"CR error happened with message: {message.content}")
             return
 
         if cr and cr.response != '-':
             channel_to_send = message.author if cr.send_in_DM else message.channel
 
+            # message.guild is guaranteed as we make guild only check at the beginning of this func
+            # so suppress the type checker
+            # noinspection PyTypeChecker
             content, embed = await mido_utils.parse_text_with_context(text=cr.response,
                                                                       bot=self.bot,
                                                                       guild=message.guild,
@@ -101,7 +104,7 @@ class CustomReactions(
         """Add a custom reaction with a trigger and a response.
         Running this command in server requires the Administration permission.
 
-        http://nadekobot.readthedocs.io/en/latest/custom-reactions/
+        https://nadekobot.readthedocs.io/en/latest/custom-reactions/
         You can use an embed as well. https://leovoel.github.io/embed-visualizer/"""
 
         if ctx.guild:
