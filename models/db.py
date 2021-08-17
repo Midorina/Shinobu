@@ -985,7 +985,7 @@ class NSFWImage:
         if self.api_name:
             stuff_to_add_to_footer.append(f"API: {self.api_name}")
         if self.tags:
-            stuff_to_add_to_footer.append(f"Tags: {self.readable_tags}")
+            stuff_to_add_to_footer.append(f"Tags: {self.readable_tags[:2000]}")
 
         if stuff_to_add_to_footer:
             e.set_footer(text=' | '.join(stuff_to_add_to_footer))

@@ -290,7 +290,7 @@ class NSFW(commands.Cog,
         image = (await self.api.get('sankaku_complex', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.command(enabled=False)
     async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Danbooru.
 

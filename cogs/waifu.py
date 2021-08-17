@@ -1,9 +1,10 @@
 import math
 import random
+from typing import List
+
 from discord.ext import commands
 from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
-from typing import List
 
 import mido_utils
 from midobot import MidoBot
@@ -30,7 +31,7 @@ class Waifu(
         e.description = ""
         for i, user_db in enumerate(top_5, 1):
             user = await self.bot.get_user_using_ipc(user_db.id)
-            user_name = str(user) if user else user_db.discord_name
+            user_name = user.display_name if user else user_db.discord_name
 
             affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id) if user_db.waifu.affinity_id \
                 else "no one."

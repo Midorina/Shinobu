@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import uuid
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 import discord
 import psutil
@@ -37,7 +37,7 @@ class IPCMessage:
         self.successful = successful
 
     def __getattr__(self, item):
-        if self.type == 'response' and isinstance(self._data['return_value'], dict):
+        if self.type == 'response' and isinstance(self._data['return_value'], dict) and item != 'return_value':
             data_to_look_for = self._data['return_value']
         else:
             data_to_look_for = self._data
@@ -76,9 +76,19 @@ class IPCMessage:
 
 
 class SerializedObject:
-    def __init__(self, data: dict):
+    @classmethod
+    def from_dict(cls, data: dict) -> Type[SerializedObject]:
         for key, value in data.items():
-            setattr(self, key, value)
+            setattr(cls, key, value)
+
+        return cls
+
+    @classmethod
+    def from_obj(cls, obj) -> Type[SerializedObject]:
+        for key, value in obj.__dict__.items():
+            setattr(cls, key, value)
+
+        return cls
 
 
 class _InternalIPCHandler:
@@ -272,7 +282,16 @@ class IPCServer:
         return await cog.user_has_voted(data.user_id)
 
     async def get_user(self, data: IPCMessage):
-        return self.bot.get_user(data.user_id)
+        user: Optional[discord.User] = self.bot.get_user(data.user_id)
+        if user:
+            return {
+                'name'         : user.name,
+                'id'           : user.id,
+                'avatar_url'   : str(user.avatar_url),
+                'discriminator': user.discriminator,
+                'bot'          : user.bot,
+                'display_name' : user.display_name
+            }
 
     async def reload(self, data: IPCMessage):
         target_cog = getattr(data, 'target_cog', None)
@@ -334,12 +353,11 @@ class IPCClient:
         responses = await self.handler.request('user_has_voted', user_id=user_id)
         return any(x.return_value for x in responses)
 
-    async def get_user(self, user_id: int) -> Optional[SerializedObject]:
+    async def get_user(self, user_id: int) -> Optional[Type[SerializedObject]]:
         responses = await self.handler.request('get_user', user_id=user_id)
         for response in responses:
             if response.return_value:
-                return SerializedObject(response.return_value)
-        return None
+                return SerializedObject.from_dict(response.return_value)
 
     async def reload(self, target_cog: str = None) -> int:
         responses = await self.handler.request('reload', target_cog=target_cog)

@@ -130,8 +130,7 @@ class ErrorHandling(commands.Cog):
                 return await ctx.send_error(error, "You are rate limited. Please try again in a few minutes.")
 
             elif better_is_instance(error, mido_utils.APIError):
-                return await ctx.send_error(error,
-                                            "There was an error communicating with the API. Please try again later.")
+                await ctx.send_error(error, "There was an error communicating with the API. Please try again later.")
             elif better_is_instance(error, mido_utils.InvalidURL):
                 return await ctx.send_error(error, "Invalid URL. Please specify a proper URL.")
 
@@ -175,7 +174,7 @@ class ErrorHandling(commands.Cog):
 ***ERROR ALERT*** <@{ctx.bot.config['owner_ids'][0]}>
 
 An error occurred during the execution of a command:
-`{str(error)}`
+`{str(error)}` (Cluster **#{self.bot.cluster_id}**)
 
 **Command:** `{ctx.invoked_with}`
 

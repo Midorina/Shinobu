@@ -69,9 +69,10 @@ class Leveling(
 
         blocks = []
         for i, user in enumerate(top, 1):
-            user_discord = await self.bot.get_user_using_ipc(user.id)
-            if i == 1 and user_discord:
-                e.set_thumbnail(url=user_discord.avatar_url)
+            if i == 1:
+                user_discord = await self.bot.get_user_using_ipc(user.id)
+                if user_discord:
+                    e.set_thumbnail(url=user_discord.avatar_url)
 
             level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
             blocks.append(f"`#{i}` **{user.discord_name}**\n"

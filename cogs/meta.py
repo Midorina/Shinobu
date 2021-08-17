@@ -1,9 +1,10 @@
 import ast
-import discord
 import os
-import psutil
 import traceback
 from datetime import datetime
+
+import discord
+import psutil
 from discord.ext import commands
 
 import mido_utils
@@ -314,7 +315,7 @@ class Meta(commands.Cog,
 
         if mido:  # intents disabled
             embed.set_footer(icon_url=mido.avatar_url,
-                             text=f"Made by {mido} with love ♥")
+                             text=f"Made by {mido.display_name} with love ♥")
 
         await ctx.send(embed=embed)
 

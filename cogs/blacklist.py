@@ -4,6 +4,8 @@ import mido_utils
 from models.db import BlacklistDB
 
 
+# TODO: use ipc to find guild and fix blacklist commands
+
 class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
