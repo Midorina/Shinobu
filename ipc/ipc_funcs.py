@@ -359,9 +359,11 @@ class IPCClient:
             if response.return_value:
                 return SerializedObject.from_dict(response.return_value)
 
-    async def reload(self, target_cog: str = None) -> int:
+    async def reload(self, target_cog: str = None) -> List[Tuple[int, int]]:
+        """Returns (Cluster ID, Reloaded Cog Count]"""
         responses = await self.handler.request('reload', target_cog=target_cog)
-        return sum(x.return_value for x in responses)
+
+        return [(x.author, x.return_value) for x in responses]
 
     async def shutdown(self, cluster_id: int = None) -> None:
         await self.handler.request('shutdown', cluster_id=cluster_id)

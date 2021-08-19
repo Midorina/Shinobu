@@ -322,11 +322,13 @@ class Meta(commands.Cog,
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
-        await self.bot.ipc.reload(target_cog=cog_name)
+        responses = await self.bot.ipc.reload(target_cog=cog_name)
 
-        cog_counter = 1 if cog_name else len(self.bot.cogs)
+        e = mido_utils.Embed(ctx.bot, description="")
+        for cluster_id, reloaded_cogs in responses:
+            e.description += f"Cluster**#{cluster_id}**: Reloaded **{reloaded_cogs}** cog(s)"
 
-        await ctx.send(f"All {self.bot.cluster_count} clusters have successfully reloaded **{cog_counter}** cog(s)!")
+        await ctx.send(embed=e)
 
     @commands.command(hidden=True)
     @mido_utils.is_owner()
