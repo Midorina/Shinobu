@@ -326,7 +326,7 @@ class Meta(commands.Cog,
 
         e = mido_utils.Embed(ctx.bot, description="")
         for cluster_id, reloaded_cogs in responses:
-            e.description += f"Cluster**#{cluster_id}**: Reloaded **{reloaded_cogs}** cog(s)"
+            e.description += f"Cluster**#{cluster_id}**: Reloaded **{reloaded_cogs}** cog(s)\n"
 
         await ctx.send(embed=e)
 
