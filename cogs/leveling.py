@@ -100,9 +100,9 @@ class Leveling(
         msg = f"🎉 **Congratulations {message.author.mention}!** 🎉\n"
 
         if lvld_up_in_guild:
-            msg += f"You just have leveled up to **{level}** in {str(message.guild)}!\n"
+            msg += f"You've just leveled up to **{level}** in {str(message.guild)}!\n"
         if lvld_up_globally and added_globally:
-            msg += f"You just have leveled up to **{global_level}** globally!"
+            msg += f"You've just leveled up to **{global_level}** globally!"
 
         if member_db.user.level_up_notification == XpAnnouncement.DM or member_db.guild.level_up_notifs_silenced:
             # if the preference is DMs or notifs are silenced in that guild, send it in DMs
