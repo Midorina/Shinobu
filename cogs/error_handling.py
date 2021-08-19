@@ -52,6 +52,8 @@ class ErrorHandling(commands.Cog):
 
         error = getattr(error, 'original', error)
 
+        inform = True
+
         try:
             if isinstance(error, ignored):
                 return
@@ -130,7 +132,9 @@ class ErrorHandling(commands.Cog):
                 return await ctx.send_error(error, "You are rate limited. Please try again in a few minutes.")
 
             elif better_is_instance(error, mido_utils.APIError):
-                await ctx.send_error(error, "There was an error communicating with the API. Please try again later.")
+                await ctx.send_error("There was an error communicating with the API. Please try again later.")
+                inform = False
+
             elif better_is_instance(error, mido_utils.InvalidURL):
                 return await ctx.send_error(error, "Invalid URL. Please specify a proper URL.")
 
@@ -152,8 +156,9 @@ class ErrorHandling(commands.Cog):
                                             ipc_errors.RequestFailed)):
                 return await ctx.send_error(error)
 
-            await ctx.send_error("**A critical error has occurred!** "
-                                 "My developer will work on fixing this as soon as possible.")
+            if inform:
+                await ctx.send_error("**A critical error has occurred!** "
+                                     "My developer will work on fixing this as soon as possible.")
 
         except discord.Forbidden:
             return
