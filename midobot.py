@@ -78,8 +78,15 @@ class MidoBot(commands.AutoShardedBot):
 
     async def prepare_bot(self):
         self.uptime = mido_utils.Time()
-        # get db
-        self.db = await asyncpg.create_pool(**self.config['db_credentials'])
+
+        while not self.db:
+            try:
+                self.db = await asyncpg.create_pool(**self.config['db_credentials'])
+            except Exception:
+                self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
+                await asyncio.sleep(5.0)
+            else:
+                break
 
         self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
 
