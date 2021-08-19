@@ -267,6 +267,8 @@ class NSFW_DAPIs(CachedImageAPI):
 
         self.bot = bot
 
+        self.danbooru_api_key = self.bot.config['danbooru_api_key']
+
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
             List[models.NSFWImage]:
         tags = await self._parse_tags(tags, guild_id)
@@ -425,9 +427,10 @@ class NSFW_DAPIs(CachedImageAPI):
         images: List[models.NSFWImage] = []
 
         response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
-            'limit' : limit,
-            'tags'  : " ".join(tags),
-            'random': 'true'
+            'api_key': self.danbooru_api_key,
+            'limit'  : limit,
+            'tags'   : " ".join(tags),
+            'random' : 'true'
         }, return_json=True)
 
         if 'success' in response and response['success'] is False:

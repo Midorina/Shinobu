@@ -50,5 +50,6 @@
     "creator_access_token": "",
     "campaign_id"         : 0
   },
-  "currency_api_key"    : ""
+  "currency_api_key"    : "",
+  "danbooru_api_key"    : ""
 }
