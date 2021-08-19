@@ -427,8 +427,8 @@ class NSFW_DAPIs(CachedImageAPI):
         images: List[models.NSFWImage] = []
 
         response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
-            'login'  : self.danbooru_credentials['username'],
             'api_key': self.danbooru_credentials['api_key'],
+            'login'  : self.danbooru_credentials['username'],
             'limit'  : limit,
             'tags'   : " ".join(tags),
             'random' : 'true'
