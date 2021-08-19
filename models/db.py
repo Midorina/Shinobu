@@ -266,21 +266,11 @@ class UserDB(BaseDBModel):
 
     async def get_xp_rank(self) -> int:
         result = await self.db.fetchrow("""
-            WITH counts AS (
-                SELECT DISTINCT
-                    id,
-                    ROW_NUMBER () OVER (ORDER BY xp DESC)
-                FROM
-                    users
-            ) SELECT
-                *
-            FROM
-                counts
-            WHERE
-                id=$1;
+            SELECT COUNT(*) FROM users
+            WHERE users.xp >= (SELECT u2.xp FROM users u2 WHERE u2.id = $1);
             """, self.id)
 
-        return result['row_number']
+        return result['count']
 
     @classmethod
     async def get_top_xp_people(cls, bot, limit: int = 10) -> List[UserDB]:
@@ -381,24 +371,12 @@ class MemberDB(BaseDBModel):
 
     async def get_xp_rank(self) -> int:
         result = await self.db.fetchrow("""
-            WITH counts AS (
-                SELECT DISTINCT
-                    guild_id,
-                    user_id,
-                    ROW_NUMBER () OVER (ORDER BY xp DESC)
-                FROM
-                    members
-                WHERE
-                    guild_id=$1
-            ) SELECT
-                *
-            FROM
-                counts
-            WHERE
-                user_id=$2;
+            SELECT COUNT(*) FROM members 
+            WHERE guild_id=$1 
+            AND members.xp >= (SELECT m2.xp FROM members m2 WHERE m2.guild_id=$1 AND m2.user_id=$2);
             """, self.guild.id, self.id)
 
-        return result['row_number']
+        return result['count']
 
     def __eq__(self, other):
         if isinstance(other, MemberDB):
