@@ -438,7 +438,12 @@ class NSFW_DAPIs(CachedImageAPI):
             raise mido_utils.NotFoundError
 
         for data in response:
-            img_url = data.get('large_file_url', data['file_url'])
+            try:
+                img_url = data.get('large_file_url', data['file_url'])
+            except KeyError:
+                # gold post (loli, shota, banned etc.)
+                continue
+
             tags = data['tag_string'].split()
 
             if await self.is_blacklisted(tags, guild_id) or (not allow_video and self.is_video(img_url)):
