@@ -109,12 +109,6 @@ class _InternalIPCHandler:
         self.key_queue = []
         self.bot.loop.create_task(self._connect_to_ipc())
 
-    async def close(self, reason: str = 'Close called.'):
-        self.ws_task.cancel()
-        self.ws_task = None
-
-        await self.ws.close(code=1000, reason=reason)
-
     @staticmethod
     def get_key() -> str:
         return uuid.uuid4().hex[:7]
@@ -242,12 +236,17 @@ class _InternalIPCHandler:
                 await self.ws.send(data)
             except websockets.ConnectionClosed:
                 self.bot.logger.error(f"Websocket connection seems to be closed. Retrying to send the message: {data}")
-                await self._connect_to_ipc()
+                await self._try_to_reconnect()
                 await asyncio.sleep(1.0)
                 continue
             else:
                 return
 
+    async def close(self, reason: str = 'Close called.'):
+        self.ws_task.cancel()
+        self.ws_task = None
+
+        await self.ws.close(code=1000, reason=reason)
 
 class IPCServer:
     """Gives data from the bot"""

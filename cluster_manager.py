@@ -16,6 +16,8 @@ import midobot
 log = logging.getLogger('Cluster Manager')
 
 
+# TODO: use ipc or a pipe to listen to clusters.
+
 def _get_packages_to_reload(package):
     assert (hasattr(package, "__package__"))
     fn = package.__file__
