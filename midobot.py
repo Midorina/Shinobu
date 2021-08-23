@@ -96,8 +96,13 @@ class MidoBot(commands.AutoShardedBot):
 
     @staticmethod
     def get_config(bot_name: str) -> dict:
-        with open(f'config_{bot_name}.json') as f:
-            return json.load(f)
+        try:
+            with open(f'config_{bot_name}.json') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logging.warning(f"Config file 'config_{bot_name}.json' could not be found.\n\n"
+                            f"Please fill 'config_example.json' properly, then rename it as 'config_{bot_name}.json'.")
+            exit()
 
     @property
     def log_channel(self) -> Optional[discord.TextChannel]:
