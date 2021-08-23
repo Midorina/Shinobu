@@ -1,0 +1,10 @@
+requests=>2.25.1
+aiohttp=>3.7.4.post0
+asyncpg=>0.20.1
+discord.py=>1.7.3
+setproctitle=>1.2.2
+psutil=>5.6.7
+websockets==6.0
+asyncpraw=>7.1.0
+beautifulsoup4=>4.9.0
+wavelink=>0.9.6
