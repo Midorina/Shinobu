@@ -1,31 +1,32 @@
 {
-  "token"               : "token",
-  "playing"             : "s.help",
-  "default_prefix"      : "s.",
-  "default_embed_color" : "0xfffe91",
-  "log_channel_id"      : 0,
-  "daily_amount"        : 250,
-  "base_waifu_price"    : 200,
-  "owner_ids"           : [
+  "token"              : "token",
+  "playing"            : "s.help",
+  "default_prefix"     : "s.",
+  "default_embed_color": "0xfffe91",
+  "log_channel_id"     : 0,
+  "daily_amount"       : 250,
+  "base_waifu_price"   : 200,
+  "owner_ids"          : [
     90076279646212096
   ],
-  "cooldowns"           : {
+  "cooldowns"          : {
     "daily": 43200,
     "xp"   : 60
   },
-  "db_credentials"      : {
+  "db_credentials"     : {
     "user"    : "mido",
     "password": "password",
     "database": "Shinobu",
     "host"    : "127.0.0.1"
   },
-  "dbl_credentials"     : {
-    "token"       : "token",
-    "webhook_auth": "auth",
-    "webhook_port": 0,
-    "webhook_path": "/path"
+  "topgg_credentials"  : {
+    "post_guild_count": false,
+    "token"           : "token",
+    "webhook_auth"    : "auth",
+    "webhook_port"    : 0,
+    "webhook_path"    : "/path"
   },
-  "lavalink_nodes"      : [
+  "lavalink_nodes"     : [
     {
       "host"      : "0.0.0.0",
       "port"      : 80,
@@ -35,11 +36,11 @@
       "region"    : "europe"
     }
   ],
-  "spotify_credentials" : {
+  "spotify_credentials": {
     "client_id"    : "client_id",
     "client_secret": "client_secret"
   },
-  "reddit_credentials"  : {
+  "reddit_credentials" : {
     "client_id"    : "client_id",
     "client_secret": "client_secret"
   },

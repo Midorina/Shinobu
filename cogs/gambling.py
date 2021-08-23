@@ -2,8 +2,8 @@ import math
 import random
 from typing import List, Union
 
-import dbl
 import discord
+import topgg
 from discord.ext import commands, tasks
 
 import mido_utils
@@ -50,16 +50,24 @@ class Gambling(
         self.active_donut_events: List[DonutEvent] = list()
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
+        # things that only cluster 0 provides
         if self.bot.cluster_id == 0:
-            # patreon
+            # Patreon
             self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])
 
-            # DBL / TOP.GG
-            self.dbl = dbl.DBLClient(self.bot, **self.bot.config['dbl_credentials'], autopost=False)
-            self.votes = set()
+            # TOP.GG / DBL
+            topgg_credentials: dict = self.bot.config['topgg_credentials']
+            post_guild_count: bool = topgg_credentials.pop('post_guild_count')
 
-            if self.bot.name.lower() == 'shinobu':
-                self.post_guild_count.start()
+            if topgg_credentials['token'] != 'token':  # if set
+                self.dbl = topgg.DBLClient(self.bot, **self.bot.config['topgg_credentials'], autopost=False)
+                self.votes = set()
+
+                if post_guild_count:
+                    self.post_guild_count.start()
+            else:
+                self.bot.logger.warn("Top.gg (Discord Bot List) credentials have not been set. "
+                                     "Voting and guild posting features have been disabled.")
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
@@ -67,10 +75,10 @@ class Gambling(
         await self.bot.wait_until_ready()
 
         if hasattr(self, 'dbl'):
-            await self.dbl.http.post_guild_count(bot_id=self.bot.user.id,
-                                                 guild_count=await self.bot.ipc.get_guild_count(),
-                                                 shard_count=None,
-                                                 shard_no=None)
+            await self.dbl.http.post_guild_count(
+                guild_count=await self.bot.ipc.get_guild_count(),
+                shard_count=None,
+                shard_id=None)
 
     async def get_active_donut_events(self):
         """This function gets active donut events and processes them"""
@@ -168,13 +176,17 @@ class Gambling(
         if hasattr(self, 'patreon_api'):
             ret = self.patreon_api.is_patron_and_can_claim_daily(user_id)
 
-        if not ret and hasattr(self, 'dbl'):
-            ret = user_id in self.votes
-            if not ret:
-                try:
-                    ret = await self.dbl.get_user_vote(user_id)
-                except dbl.HTTPException:
-                    raise mido_utils.APIError("Top.GG API is down. Please try again later.")
+        if not ret:
+            if hasattr(self, 'dbl'):
+                ret = user_id in self.votes
+                if not ret:
+                    try:
+                        ret = await self.dbl.get_user_vote(user_id)
+                    except topgg.HTTPException:
+                        raise mido_utils.APIError("Top.gg API is down. Please try again later.")
+            else:
+                # if its cluster 0 but dbl attribute doesn't exist, return True
+                return self.bot.cluster_id == 0
 
         return ret
 

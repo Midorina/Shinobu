@@ -56,7 +56,8 @@ async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True
     if not patron:
         if raise_exceptions is True:
             raise mido_utils.NotPatron(f'Unfortunately this command is exclusive to the supporters :/\n\n'
-                                       f'You can unlock this command by [supporting the project.]({mido_utils.links.patreon})')
+                                       f'You can unlock this command by '
+                                       f'[supporting the project.]({mido_utils.links.patreon})')
         else:
             return False
     elif patron.level_status.level < required_level:
