@@ -18,7 +18,7 @@ class NSFW(commands.Cog,
 
         self.api = mido_utils.NSFW_DAPIs(self.bot.http_session, self.bot)
         self.reddit = mido_utils.RedditAPI(self.bot.config['reddit_credentials'], self.bot.http_session, self.bot.db)
-        self.neko = mido_utils.NekoAPI(session=self.bot.http_session, db=self.bot.db)
+        self.neko = mido_utils.NekosLifeAPI(session=self.bot.http_session, db=self.bot.db)
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 
@@ -306,7 +306,7 @@ class NSFW(commands.Cog,
         """Get a random lewd neko image."""
 
         image = await self.neko.get_random_neko(nsfw=True)
-        image = NSFWImage(image.url, tags=['neko'], api_name='Nekos.Life')
+
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
@@ -380,7 +380,11 @@ class NSFW(commands.Cog,
         Don't type any argument to disable the autohentai service.
 
         Only 1 autohentai service can be active in a server.
-        You need Manage Messages permission to use this command."""
+        You need Manage Messages permission to use this command.
+
+        `{ctx.prefix}autohentai 3`
+        `{ctx.prefix}autohentai 5 yuri`
+        `{ctx.prefix}autohentai 5 yuri+harem|futanari|blonde`"""
 
         await self.base_auto_nsfw_cmd(ctx, NSFWImage.Type.hentai, interval, tags)
 

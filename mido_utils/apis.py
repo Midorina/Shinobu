@@ -9,18 +9,17 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple, Union
 
 import aiohttp
-import anekos
 import asyncpraw
 import asyncprawcore
 from aiohttp import ClientResponse, ClientSession
-from anekos.client import Tag
 from asyncpg.pool import Pool
 from bs4 import BeautifulSoup
 
 import mido_utils
 import models
 
-__all__ = ['MidoBotAPI', 'NekoAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI', 'BlizzardAPI',
+__all__ = ['MidoBotAPI', 'NekosLifeAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI',
+           'BlizzardAPI',
            'ExchangeAPI', 'PatreonAPI']
 
 
@@ -99,27 +98,31 @@ class CachedImageAPI(MidoBotAPI):
             )
 
 
-class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
-    NSFW_NEKO_TAGS = [anekos.NSFWImageTags.NSFW_NEKO_GIF, anekos.NSFWImageTags.ERONEKO]
-    SFW_NEKO_TAGS = [anekos.SFWImageTags.NEKOGIF, anekos.SFWImageTags.NEKO]
+class NekosLifeAPI(CachedImageAPI):
+    BASE_URL = 'https://nekos.life/api/v2'
+    NOT_FOUND_URL = 'https://cdn.nekos.life/smallboobs/404.png'
+
+    NSFW_NEKO_TAGS = ['nsfw_neko_gif', 'eron']
+    SFW_NEKO_TAGS = ['ngif', 'neko']
 
     def __init__(self, session: ClientSession, db: Pool):
-        super().__init__(session=session)  # NekosLifeClient
+        super().__init__(session=session, db=db)
 
-        self.db = db  # CachedImageAPI
+    async def get_image(self, tag: str) -> models.NSFWImage:
+        tag = tag.lower()
+        if tag not in self.NSFW_NEKO_TAGS and tag not in self.SFW_NEKO_TAGS:
+            raise mido_utils.APIError('Unknown tag!')
 
-    async def image(self, tag: Tag, get_bytes: bool = False) -> anekos.result.ImageResult:
         while True:
-            try:
-                ret = await super().image(tag, get_bytes)
-            except (aiohttp.ContentTypeError, anekos.errors.NoResponse, asyncio.TimeoutError):
-                raise mido_utils.APIError
-            else:
-                if ret.url == 'https://cdn.nekos.life/smallboobs/404.png':
-                    continue
+            ret = await self._request_get(url=f'{self.BASE_URL}/img/{tag}', return_json=True)
 
-                # await self.add_to_db(api_name="nekos.life", urls=[ret.url], tags=[str(ret.tag)])
-                return ret
+            url = ret['url']
+
+            if url == self.NOT_FOUND_URL:
+                continue
+
+            # await self.add_to_db(api_name="Nekos.Life", urls=[ret['url']], tags=[tag])
+            return models.NSFWImage(url=url, tags=[tag.title()], api_name='Nekos.Life')
 
     async def get_random_neko(self, nsfw=False):
         if nsfw is True:
@@ -127,7 +130,7 @@ class NekoAPI(anekos.NekosLifeClient, CachedImageAPI):
         else:
             tags = self.SFW_NEKO_TAGS
 
-        return await self.image(tag=random.choice(tags))
+        return await self.get_image(tag=random.choice(tags))
 
 
 class RedditAPI(CachedImageAPI):
@@ -554,10 +557,11 @@ class SomeRandomAPI(MidoBotAPI):
         return await self._request_get(self.URLs[_type], params={'avatar': avatar_url}, return_url=True)
 
     async def youtube_comment(self, avatar_url: str, username: str, comment: str):
-        return await self._request_get(self.URLs["youtube"], params={'avatar'  : avatar_url,
-                                                                     "username": username,
-                                                                     "comment" : comment,
-                                                                     "dark"    : 'true'},
+        return await self._request_get(self.URLs["youtube"],
+                                       params={'avatar'  : avatar_url,
+                                               "username": username,
+                                               "comment" : comment,
+                                               "dark"    : 'true'},
                                        return_url=True)
 
     @staticmethod
