@@ -33,10 +33,10 @@ class Waifu(
             user = await self.bot.get_user_using_ipc(user_db.id)
             user_name = user.display_name if user else user_db.discord_name
 
-            affinity_name = await self.bot.get_user_name(user_db.waifu.affinity_id) if user_db.waifu.affinity_id \
-                else "no one."
-            claimer_name = await self.bot.get_user_name(user_db.waifu.claimer_id) if user_db.waifu.claimer_id \
-                else "no one."
+            affinity_name = (await UserDB.get_or_create(ctx.bot, user_db.waifu.affinity_id)).discord_name \
+                if user_db.waifu.affinity_id else "no one."
+            claimer_name = (await UserDB.get_or_create(ctx.bot, user_db.waifu.claimer_id)).discord_name \
+                if user_db.waifu.claimer_id else "no one."
 
             # if its the #1 user
             if i == 1 and user:

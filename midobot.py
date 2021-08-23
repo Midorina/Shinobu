@@ -103,6 +103,50 @@ class MidoBot(commands.AutoShardedBot):
     def log_channel(self) -> Optional[discord.TextChannel]:
         return self.get_channel(self.config['log_channel_id'])
 
+    async def get_prefix(self, message):
+        default = self.config["default_prefix"]
+
+        # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
+        try:
+            prefixes = commands.when_mentioned_or(self.prefix_cache.get(message.guild.id, default))(self, message)
+        except AttributeError:  # if not in guild
+            prefixes = commands.when_mentioned_or(default)(self, message)
+
+        # case insensitive prefix search
+        for prefix in prefixes:
+            escaped_prefix = re.escape(prefix)
+            m = re.compile(f'^({escaped_prefix}).*', flags=re.I).match(message.content)
+            if m:
+                return m.group(1)
+
+        # if there is not a match, return a random string
+        return os.urandom(4).hex()
+
+    def load_or_reload_cogs(self, cog_name: str = None) -> int:
+        """Loads or reloads all cogs or a specified one. Returns the number of loaded/reloaded cogs."""
+        cog_counter = 0
+        for file in os.listdir("cogs"):
+            if file.endswith(".py"):
+                name = file[:-3]
+
+                # if a cog name is provided, and its not the cog we want, skip
+                if cog_name and name != cog_name:
+                    continue
+
+                try:
+                    self.reload_extension(f"cogs.{name}")
+                    self.logger.info(f"Reloaded cogs.{name}")
+                except discord.ext.commands.ExtensionNotLoaded:
+                    self.load_extension(f"cogs.{name}")
+                    self.logger.info(f"Loaded cogs.{name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to load cog {name}")
+                    self.logger.exception(e)
+                else:
+                    cog_counter += 1
+
+        return cog_counter
+
     async def chunk_active_guilds(self):
         await self.wait_until_ready()
 
@@ -210,16 +254,6 @@ class MidoBot(commands.AutoShardedBot):
         self.logger.info(log_msg)
         self.command_counter += 1
 
-    def get_member_count(self):
-        i = 0
-        for guild in self.guilds:
-            try:
-                i += guild.member_count
-            except AttributeError:
-                pass
-
-        return i
-
     async def on_command_completion(self, ctx: mido_utils.Context):
         if ctx.guild is not None:
             if ctx.guild_db.delete_commands is True:
@@ -233,29 +267,6 @@ class MidoBot(commands.AutoShardedBot):
     async def on_command_error(self, ctx: mido_utils.Context, exception):
         self.log_command(ctx, error=exception)
 
-    async def get_prefix(self, message):
-        default = self.config["default_prefix"]
-
-        # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
-        try:
-            prefixes = commands.when_mentioned_or(self.prefix_cache.get(message.guild.id, default))(self, message)
-        except AttributeError:  # if not in guild
-            prefixes = commands.when_mentioned_or(default)(self, message)
-
-        # case insensitive prefix search
-        for prefix in prefixes:
-            escaped_prefix = re.escape(prefix)
-            m = re.compile(f'^({escaped_prefix}).*', flags=re.I).match(message.content)
-            if m:
-                return m.group(1)
-
-        # if there is not a match, return a random string
-        return os.urandom(4).hex()
-
-    async def get_user_name(self, _id: int) -> str:
-        user_db = await models.UserDB.get_or_create(bot=self, user_id=_id)
-        return user_db.discord_name
-
     async def on_error(self, event_method: str, *args, **kwargs):
         await self.get_cog('ErrorHandling').on_error(event_method, *args, **kwargs)
 
@@ -266,31 +277,6 @@ class MidoBot(commands.AutoShardedBot):
         which attaches db objects when a command is about to be called.
         """
         await ctx.attach_db_objects()
-
-    def load_or_reload_cogs(self, cog_name: str = None) -> int:
-        """Loads or reloads all cogs or a specified one. Returns the number of loaded/reloaded cogs."""
-        cog_counter = 0
-        for file in os.listdir("cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
-
-                # if a cog name is provided, and its not the cog we want, skip
-                if cog_name and name != cog_name:
-                    continue
-
-                try:
-                    self.reload_extension(f"cogs.{name}")
-                    self.logger.info(f"Reloaded cogs.{name}")
-                except discord.ext.commands.ExtensionNotLoaded:
-                    self.load_extension(f"cogs.{name}")
-                    self.logger.info(f"Loaded cogs.{name}")
-                except Exception as e:
-                    self.logger.error(f"Failed to load cog {name}")
-                    self.logger.exception(e)
-                else:
-                    cog_counter += 1
-
-        return cog_counter
 
     async def get_user_using_ipc(self, user_id: int) -> Optional[Union[discord.User, ipc.SerializedObject]]:
         return super().get_user(user_id) or await self.ipc.get_user(user_id)
@@ -341,10 +327,7 @@ class MidoBot(commands.AutoShardedBot):
 
     @discord.utils.cached_property
     def color(self):
-        if self.name.lower() == 'shinobu':
-            return mido_utils.Color.shino_yellow()
-        else:
-            return mido_utils.Color.mido_green()
+        return mido_utils.Color(self.config['default_embed_color'])
 
     @property
     def status(self):
@@ -361,9 +344,6 @@ class MidoBot(commands.AutoShardedBot):
                 value = str(value)
 
         self._connection._status = value
-
-    def get_guild_id_list(self):
-        return [x.id for x in self.guilds]
 
     def run(self):
         super().run(self.config['token'])

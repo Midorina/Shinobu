@@ -1,6 +1,7 @@
 import asyncio
-import discord
 import math
+
+import discord
 from discord.ext import commands
 from wavelink import Client, Node, WavelinkMixin, ZeroConnectedNodes, events
 
@@ -363,12 +364,13 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
     async def lyrics(self, ctx: mido_utils.Context, *, song_name: str = None):
         """See the lyrics of the current song or a specific song."""
         if not song_name and not ctx.voice_player.current:
-            raise mido_utils.MusicError("You need to play a song then use this command or specify a song name!")
+            raise mido_utils.MusicError("You need to play a song then use this command, or specify a song name!")
         elif not song_name:
             song_name = ctx.voice_player.current.title
 
         api = self.bot.get_cog('Searches').some_random_api
 
+        # TODO: scrape lyrics ourselves. some-random-api sucks
         try:
             song_title, lyrics_pages, thumbnail = await api.get_lyrics(song_name)
         except mido_utils.NotFoundError:

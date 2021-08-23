@@ -7,7 +7,7 @@ from cluster_manager import Launcher
 
 # arg stuff
 parser = argparse.ArgumentParser()
-parser.add_argument("bot", help="The name of the bot you want to launch (either 'midobot' or 'shinobu')")
+parser.add_argument("bot", "botname", "name", help="The name of the bot you want to launch.")
 bot_name = parser.parse_args().bot
 
 # logging stuff

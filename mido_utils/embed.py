@@ -14,7 +14,7 @@ class Embed(discord.Embed):
         super().__init__(**kwargs)
         self.bot = bot
 
-        self.color = self.color if self.color else self.bot.color
+        self.color = self.color or self.bot.color
 
         # if default_footer is True and not hasattr(self, '_footer'):
         if default_footer is True:
