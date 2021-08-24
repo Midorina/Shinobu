@@ -45,7 +45,12 @@ def reload_package(package):
 
     # reload from the lowest level to the higher
     for package in reversed(list(packages_to_reload)):
-        importlib.reload(package)
+        try:
+            importlib.reload(package)
+        except Exception as e:
+            # asyncpg has a built-in check about redefinitions, which raises a RuntimeError
+            # https://github.com/MagicStack/asyncpg/blob/master/asyncpg/exceptions/_base.py#L57
+            log.warning(f"Error while trying to reload the package {package}: {e}")
 
     log.info(f"Successfully reloaded {len(packages_to_reload)} packages.")
 
