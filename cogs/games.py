@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import random
-from discord.ext import commands
 from typing import Optional, Tuple, Union
+
+from discord.ext import commands
 
 import mido_utils
 from models.db import HangmanWord, MemberDB
@@ -252,9 +254,26 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
     async def assign_hangman_variable(self):
         time = mido_utils.Time()
-        if not self.hangman_categories_and_word_counts:
+
+        while not self.hangman_categories_and_word_counts:
             self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(self.bot)
+
+            if sum(x for x in self.hangman_categories_and_word_counts.values()) == 0:
+                # if we dont have any words, it means the table is freshly created
+                # in that case, insert from hangman.json
+                await self._insert_from_json()
+                self.hangman_categories_and_word_counts = None
+
         self.bot.logger.debug("Assigning hangman variables took:\t" + time.passed_seconds_in_float_formatted)
+
+    async def _insert_from_json(self):
+        self.bot.logger.info("Hangman words were not in our database. Inserting from hangman.json...")
+
+        with open('resources/hangman.json') as f:
+            words = json.load(f)
+
+            for category, words in words.items():
+                await HangmanWord.add_words(self.bot, category, words)
 
     def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:
         """Returns a race and whether it is just created or not"""
@@ -352,7 +371,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
                                                         author_id=None,  # everyone
                                                         timeout=180)
             if not user_input:
-                raise mido_utils.TimedOut(f"No one tried to solve the last Hangman game, so its shut down."
+                raise mido_utils.TimedOut(f"No one tried to solve the last Hangman game, so its shut down. "
                                           f"You can start a new game by typing `{ctx.prefix}hangman`.")
 
             user_guess: str = user_input.content

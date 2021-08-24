@@ -908,7 +908,7 @@ class LoggedMessage(BaseDBModel):
              message_content, 
              message_embeds, 
              created_at) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING *;
+             VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING;
             """, tup)
 
         # update active guilds with this info
@@ -1522,13 +1522,20 @@ class HangmanWord(BaseDBModel):
         return {category: count for category, count in ret}
 
     @classmethod
-    async def add_word(cls, bot, category: str, word: str):
+    async def add_word(cls, bot, category: str, word: str) -> HangmanWord:
         ret = await bot.db.fetchrow("INSERT INTO hangman_words(category, word) VALUES ($1, $2) RETURNING *;",
                                     category, word)
         return cls(ret, bot)
 
     @classmethod
-    async def get_random_word(cls, bot, category: str):
+    async def add_words(cls, bot, category: str, words: List[str]) -> None:
+        await bot.db.executemany(
+            "INSERT INTO hangman_words(category, word) VALUES ($1, $2) ON CONFLICT DO NOTHING;",
+            ((category, word) for word in words)
+        )
+
+    @classmethod
+    async def get_random_word(cls, bot, category: str) -> HangmanWord:
         ret = await bot.db.fetchrow("SELECT * FROM hangman_words WHERE category = $1 ORDER BY RANDOM() LIMIT 1;",
                                     category)
         return cls(ret, bot)
