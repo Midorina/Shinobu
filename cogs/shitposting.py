@@ -1,17 +1,18 @@
-import discord
 import random
-from discord.ext import commands
 from typing import Union
 
+import discord
+from discord.ext import commands
+
 import mido_utils
-from midobot import MidoBot
+from shinobu import ShinobuBot
 
 
 class Shitposting(
     commands.Cog,
     description="RNG shitposting using `{ctx.prefix}8ball`, `{ctx.prefix}pp` and `{ctx.prefix}howgay`.\n"
                 "Image filters using `{ctx.prefix}gay`, `{ctx.prefix}wasted`, `{ctx.prefix}triggered` and `{ctx.prefix}ytcomment`."):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     @discord.utils.cached_property

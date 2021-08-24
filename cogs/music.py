@@ -6,16 +6,16 @@ from discord.ext import commands
 from wavelink import Client, Node, WavelinkMixin, ZeroConnectedNodes, events
 
 import mido_utils
-from midobot import MidoBot
+from shinobu import ShinobuBot
 
 
 class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.prefix}play`. **Spotify is supported.**'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.forcekip_by_default = True
 
-        self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config['spotify_credentials'])
+        self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
 
         if not hasattr(self.bot, 'wavelink'):
             self.bot.wavelink = Client(bot=self.bot)
@@ -25,11 +25,11 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
     async def start_nodes(self):
         # initiate the each node specified in the cfg file
-        for node in self.bot.config['lavalink_nodes']:
+        for node in self.bot.config.lavalink_nodes_credentials:
             await self.wavelink.initiate_node(**node)
 
     async def reload_nodes(self):
-        for node in self.bot.config['lavalink_nodes']:
+        for node in self.bot.config.lavalink_nodes_credentials:
             identifier = node['identifier']
             if identifier in self.wavelink.nodes:
                 await self.wavelink.nodes[identifier].destroy()
@@ -322,7 +322,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         if not ctx.voice_player.channel_id:
             task = self.bot.loop.create_task(ctx.invoke(self._join))
 
-        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query, spotify=self.spotify_api)
+        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query, spotify=getattr(self, 'spotify_api'))
         if task:
             await task
             task.result()

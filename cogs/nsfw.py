@@ -6,18 +6,18 @@ import discord
 from discord.ext import commands, tasks
 
 import mido_utils
-from midobot import MidoBot
 from models.db import CachedImage, GuildNSFWDB, NSFWImage
+from shinobu import ShinobuBot
 
 
 class NSFW(commands.Cog,
            description='Get quality NSFW images. '
                        'Check out `{ctx.prefix}autohentai` to have them posted automatically.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-        self.api = mido_utils.NSFW_DAPIs(self.bot.http_session, self.bot)
-        self.reddit = mido_utils.RedditAPI(self.bot.config['reddit_credentials'], self.bot.http_session, self.bot.db)
+        self.api = mido_utils.NsfwDAPIs(self.bot.http_session, self.bot)
+        self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
         self.neko = mido_utils.NekosLifeAPI(session=self.bot.http_session, db=self.bot.db)
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)

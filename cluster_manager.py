@@ -11,7 +11,7 @@ from typing import List
 
 import requests
 
-import midobot
+import shinobu
 
 log = logging.getLogger('Cluster Manager')
 
@@ -66,7 +66,7 @@ class Launcher:
         self.init = time.perf_counter()
 
         self.bot_name = bot_name
-        self.bot_token = midobot.MidoBot.get_config(bot_name)['token']
+        self.bot_token = shinobu.ShinobuBot.get_config(bot_name).token
 
     def get_shard_count(self):
         data = requests.get('https://discord.com/api/v7/gateway/bot', headers={
@@ -193,10 +193,10 @@ class Cluster:
             self.process.close()
 
         # reload the bot so that the changes we've made takes effect
-        reload_package(midobot)
+        reload_package(shinobu)
 
         self.process = multiprocessing.Process(name=f'{self.bot_name} #{self.kwargs["cluster_id"]}',
-                                               target=midobot.MidoBot, kwargs=self.kwargs, daemon=True)
+                                               target=shinobu.ShinobuBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
         self.log.info(f"Process started with PID {self.process.pid}")
 

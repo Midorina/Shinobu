@@ -5,8 +5,8 @@ import discord
 from discord.ext import commands
 
 import mido_utils
-from midobot import MidoBot
 from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
+from shinobu import ShinobuBot
 
 
 def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
@@ -32,7 +32,7 @@ class Leveling(
     description="Check your xp status using `{ctx.prefix}xp`, "
                 "set level rewards using `{ctx.prefix}xprolereward` "
                 "and compete against others in `{ctx.prefix}xplb` and `{ctx.prefix}xpglb`!"):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     async def get_xp_embed(self, user_or_member, db: Union[MemberDB, UserDB]) -> discord.Embed:

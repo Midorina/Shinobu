@@ -4,8 +4,8 @@ import discord
 from discord.ext import commands, tasks
 
 import mido_utils
-from midobot import MidoBot
 from models import ModLog
+from shinobu import ShinobuBot
 
 action_emotes = {
     'kick'  : '👢',
@@ -19,7 +19,7 @@ class Moderation(
     commands.Cog,
     description="Ban/mute temporarily, hold logs, manage roles, "
                 "prune messages quickly to moderate your server easily."):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.check_modlogs.start()

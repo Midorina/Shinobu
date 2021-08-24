@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 
 import mido_utils
-from midobot import MidoBot
 from models.db import CustomReaction
+from shinobu import ShinobuBot
 
 
 # todo: cooldown to crs
@@ -19,7 +19,7 @@ def cr_toggle_message(option_name: str, cr: CustomReaction, option_status: bool)
 class CustomReactions(
     commands.Cog, name='Custom Reactions',
     description='You can add custom reactions with a trigger and a response using `{ctx.prefix}acr`.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.bot.loop.create_task(self.check_cr_db_func())

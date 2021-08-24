@@ -1,17 +1,18 @@
 import asyncio
-import discord
-from discord.ext import commands
 from typing import Union
 
+import discord
+from discord.ext import commands
+
 import mido_utils
-from midobot import MidoBot
 from models.db import ReminderDB
+from shinobu import ShinobuBot
 
 
 # todo: share reminders across clusters so that not all of them send a message
 
 class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind yourself or someone of something.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.active_reminders = list()

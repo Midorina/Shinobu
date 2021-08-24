@@ -15,8 +15,8 @@ class Context(commands.Context):
         self.db: Pool = self.bot.db
 
         # FOR TYPE HINTING
-        from midobot import MidoBot
-        self.bot: MidoBot
+        from shinobu import ShinobuBot
+        self.bot: ShinobuBot
 
         self.guild_db: models.GuildDB = None
         self.member_db: models.MemberDB = None

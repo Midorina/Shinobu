@@ -1,10 +1,11 @@
-import discord
 import typing
+
+import discord
 from discord.ext import commands
 
 import mido_utils
-from midobot import MidoBot
 from models import GuildDB
+from shinobu import ShinobuBot
 
 
 class AssignableRoles(
@@ -13,7 +14,7 @@ class AssignableRoles(
                 'automatically assign a role to new members '
                 'or `{ctx.prefix}aar` to add a self assignable role for all members '
                 'which can be acquired using `{ctx.prefix}iam`.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     def cog_check(self, ctx):  # guild only

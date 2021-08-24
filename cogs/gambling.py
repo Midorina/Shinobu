@@ -7,8 +7,8 @@ import topgg
 from discord.ext import commands, tasks
 
 import mido_utils
-from midobot import MidoBot
 from models.db import DonutEvent, ReminderDB, TransactionLog, UserDB
+from shinobu import ShinobuBot
 
 DIGIT_TO_EMOJI = {
     0: ":zero:",
@@ -42,8 +42,8 @@ COIN_SIDES = {
 class Gambling(
     commands.Cog,
     description='Use the `{ctx.prefix}daily` command to get '
-                '**{bot.config[daily_amount]}{mido_utils.emotes.currency}** and use them in gambling and other games!'):
-    def __init__(self, bot: MidoBot):
+                '**{bot.config.daily_amount}{mido_utils.emotes.currency}** and use them in gambling and other games!'):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         # donut event stuff
@@ -53,14 +53,14 @@ class Gambling(
         # things that only cluster 0 provides
         if self.bot.cluster_id == 0:
             # Patreon
-            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config['patreon_credentials'])
+            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config.patreon_credentials)
 
             # TOP.GG / DBL
-            topgg_credentials: dict = self.bot.config['topgg_credentials']
+            topgg_credentials: dict = self.bot.config.topgg_credentials.copy()
             post_guild_count: bool = topgg_credentials.pop('post_guild_count')
 
             if topgg_credentials['token'] != 'token':  # if set
-                self.dbl = topgg.DBLClient(self.bot, **self.bot.config['topgg_credentials'], autopost=False)
+                self.dbl = topgg.DBLClient(self.bot, **self.bot.config.topgg_credentials, autopost=False)
                 self.votes = set()
 
                 if post_guild_count:
@@ -193,10 +193,10 @@ class Gambling(
     @commands.command()
     async def daily(self, ctx: mido_utils.Context):
         """
-        Claim **{bot.config[daily_amount]}{mido_utils.emotes.currency}** for free every 12 hours.
+        Claim **{bot.configdaily_amount}{mido_utils.emotes.currency}** for free every 12 hours.
         """
         daily_status = ctx.user_db.daily_date_status
-        daily_amount = self.bot.config['daily_amount']
+        daily_amount = self.bot.config.daily_amount
 
         if not daily_status.end_date_has_passed:
             raise mido_utils.OnCooldownError(
@@ -232,7 +232,7 @@ class Gambling(
                 channel_id=ctx.author.id,
                 channel_type=ReminderDB.ChannelType.DM,
                 content=f"Your daily is ready! You can vote [here]({mido_utils.links.upvote}).",
-                date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=ctx.bot.config['cooldowns']['daily'])
+                date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=self.bot.config.cooldowns['daily'])
             )
             ctx.bot.get_cog('Reminder').add_reminder(reminder)
 

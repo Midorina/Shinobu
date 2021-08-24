@@ -7,9 +7,9 @@ from discord.ext.commands import UserInputError
 from discord.ext.commands.cooldowns import BucketType
 
 import mido_utils
-from midobot import MidoBot
 from models.db import UserDB
 from models.waifu import Item
+from shinobu import ShinobuBot
 
 
 class Waifu(
@@ -17,7 +17,7 @@ class Waifu(
     description='Claim someone as your waifu using `{ctx.prefix}claim`, '
                 'send gifts to them using `{ctx.prefix}gift` '
                 'and check your stats using `{ctx.prefix}waifustats`.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     @commands.command(aliases=['waifulb'])

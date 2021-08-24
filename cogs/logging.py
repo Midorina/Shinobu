@@ -7,8 +7,8 @@ import discord
 from discord.ext import commands, tasks
 
 import mido_utils
-from midobot import MidoBot
 from models.db import GuildLoggingDB, LoggedMessage
+from shinobu import ShinobuBot
 
 
 class LoggedEvents(Enum):
@@ -31,7 +31,7 @@ class Logging(
     commands.Cog,
     description="Disable or enable logging in the current channel using `{ctx.prefix}logging` "
                 "and toggle between simple and detailed mode using `{ctx.prefix}loggingmode`."):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.guild_config_cache: Dict[int, GuildLoggingDB] = dict()

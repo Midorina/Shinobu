@@ -8,7 +8,7 @@ import psutil
 from discord.ext import commands
 
 import mido_utils
-from midobot import MidoBot
+from shinobu import ShinobuBot
 
 
 # TODO: place commands under groups and overhaul the help command according to that
@@ -126,7 +126,7 @@ class Meta(commands.Cog,
            description='Use `{ctx.prefix}prefix` to change the way you call me, '
                        '`{ctx.prefix}invite` to get invite links and '
                        '`{ctx.prefix}deletedata` to delete everything I know about you.'):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.process = psutil.Process(os.getpid())
@@ -264,7 +264,7 @@ class Meta(commands.Cog,
     @commands.command(aliases=['info', 'about', 'botinfo'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
-        mido = await self.bot.get_user_using_ipc(self.bot.config['owner_ids'][0])
+        mido = await self.bot.get_user_using_ipc(self.bot.config.owner_ids[0])
 
         cluster_stats = await self.bot.ipc.get_cluster_stats()
 

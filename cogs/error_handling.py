@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import mido_utils
 from ipc import ipc_errors
-from midobot import MidoBot
+from shinobu import ShinobuBot
 
 
 def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
@@ -19,7 +19,7 @@ def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
 
 
 class ErrorHandling(commands.Cog):
-    def __init__(self, bot: MidoBot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     # this doesn't fire as a listener
@@ -29,7 +29,7 @@ class ErrorHandling(commands.Cog):
         self.bot.logger.exception(f"Internal Error: {event}", exc_info=exception)
         error_msg = "\n".join(traceback.format_exception(*exception))
 
-        content = f"***INTERNAL ERROR ALERT*** <@{self.bot.config['owner_ids'][0]}>\n" \
+        content = f"***INTERNAL ERROR ALERT*** <@{self.bot.config.owner_ids[0]}>\n" \
                   f"`{event}`"
 
         traceback_embed = discord.Embed(title=f"Traceback",
@@ -153,7 +153,8 @@ class ErrorHandling(commands.Cog):
                                             mido_utils.NotPatron,
                                             mido_utils.InsufficientPatronLevel,
                                             mido_utils.CantClaimRightNow,
-                                            ipc_errors.RequestFailed)):
+                                            ipc_errors.RequestFailed,
+                                            mido_utils.IncompleteConfigFile)):
                 return await ctx.send_error(error)
 
             if inform:
@@ -176,7 +177,7 @@ class ErrorHandling(commands.Cog):
         # TypeError: __repr__ returned non-string (type int)
         ctx.args = list(map(lambda x: str(x), ctx.args))
         content = f"""
-***ERROR ALERT*** <@{ctx.bot.config['owner_ids'][0]}>
+***ERROR ALERT*** <@{ctx.bot.config.owner_ids[0]}>
 
 An error occurred during the execution of a command:
 `{str(error)}` (Cluster **#{self.bot.cluster_id}**)

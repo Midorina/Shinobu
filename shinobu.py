@@ -19,7 +19,7 @@ import mido_utils
 import models
 
 
-class MidoBot(commands.AutoShardedBot):
+class ShinobuBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
     def __init__(self, **cluster_kwargs):
         self.name = cluster_kwargs.pop('bot_name')
