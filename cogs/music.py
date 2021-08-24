@@ -18,15 +18,24 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         if self.bot.config.spotify_credentials:
             self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
 
-        if not hasattr(self.bot, 'wavelink') and self.bot.config.lavalink_nodes_credentials:
-            self.wavelink = self.bot.wavelink = Client(bot=self.bot)
+        if not hasattr(self.bot, 'wavelink'):
+            if self.bot.config.lavalink_nodes_credentials:
+                self.wavelink = self.bot.wavelink = Client(bot=self.bot)
 
-            self.bot.loop.create_task(self.start_nodes())
+                self.bot.loop.create_task(self.start_nodes())
+
+    async def _initiate_node(self, **kwargs):
+        await self.bot.wait_until_ready()
+
+        node = await self.wavelink.initiate_node(**kwargs)
+        if not node.is_available:
+            self.bot.logger.error("Looks like a Lavalink node could not establish a coonnection. "
+                                  "Please make sure you entered proper credentials to the config file.")
 
     async def start_nodes(self):
         # initiate the each node specified in the cfg file
         for node in self.bot.config.lavalink_nodes_credentials:
-            await self.wavelink.initiate_node(**node)
+            await self._initiate_node(**node)
 
     async def reload_nodes(self):
         for node in self.bot.config.lavalink_nodes_credentials:
@@ -34,7 +43,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             if identifier in self.wavelink.nodes:
                 await self.wavelink.nodes[identifier].destroy()
 
-            await self.wavelink.initiate_node(**node)
+            await self._initiate_node(**node)
 
     async def cog_check(self, ctx: mido_utils.Context):
         if not ctx.guild:

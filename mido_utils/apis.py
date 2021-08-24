@@ -200,9 +200,12 @@ class RedditAPI(CachedImageAPI):
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
                 await asyncio.sleep(0.1)
+        except asyncprawcore.ResponseException as e:
+            logging.error(f"{e} from Reddit. You most likely entered wrong credentials.")
+            raise
         except (asyncprawcore.NotFound, asyncprawcore.Forbidden, asyncprawcore.ServerError) as e:
             logging.error(f"Subreddit '{subreddit_name}' caused error: {e}")
-            return
+            raise
 
         urls = self.parse_gfycat_to_red_gif(urls)
 
@@ -222,29 +225,31 @@ class RedditAPI(CachedImageAPI):
                                                    allow_gif=allow_gif,
                                                    limit=limit)
 
-    async def fill_the_database(self):
-        async def _fill(sub_name: str, go_ham=False):
-            # top
-            # hot
+    async def fill_the_database(self, go_ham=False):
+        # top
+        # hot
 
-            # all
-            # year
-            # month
-            # week
-            # day
-            # hour
-
-            await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
-            await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
-
-            if go_ham is True:
-                await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
-                await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
-                await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
-                await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
+        # all
+        # year
+        # month
+        # week
+        # day
+        # hour
 
         for sub in models.LocalSubreddit.get_all():
-            await _fill(sub.subreddit_name)
+            sub_name = sub.subreddit_name
+
+            try:
+                await self.get_images_from_subreddit(sub_name, 'top', 'day', limit=5)
+                await self.get_images_from_subreddit(sub_name, 'hot', limit=1)
+
+                if go_ham is True:
+                    await self.get_images_from_subreddit(sub_name, 'top', 'all', limit=10000)
+                    await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
+                    await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
+                    await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
+            except Exception:
+                break
 
 
 class NsfwDAPIs(CachedImageAPI):
@@ -716,17 +721,19 @@ class ExchangeAPI(MidoBotAPI):
 
     async def update_rate_cache(self):
         try:
+            if not self.api_key:
+                raise mido_utils.APIError
+
             r = await self._request_get(url=self.api_url, params={'key': self.api_key}, return_json=True)
         except mido_utils.APIError:
-            # in midobot, the public api key is used and it is refreshed every day
-            # so refresh that
+            # probably the api key is invalid. update it :)
             try:
                 r = await self._request_get(url='https://currencyapi.net/documentation#rates', return_text=True)
             except mido_utils.APIError:
                 # even if this fails, we're either banned or the website is down
                 return
             else:
-                tag = BeautifulSoup(r).find(
+                tag = BeautifulSoup(r, features="html.parser").find(
                     lambda _tag: _tag.name == 'a' and 'https://currencyapi.net/api/v1/rates?key=' in _tag.text)
 
                 self.api_key = tag.attrs['href'].split('=')[-1]

@@ -1,6 +1,12 @@
 {
   "token"                     : "token",
-  "ipc_port"                  : 13337,
+  "ipc_port"                  : 0,
+  "db_credentials"            : {
+    "user"    : "mido",
+    "password": "CHANGE_THIS",
+    "database": "Shinobu",
+    "host"    : "127.0.0.1"
+  },
   "playing"                   : "s.help",
   "default_prefix"            : "s.",
   "default_embed_color"       : "0xfffe91",
@@ -14,18 +20,12 @@
     "daily": 43200,
     "xp"   : 60
   },
-  "db_credentials"            : {
-    "user"    : "mido",
-    "password": "password",
-    "database": "Shinobu",
-    "host"    : "127.0.0.1"
-  },
   "lavalink_nodes_credentials": [
     {
       "host"      : "0.0.0.0",
       "port"      : 80,
       "rest_uri"  : "http://0.0.0.0:80",
-      "password"  : "pw",
+      "password"  : "CHANGE_THIS",
       "identifier": "identifier",
       "region"    : "europe"
     }
@@ -33,9 +33,9 @@
   "topgg_credentials"         : {
     "post_guild_count": false,
     "token"           : "token",
-    "webhook_auth"    : "auth",
-    "webhook_port"    : 0,
-    "webhook_path"    : "/path"
+    "webhook_auth"    : "authorization_key",
+    "webhook_port"    : 5000,
+    "webhook_path"    : "/dblwebhook"
   },
   "spotify_credentials"       : {
     "client_id"    : "client_id",
@@ -50,12 +50,12 @@
     "client_secret": "client_secret"
   },
   "patreon_credentials"       : {
-    "creator_access_token": "",
+    "creator_access_token": "access_token",
     "campaign_id"         : 0
   },
   "danbooru_credentials"      : {
-    "username": "",
-    "api_key" : ""
+    "username": "username",
+    "api_key" : "api_key"
   },
-  "currency_api_key"          : ""
+  "currency_api_key"          : "api_key"
 }

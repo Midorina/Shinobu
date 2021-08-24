@@ -24,7 +24,7 @@ class Searches(
         if self.bot.config.blizzard_credentials:
             self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config.blizzard_credentials)
 
-        if self.bot.cluster_id == 0 and self.bot.config.currency_api_key:
+        if self.bot.cluster_id == 0:
             self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session, self.bot.config.currency_api_key)
 
     @commands.command()

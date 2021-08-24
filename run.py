@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
 from logging.handlers import TimedRotatingFileHandler
 
 from cluster_manager import Launcher
@@ -27,12 +28,19 @@ handler_f = TimedRotatingFileHandler(filename=f"logs/{bot_name}.log",
                                      interval=1,
                                      backupCount=5,
                                      encoding="utf-8")
-handler_c = logging.StreamHandler()
+# stdout handler
+handler_c1 = logging.StreamHandler(stream=sys.stdout)
+handler_c1.setLevel(logging.DEBUG)
+handler_c1.addFilter(lambda msg: msg.levelno <= logging.INFO)
+# stderr handler
+handler_c2 = logging.StreamHandler(stream=sys.stderr)
+handler_c2.setLevel(logging.WARNING)
 
 handler_f.setFormatter(_format)
-handler_c.setFormatter(_format)
+handler_c1.setFormatter(_format)
+handler_c2.setFormatter(_format)
 
-logger.handlers = [handler_f, handler_c]
+logger.handlers = [handler_f, handler_c1, handler_c2]
 
 loop = asyncio.get_event_loop()
 Launcher(loop, bot_name).start()

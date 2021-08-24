@@ -24,7 +24,7 @@ class ShinobuBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
     def __init__(self, **cluster_kwargs):
         self.name = cluster_kwargs.pop('bot_name')
-        self.config: models.ConfigFile = self.get_config(self.name)
+        self.config: models.ConfigFile = self.get_config(self.name, warn=False)
 
         self.cluster_id: int = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
@@ -104,8 +104,8 @@ class ShinobuBot(commands.AutoShardedBot):
         await self.chunk_active_guilds()
 
     @staticmethod
-    def get_config(bot_name: str) -> models.ConfigFile:
-        return models.ConfigFile.get_config(bot_name)
+    def get_config(bot_name: str, warn: bool = False) -> models.ConfigFile:
+        return models.ConfigFile.get_config(bot_name, warn=warn)
 
     @property
     def log_channel(self) -> Optional[discord.TextChannel]:

@@ -73,7 +73,7 @@ class Launcher:
         self.init = time.perf_counter()
 
         self.bot_name = bot_name
-        self.bot_token = shinobu.ShinobuBot.get_config(bot_name).token
+        self.bot_token = shinobu.ShinobuBot.get_config(bot_name, warn=True).token
 
     def get_shard_count(self):
         data = requests.get('https://discord.com/api/v7/gateway/bot', headers={

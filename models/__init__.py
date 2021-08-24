@@ -1,4 +1,4 @@
-from .config_file import *
+from .config import *
 from .db import *
 from .hearthstone import *
 from .patreon import *
