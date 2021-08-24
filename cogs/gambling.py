@@ -53,21 +53,19 @@ class Gambling(
         # things that only cluster 0 provides
         if self.bot.cluster_id == 0:
             # Patreon
-            self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config.patreon_credentials)
+            if self.bot.config.patreon_credentials:
+                self.patreon_api = mido_utils.PatreonAPI(self.bot, self.bot.config.patreon_credentials)
 
             # TOP.GG / DBL
-            topgg_credentials: dict = self.bot.config.topgg_credentials.copy()
-            post_guild_count: bool = topgg_credentials.pop('post_guild_count')
+            if self.bot.config.topgg_credentials:
+                topgg_credentials: dict = self.bot.config.topgg_credentials.copy()
+                post_guild_count: bool = topgg_credentials.pop('post_guild_count')
 
-            if topgg_credentials['token'] != 'token':  # if set
                 self.dbl = topgg.DBLClient(self.bot, **self.bot.config.topgg_credentials, autopost=False)
                 self.votes = set()
 
                 if post_guild_count:
                     self.post_guild_count.start()
-            else:
-                self.bot.logger.warn("Top.gg (Discord Bot List) credentials have not been set. "
-                                     "Voting and guild posting features have been disabled.")
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):

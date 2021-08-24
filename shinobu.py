@@ -17,6 +17,7 @@ from discord.ext import commands
 import ipc
 import mido_utils
 import models
+from models.db import run_create_table_funcs
 
 
 class ShinobuBot(commands.AutoShardedBot):
@@ -81,10 +82,19 @@ class ShinobuBot(commands.AutoShardedBot):
         while not self.db:
             try:
                 self.db = await asyncpg.create_pool(**self.config.db_credentials)
+
+            except asyncpg.InvalidCatalogNameError:
+                self.logger.warning(f"Looks like a database with name "
+                                    f"'{self.config.db_credentials['database']}' does not exist.\n"
+                                    f"Make sure it exists, then run the bot again.")
+                exit()
+
             except Exception:
                 self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
                 await asyncio.sleep(5.0)
+
             else:
+                await run_create_table_funcs(self.db)
                 break
 
         self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))

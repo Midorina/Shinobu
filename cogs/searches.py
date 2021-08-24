@@ -20,9 +20,11 @@ class Searches(
         self.google: mido_utils.Google = mido_utils.Google(self.bot.http_session)
         self.urban = asyncurban.UrbanDictionary(loop=self.bot.loop, session=self.bot.http_session)
         self.some_random_api = mido_utils.SomeRandomAPI(self.bot.http_session)
-        self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config.blizzard_credentials)
 
-        if self.bot.cluster_id == 0:
+        if self.bot.config.blizzard_credentials:
+            self.blizzard_api = mido_utils.BlizzardAPI(self.bot.http_session, self.bot.config.blizzard_credentials)
+
+        if self.bot.cluster_id == 0 and self.bot.config.currency_api_key:
             self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session, self.bot.config.currency_api_key)
 
     @commands.command()

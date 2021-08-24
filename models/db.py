@@ -27,10 +27,11 @@ __all__ = ['XpAnnouncement', 'NSFWImage',  # these 2 are not actual tables
 
 
 async def run_create_table_funcs(db):
-    for class_name in __all__:
+    # we are not able to do isinstance(_class, BaseDBModel) due to importlib.reload bugs
+    # so skip first 2 manually
+    for class_name in __all__[2:]:
         _class = globals()[class_name]
-        if isinstance(_class, BaseDBModel):
-            await _class.create_table(db)
+        await _class.create_table(db)
 
 
 class XpAnnouncement(Enum):
@@ -57,7 +58,7 @@ class BaseDBModel:
         if cls.TABLE_DEFINITION is None:
             raise NotImplemented
 
-        logging.info(f"Creating database table for class {cls.__class__.__name__}.")
+        logging.info(f"Creating database table for class {cls.__name__}.")
         await db.execute(cls.TABLE_DEFINITION)
 
     def __eq__(self, other):

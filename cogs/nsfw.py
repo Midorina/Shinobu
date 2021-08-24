@@ -17,8 +17,10 @@ class NSFW(commands.Cog,
         self.bot = bot
 
         self.api = mido_utils.NsfwDAPIs(self.bot.http_session, self.bot)
-        self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
         self.neko = mido_utils.NekosLifeAPI(session=self.bot.http_session, db=self.bot.db)
+
+        if self.bot.config.reddit_credentials:
+            self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
 
