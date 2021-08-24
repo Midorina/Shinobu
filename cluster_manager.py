@@ -20,21 +20,23 @@ log = logging.getLogger('Cluster Manager')
 
 def _get_packages_to_reload(package):
     assert (hasattr(package, "__package__"))
-    fn = package.__file__
-    fn_dir = os.path.dirname(fn) + os.sep
-    module_visit = {fn}
+
+    main_file_path = package.__file__
+    main_file_directory = os.path.dirname(main_file_path) + os.sep
+    visited_module_paths = {main_file_path}
     ret = set()
-    del fn
 
     def reload_recursive_ex(module):
-        for module_child in vars(module).values():
-            if isinstance(module_child, types.ModuleType):
-                fn_child = getattr(module_child, "__file__", None)
-                if (fn_child is not None) and fn_child.startswith(fn_dir):
-                    if fn_child not in module_visit:
-                        module_visit.add(fn_child)
-                        ret.add(module_child)
-                        reload_recursive_ex(module_child)
+        for child_module in vars(module).values():
+            if isinstance(child_module, types.ModuleType):
+                child_module_path = getattr(child_module, "__file__", None)
+
+                if child_module_path and child_module_path.startswith(main_file_directory) \
+                        and 'env/' not in child_module_path:
+                    if child_module_path not in visited_module_paths:
+                        visited_module_paths.add(child_module_path)
+                        ret.add(child_module)
+                        reload_recursive_ex(child_module)
 
     reload_recursive_ex(package)
     return ret
