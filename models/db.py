@@ -158,11 +158,11 @@ class UserDB(BaseDBModel):
         self.level_up_notification = XpAnnouncement(user_db.get('level_up_notification'))
         self.total_xp: int = user_db.get('xp')
         self.xp_status = mido_utils.Time.add_to_previous_date_and_get(
-            user_db.get('last_xp_gain'), bot.config['cooldowns']['xp']
+            user_db.get('last_xp_gain'), bot.config.cooldowns['xp']
         )
 
         self.daily_date_status = mido_utils.Time.add_to_previous_date_and_get(user_db.get('last_daily_claim'),
-                                                                              bot.config['cooldowns']['daily'])
+                                                                              bot.config.cooldowns['daily'])
         self.waifu = models.Waifu(self)
 
         # patreon claim
@@ -323,7 +323,7 @@ class MemberDB(BaseDBModel):
         self.total_xp: int = member_db.get('xp')
 
         self.xp_status = mido_utils.Time.add_to_previous_date_and_get(
-            member_db.get('last_xp_gain'), bot.config['cooldowns']['xp'])
+            member_db.get('last_xp_gain'), bot.config.cooldowns['xp'])
 
     @property
     def discord_name(self):
@@ -517,7 +517,7 @@ class GuildDB(BaseDBModel):
             try:
                 guild_db = await bot.db.fetchrow(
                     """INSERT INTO guilds(id, prefix) VALUES ($1, $2) RETURNING *;""",
-                    guild_id, bot.config['default_prefix'])
+                    guild_id, bot.config.default_prefix)
             except asyncpg.UniqueViolationError:
                 return await cls.get_or_create(bot, guild_id)
 

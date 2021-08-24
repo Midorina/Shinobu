@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 import mido_utils
 import models
 
-__all__ = ['MidoBotAPI', 'NekosLifeAPI', 'RedditAPI', 'NSFW_DAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI',
+__all__ = ['MidoBotAPI', 'NekosLifeAPI', 'RedditAPI', 'NsfwDAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI',
            'BlizzardAPI',
            'ExchangeAPI', 'PatreonAPI']
 
@@ -182,6 +182,7 @@ class RedditAPI(CachedImageAPI):
         return ret
 
     async def get_images_from_subreddit(self, subreddit_name: str, submission_category: str = 'top', *args, **kwargs):
+        # TODO: test what happens without proper api keys and raise error according to that
         subreddit = await self.reddit.subreddit(subreddit_name)
 
         if submission_category == 'top':
@@ -243,7 +244,7 @@ class RedditAPI(CachedImageAPI):
             await _fill(sub.subreddit_name)
 
 
-class NSFW_DAPIs(CachedImageAPI):
+class NsfwDAPIs(CachedImageAPI):
     _BLACKLISTED_TAGS = [
         'loli',
         'shota',
@@ -270,7 +271,7 @@ class NSFW_DAPIs(CachedImageAPI):
 
         self.bot = bot
 
-        self.danbooru_credentials = self.bot.config['danbooru_credentials']
+        self.danbooru_credentials = self.bot.config.danbooru_credentials
 
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
             List[models.NSFWImage]:
@@ -425,11 +426,14 @@ class NSFW_DAPIs(CachedImageAPI):
 
             return images
 
-    async def _get_danbooru(self, tags=None, allow_video=False, limit: int = 100, guild_id: int = None) -> List[
-        models.NSFWImage]:
+    async def _get_danbooru(self,
+                            tags=None,
+                            allow_video=False,
+                            limit: int = 100,
+                            guild_id: int = None) -> List[models.NSFWImage]:
         images: List[models.NSFWImage] = []
 
-        response = await self._request_get(self.DAPI_LINKS['danbooru'], params={
+        response: dict = await self._request_get(self.DAPI_LINKS['danbooru'], params={
             'api_key': self.danbooru_credentials['api_key'],
             'login'  : self.danbooru_credentials['username'],
             'limit'  : limit,
@@ -788,7 +792,7 @@ class SpotifyAPI(OAuthAPI):
         return 'https://accounts.spotify.com/api/token'
 
     async def _pagination_get(self, url, *args, **kwargs):
-        first_page = await self._request_get(url, *args, **kwargs)
+        first_page: dict = await self._request_get(url, *args, **kwargs)
         yield first_page
 
         if 'tracks' in first_page and 'next' in first_page['tracks']:
@@ -830,6 +834,8 @@ class SpotifyAPI(OAuthAPI):
 
         track_list = []
         async for response in responses:
+            response: dict
+
             if 'tracks' in response:
                 if 'items' in response['tracks']:
                     track_list.extend([track_or_item(track) for track in response['tracks']['items']])
@@ -857,24 +863,24 @@ class BlizzardAPI(OAuthAPI):
 
     async def get_hearthstone_card(self, keyword: str = None) -> models.HearthstoneCard:
         if keyword:
-            r = await self._request_get(f'{self.api_url}/hearthstone/cards',
-                                        params={"locale"    : "en_US",
-                                                "textFilter": keyword,
-                                                "pageSize"  : 1},
-                                        return_json=True)
+            r: dict = await self._request_get(f'{self.api_url}/hearthstone/cards',
+                                              params={"locale"    : "en_US",
+                                                      "textFilter": keyword,
+                                                      "pageSize"  : 1},
+                                              return_json=True)
             if not r['cards']:
-                r = await self._request_get(f'{self.api_url}/hearthstone/cards',
-                                            params={"locale"  : "en_US",
-                                                    "keyword" : keyword,
-                                                    "pageSize": 1},
-                                            return_json=True)
+                r: dict = await self._request_get(f'{self.api_url}/hearthstone/cards',
+                                                  params={"locale"  : "en_US",
+                                                          "keyword" : keyword,
+                                                          "pageSize": 1},
+                                                  return_json=True)
         else:  # get random
-            r = await self._request_get(f'{self.api_url}/hearthstone/cards',
-                                        params={"locale"  : "en_US",
-                                                "pageSize": 1,
-                                                "page"    : random.randint(1, 2710)  # total amount of cards
-                                                },
-                                        return_json=True)
+            r: dict = await self._request_get(f'{self.api_url}/hearthstone/cards',
+                                              params={"locale"  : "en_US",
+                                                      "pageSize": 1,
+                                                      "page"    : random.randint(1, 2710)  # total amount of cards
+                                                      },
+                                              return_json=True)
 
         cards = r['cards']
         if not cards:
@@ -944,7 +950,7 @@ class PatreonAPI(OAuthAPI):
             await asyncio.sleep(60 * 30)  # sleep 30 minutes
 
     async def _pagination_get(self, url, **kwargs):
-        first_page = await self._request_get(url, **kwargs)
+        first_page: dict = await self._request_get(url, **kwargs)
         yield first_page
 
         temp_page = first_page
@@ -959,6 +965,8 @@ class PatreonAPI(OAuthAPI):
         users: List[models.PatreonUser] = []
 
         async for page in responses:
+            page: dict
+
             pledgers = [models.PatreonPledger(x) for x in page['data'] if x['type'] == 'pledge']
 
             active_pledgers += [x for x in pledgers if x.attributes.declined_since is None]

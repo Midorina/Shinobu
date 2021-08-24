@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import multiprocessing
 import os
@@ -24,7 +23,7 @@ class MidoBot(commands.AutoShardedBot):
     # noinspection PyTypeChecker
     def __init__(self, **cluster_kwargs):
         self.name = cluster_kwargs.pop('bot_name')
-        self.config: dict = self.get_config(self.name)
+        self.config: models.ConfigFile = self.get_config(self.name)
 
         self.cluster_id: int = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
@@ -51,7 +50,7 @@ class MidoBot(commands.AutoShardedBot):
 
         self.db: asyncpg.pool.Pool = None
         self.prefix_cache = {}
-        self.owner_ids = set(self.config['owner_ids'])
+        self.owner_ids = set(self.config.owner_ids)
         self.updated_status: bool = False
 
         self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_id}\t')
@@ -81,7 +80,7 @@ class MidoBot(commands.AutoShardedBot):
 
         while not self.db:
             try:
-                self.db = await asyncpg.create_pool(**self.config['db_credentials'])
+                self.db = await asyncpg.create_pool(**self.config.db_credentials)
             except Exception:
                 self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
                 await asyncio.sleep(5.0)
@@ -95,21 +94,15 @@ class MidoBot(commands.AutoShardedBot):
         self.loop.create_task(self.chunk_active_guilds())
 
     @staticmethod
-    def get_config(bot_name: str) -> dict:
-        try:
-            with open(f'config_{bot_name}.json') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            logging.warning(f"Config file 'config_{bot_name}.json' could not be found.\n\n"
-                            f"Please fill 'config_example.json' properly, then rename it as 'config_{bot_name}.json'.")
-            exit()
+    def get_config(bot_name: str) -> models.ConfigFile:
+        return models.ConfigFile.get_config(bot_name)
 
     @property
     def log_channel(self) -> Optional[discord.TextChannel]:
-        return self.get_channel(self.config['log_channel_id'])
+        return self.get_channel(self.config.log_channel_id)
 
     async def get_prefix(self, message):
-        default = self.config["default_prefix"]
+        default = self.config.default_prefix
 
         # "try except" instead of "if else" is better here because it avoids lookup to msg.guild
         try:
@@ -173,7 +166,7 @@ class MidoBot(commands.AutoShardedBot):
         if not self.updated_status:
             # change the getting ready status
             self.status = discord.Status.online
-            self.activity = discord.Game(name=self.config["playing"])
+            self.activity = discord.Game(name=self.config.playing)
 
             # todo: do this in somewhere else
             await self.change_presence(status=self.status, activity=self.activity)
@@ -320,7 +313,8 @@ class MidoBot(commands.AutoShardedBot):
 
             await asyncio.sleep(5.0)
 
-            # This recursive loop once gave "Fatal Python error: Cannot recover from stack overflow. Python runtime state: initialized"
+            # This recursive loop once gave this error:
+            #  > Fatal Python error: Cannot recover from stack overflow. Python runtime state: initialized
             # So I will use these log info messages if we happen to get this crash again
             self.logger.info(f"There was an error while trying to send a webhook to {channel.id}. Error: {e}\n"
                              f"Retrying...")
@@ -332,7 +326,11 @@ class MidoBot(commands.AutoShardedBot):
 
     @discord.utils.cached_property
     def color(self):
-        return mido_utils.Color(self.config['default_embed_color'])
+        desired_color_str = self.config.default_embed_color
+        if desired_color_str:
+            return mido_utils.Color(int(self.config.default_embed_color, 16))
+        else:
+            return mido_utils.Color.shino_yellow()
 
     @property
     def status(self):
@@ -351,7 +349,7 @@ class MidoBot(commands.AutoShardedBot):
         self._connection._status = value
 
     def run(self):
-        super().run(self.config['token'])
+        super().run(self.config.token)
 
     async def close(self):
         try:

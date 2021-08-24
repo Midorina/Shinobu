@@ -100,8 +100,12 @@ class VoicePlayer(Player):
 
         return list(map(lambda x: Song.convert(x, ctx), songs))
 
-    async def parse_query_and_add_songs(self, ctx: mido_utils.Context, query: str, spotify):
+    async def parse_query_and_add_songs(self, ctx: mido_utils.Context, query: str, spotify=None):
         if query.startswith('https://open.spotify.com/'):  # spotify link
+            if not spotify:
+                raise mido_utils.IncompleteConfigFile(
+                    "Spotify credentials have not been set up in the configuration file. "
+                    "Please fill that in and restart the bot.")
             songs_to_add = [x for x in await spotify.get_songs(ctx, query) if x is not None]
         else:
             songs_to_add = await self._get_tracks_from_query(ctx, query)

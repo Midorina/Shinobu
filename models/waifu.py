@@ -108,7 +108,7 @@ class Waifu:
 
         self.affinity_id: int = self.user.data.get('waifu_affinity_id')
         self.claimer_id: int = self.user.data.get('waifu_claimer_id')
-        self.price: int = self.user.data.get('waifu_price') or self.user.bot.config['base_waifu_price']
+        self.price: int = self.user.data.get('waifu_price') or self.user.bot.config.base_waifu_price
 
         self.affinity_changes: int = self.user.data.get('waifu_affinity_changes')
         self.divorce_count: int = self.user.data.get('waifu_divorce_count')
@@ -130,7 +130,7 @@ class Waifu:
     async def reset_waifu_stats(self):
         self.affinity_changes = 0
         self.divorce_count = 0
-        self.price = self.user.bot.config['base_waifu_price']
+        self.price = self.user.bot.config.base_waifu_price
         self.items = []
         self.claimer_id = None
         self.affinity_id = None
@@ -154,7 +154,7 @@ class Waifu:
 
     def get_price_to_claim(self, requester_id: int) -> int:
         if not self.price:
-            self.price = self.user.bot.config['base_waifu_price']
+            self.price = self.user.bot.config.base_waifu_price
 
         if requester_id == self.affinity_id:
             return self.price
@@ -165,7 +165,7 @@ class Waifu:
         await self.change_price(self.price + math.floor(item.price / 2))
 
         self.items.append(item)
-        await self.user.db.execute("UPDATE users SET waifu_items=array_append(waifu_items, $1) WHERE id=$2;",
+        await self.user.db.execute("UPDATE users SET waifu_items=ARRAY_APPEND(waifu_items, $1) WHERE id=$2;",
                                    item.id, self.user.id)
 
     async def change_price(self, new_price: int):

@@ -53,6 +53,10 @@ class GuildIsBlacklisted(CommandError):
     pass
 
 
+class IncompleteConfigFile(CommandError):
+    pass
+
+
 # race exceptions
 
 class RaceError(CommandError):

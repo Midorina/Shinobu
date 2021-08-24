@@ -99,7 +99,7 @@ class _InternalIPCHandler:
         self.server = server
         self.bot = self.server.bot
 
-        self.port = self.bot.config['ipc_port']
+        self.port = self.bot.config.ipc_port
         self.identity = f'{self.bot.name}#{self.bot.cluster_id}'
 
         self.ws: websockets.WebSocketClientProtocol = None
@@ -248,6 +248,7 @@ class _InternalIPCHandler:
 
         await self.ws.close(code=1000, reason=reason)
 
+
 class IPCServer:
     """Gives data from the bot"""
 
@@ -342,7 +343,14 @@ class IPCClient:
         self.handler = _InternalIPCHandler(self.server)
 
     async def send_to_log_channel(self, content: str, embed: discord.Embed = None) -> None:
-        await self.handler.request('send_to_log_channel', content=content, embed=embed.to_dict() if embed else None)
+        responses = await self.handler.request('send_to_log_channel', content=content,
+                                               embed=embed.to_dict() if embed else None)
+        if not any(x.return_value for x in responses):
+            self.bot.logger.warn(
+                f"Message could not be sent to the log channel. "
+                f"Please make sure you pass an ID of a proper channel that bot can post in to the config file.\n"
+                f"Content: {content}\n"
+                f"Embed: {embed.to_dict()}")
 
     async def get_guild_count(self) -> int:
         responses = await self.handler.request('get_guild_count')
