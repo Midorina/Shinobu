@@ -33,6 +33,7 @@
   "topgg_credentials"         : {
     "post_guild_count": false,
     "token"           : "token",
+    "bot_id"          : 0,
     "webhook_auth"    : "authorization_key",
     "webhook_port"    : 5000,
     "webhook_path"    : "/dblwebhook"

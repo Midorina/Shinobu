@@ -61,6 +61,8 @@ class Gambling(
                 creds = self.bot.config.topgg_credentials
 
                 self.topgg = topgg.DBLClient(self.bot, creds["token"], autopost=False)
+                # use another bot id if provided
+                self.topgg.bot_id = creds.get('bot_id')
 
                 self.topgg_webhook = topgg.WebhookManager(self.bot).dbl_webhook(
                     creds["webhook_path"], creds["webhook_auth"])
@@ -238,12 +240,11 @@ class Gambling(
             )
             ctx.bot.get_cog('Reminder').add_reminder(reminder)
 
-            await ctx.edit_custom(m,
-                                  base_msg + f"Success! I will remind you to get your daily again "
-                                             f"in {reminder.time_obj.initial_remaining_string}.")
+            await ctx.edit_custom(m, base_msg + f"Success! I will remind you to get your daily again "
+                                                f"in {reminder.time_obj.initial_remaining_string}.")
         else:
-            await ctx.edit_custom(m,
-                                  base_msg + f"Alright, you won't be reminded when you can get your daily again.")
+            await m.clear_reactions()
+            await ctx.edit_custom(m, base_msg + f"Alright, you won't be reminded when you can get your daily again.")
 
     @commands.command(name='claimrewards', aliases=['claimpatreonrewards', 'clparew'])
     @mido_utils.is_patron_decorator(allow_owner=False)
