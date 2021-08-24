@@ -15,13 +15,13 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         self.forcekip_by_default = True
 
-        self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
+        if self.bot.config.spotify_credentials:
+            self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
 
-        if not hasattr(self.bot, 'wavelink'):
-            self.bot.wavelink = Client(bot=self.bot)
+        if not hasattr(self.bot, 'wavelink') and self.bot.config.lavalink_nodes_credentials:
+            self.wavelink = self.bot.wavelink = Client(bot=self.bot)
+
             self.bot.loop.create_task(self.start_nodes())
-
-        self.wavelink: Client = self.bot.wavelink
 
     async def start_nodes(self):
         # initiate the each node specified in the cfg file
@@ -43,6 +43,11 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             return True
 
     async def cog_before_invoke(self, ctx: mido_utils.Context):
+        if not hasattr(self, 'wavelink'):
+            raise mido_utils.IncompleteConfigFile(
+                "Music configuration is not done properly. "
+                "Please install Lavalink and enter node credentials to the config file.")
+
         ctx.voice_player = self.wavelink.get_player(ctx.guild.id, cls=mido_utils.VoicePlayer)
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
