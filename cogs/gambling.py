@@ -58,28 +58,34 @@ class Gambling(
 
             # TOP.GG / DBL
             if self.bot.config.topgg_credentials:
-                topgg_credentials: dict = self.bot.config.topgg_credentials.copy()
-                post_guild_count: bool = topgg_credentials.pop('post_guild_count')
+                creds = self.bot.config.topgg_credentials
 
-                self.dbl = topgg.DBLClient(self.bot, **self.bot.config.topgg_credentials, autopost=False)
+                self.topgg = topgg.DBLClient(self.bot, creds["token"], autopost=False)
+
+                self.topgg_webhook = topgg.WebhookManager(self.bot).dbl_webhook(
+                    creds["webhook_path"], creds["webhook_auth"])
+                self.topgg_webhook.run(creds["webhook_port"])
+
                 self.votes = set()
 
-                if post_guild_count:
+                if creds["post_guild_count"]:
                     self.post_guild_count.start()
-            else:
-                self.bot.logger.warning(f"Since Top.GG credentials are not set, "
-                                        f"users will not require a vote to claim their dailies.")
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
         """Manual posting is required due to clustering"""
         await self.bot.wait_until_ready()
 
-        if hasattr(self, 'dbl'):
-            await self.dbl.http.post_guild_count(
+        if hasattr(self, 'topgg'):
+            await self.topgg.http.post_guild_count(
                 guild_count=await self.bot.ipc.get_guild_count(),
                 shard_count=None,
                 shard_id=None)
+
+    def cog_unload(self):
+        self.active_donut_task.cancel()
+        if hasattr(self, 'topgg'):
+            self.bot.loop.create_task(self.topgg.close())
 
     async def get_active_donut_events(self):
         """This function gets active donut events and processes them"""
@@ -112,10 +118,10 @@ class Gambling(
                     if donut_event.user_is_eligible(user):  # if we missed their reaction
                         await donut_event.reward_attender(attender_id=user.id)
 
-    def cog_unload(self):
-        self.active_donut_task.cancel()
-        if hasattr(self, 'dbl'):
-            self.bot.loop.create_task(self.dbl.close())
+    @commands.Cog.listener()
+    async def on_dbl_vote(self, data):
+        self.votes.add(int(data['user']))
+        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -136,11 +142,6 @@ class Gambling(
 
                 if donut_event.user_is_eligible(user):
                     await donut_event.reward_attender(attender_id=user.id)
-
-    @commands.Cog.listener()
-    async def on_dbl_vote(self, data):
-        self.votes.add(int(data['user']))
-        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         """This function handles the removed money taken in the ensure_not_broke_and_parse_bet_amount function."""
@@ -178,15 +179,15 @@ class Gambling(
             ret = self.patreon_api.is_patron_and_can_claim_daily(user_id)
 
         if not ret:
-            if hasattr(self, 'dbl'):
+            if hasattr(self, 'topgg'):
                 ret = user_id in self.votes
                 if not ret:
                     try:
-                        ret = await self.dbl.get_user_vote(user_id)
+                        ret = await self.topgg.get_user_vote(user_id)
                     except topgg.HTTPException:
                         raise mido_utils.APIError("Top.gg API is down. Please try again later.")
             else:
-                # if its cluster 0 but dbl attribute doesn't exist, return True
+                # if its cluster 0 but topgg attribute doesn't exist, return True
                 return self.bot.cluster_id == 0
 
         return ret
