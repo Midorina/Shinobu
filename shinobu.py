@@ -54,7 +54,9 @@ class ShinobuBot(commands.AutoShardedBot):
         self.owner_ids = set(self.config.owner_ids)
         self.updated_status: bool = False
 
-        self.logger = logging.getLogger(f'{self.name.title()} Cluster#{self.cluster_id}\t')
+        # set process title so that we can find it like in htop
+        setproctitle.setproctitle(str(self))
+        self.logger = logging.getLogger(f'{self}\t')
         self.logger.info(f'Shard IDs: {cluster_kwargs["shard_ids"]} ({cluster_kwargs["shard_count"]})')
 
         self.message_counter = 0
@@ -71,9 +73,6 @@ class ShinobuBot(commands.AutoShardedBot):
 
         self.ipc: ipc.IPCClient = ipc.IPCClient(self)
 
-        # set process title so that we can find it like in htop
-        setproctitle.setproctitle(f'{self.name.title()} Cluster#{self.cluster_id}')
-
         self.run()
 
     async def prepare_bot(self):
@@ -84,9 +83,10 @@ class ShinobuBot(commands.AutoShardedBot):
                 self.db = await asyncpg.create_pool(**self.config.db_credentials)
 
             except asyncpg.InvalidCatalogNameError:
-                self.logger.warning(f"Looks like a database with name "
-                                    f"'{self.config.db_credentials['database']}' does not exist.\n"
-                                    f"Make sure it exists, then run the bot again.")
+                self.logger.error(
+                    f"Looks like a database with name "
+                    f"'{self.config.db_credentials['database']}' does not exist.\n"
+                    f"Make sure it exists, then run the bot again.")
                 exit()
 
             except Exception:
@@ -101,7 +101,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
         self.load_or_reload_cogs()
 
-        self.loop.create_task(self.chunk_active_guilds())
+        await self.chunk_active_guilds()
 
     @staticmethod
     def get_config(bot_name: str) -> models.ConfigFile:
@@ -376,3 +376,6 @@ class ShinobuBot(commands.AutoShardedBot):
         except asyncio.TimeoutError:
             # if it takes too long to shutdown, just kill the process
             os.system(f'kill {os.getpid()}')
+
+    def __str__(self) -> str:
+        return f'{self.name.title()} Cluster#{self.cluster_id}'

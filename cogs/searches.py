@@ -59,7 +59,12 @@ class Searches(
         if amount < 0:
             amount = 0
 
-        result, exchange_rate = await self.bot.ipc.convert_currency(amount, base_currency, target_currency)
+        try:
+            result, exchange_rate = await self.bot.ipc.convert_currency(amount, base_currency, target_currency)
+        except TypeError:
+            raise mido_utils.IncompleteConfigFile(
+                "You've probably did not set up the ExchangeAPI token. "
+                "Please make sure you enter a proper ExchangeAPI key to the config file.")
 
         readable = mido_utils.readable_bigint
 
@@ -146,6 +151,10 @@ class Searches(
     @commands.command(aliases=['hs'])
     async def hearthstone(self, ctx: mido_utils.Context, *, keyword: str = None):
         """Search or get a random Hearthstone card!"""
+        if not hasattr(self, 'blizzard_api'):
+            raise mido_utils.IncompleteConfigFile("BlizzardAPI credentials are not set in the config file. "
+                                                  "Please set hem up if you would like to use this command.")
+
         card = await self.blizzard_api.get_hearthstone_card(keyword)
         e = mido_utils.Embed(bot=ctx.bot,
                              title=card.name,

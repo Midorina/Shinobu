@@ -1,5 +1,6 @@
 {
   "token"                     : "token",
+  "ipc_port"                  : 13337,
   "playing"                   : "s.help",
   "default_prefix"            : "s.",
   "default_embed_color"       : "0xfffe91",

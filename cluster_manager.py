@@ -52,7 +52,7 @@ def reload_package(package):
         except Exception as e:
             # asyncpg has a built-in check about redefinitions, which raises a RuntimeError
             # https://github.com/MagicStack/asyncpg/blob/master/asyncpg/exceptions/_base.py#L57
-            log.warning(f"Error while trying to reload the package {package}: {e}")
+            log.error(f"Error while trying to reload the package {package}: {e}")
 
     log.info(f"Successfully reloaded {len(packages_to_reload)} packages.")
 

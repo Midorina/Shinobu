@@ -71,7 +71,7 @@ class IPCMessage:
 
     @classmethod
     def get_from_raw(cls, response: str) -> IPCMessage:
-        response = json.loads(response, encoding='utf-8')
+        response = json.loads(response.encode('utf8'))
         return cls(**response)
 
 
@@ -122,9 +122,10 @@ class _InternalIPCHandler:
                 await self.ws.recv()
             except OSError:
                 self.bot.logger.error("Websocket connection attempt is refused. "
-                                      "IPC server is most likely to be dead or never launched at all. "
-                                      "Retrying in 2 seconds...")
-                await asyncio.sleep(2.0)
+                                      f"IPC server is most likely dead or never launched at all.\n"
+                                      f"Please launch {os.getcwd()}/ipc/ipc.py with port {self.port}."
+                                      " Retrying in 10 seconds...")
+                await asyncio.sleep(10.0)
             except asyncio.CancelledError:
                 return
             else:
@@ -346,7 +347,7 @@ class IPCClient:
         responses = await self.handler.request('send_to_log_channel', content=content,
                                                embed=embed.to_dict() if embed else None)
         if not any(x.return_value for x in responses):
-            self.bot.logger.warn(
+            self.bot.logger.error(
                 f"Message could not be sent to the log channel. "
                 f"Please make sure you pass an ID of a proper channel that bot can post in to the config file.\n"
                 f"Content: {content}\n"

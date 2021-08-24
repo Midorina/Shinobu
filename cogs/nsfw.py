@@ -19,12 +19,10 @@ class NSFW(commands.Cog,
         self.api = mido_utils.NsfwDAPIs(self.bot.http_session, self.bot)
         self.neko = mido_utils.NekosLifeAPI(session=self.bot.http_session, db=self.bot.db)
 
-        if self.bot.config.reddit_credentials:
-            self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
+        self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
+        self.fill_the_database.start()
 
         self._cd = commands.CooldownMapping.from_cooldown(rate=2, per=1, type=commands.BucketType.guild)
-
-        self.fill_the_database.start()
 
         self.active_auto_nsfw_services = list()
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
@@ -83,6 +81,8 @@ class NSFW(commands.Cog,
                         raise IndexError
 
             except (KeyError, IndexError):
+                new_images = None
+
                 # if porn is requested or tags are not provided, pull from db
                 if nsfw_type is NSFWImage.Type.porn or not tags_str:
                     new_images = await self.reddit.get_reddit_post_from_db(
@@ -91,11 +91,17 @@ class NSFW(commands.Cog,
                         tags=[tags_str] if tags_str else None,
                         limit=500,
                         allow_gif=True)
-                else:
-                    new_images = await self.api.get_bomb(tags=tags_str,
-                                                         limit=500,
-                                                         allow_video=allow_video,
-                                                         guild_id=guild_id)
+
+                if not new_images:
+                    if nsfw_type is NSFWImage.Type.porn:
+                        raise mido_utils.IncompleteConfigFile(
+                            "Reddit cache in the database is empty. "
+                            "Please make sure you set up RedditAPI credentials properly in the config file.")
+                    else:
+                        new_images = await self.api.get_bomb(tags=tags_str,
+                                                             limit=500,
+                                                             allow_video=allow_video,
+                                                             guild_id=guild_id)
 
                 if tags_str in cache.keys():
                     cache[tags_str].extend(new_images)
@@ -194,9 +200,12 @@ class NSFW(commands.Cog,
     @tasks.loop(hours=1.0)
     async def fill_the_database(self):
         await self.bot.wait_until_ready()
-
         time = mido_utils.Time()
-        await self.reddit.fill_the_database()
+
+        # if credentials are set
+        if hasattr(self.reddit, 'reddit'):
+            await self.reddit.fill_the_database()
+
         self.bot.logger.debug('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
 
     @fill_the_database.error
@@ -261,6 +270,17 @@ class NSFW(commands.Cog,
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command()
+    async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
+        """Get a random image from Danbooru.
+
+        You must put '+' between different tags.
+        `{ctx.prefix}hentaibomb yuri+group`
+
+        **Danbooru doesn't allow more than 2 tags.**"""
+        image = (await self.api.get('danbooru', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
+        await ctx.send(**image.get_send_kwargs(self.bot))
+
+    @commands.command()
     async def gelbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Gelbooru.
 
@@ -292,17 +312,6 @@ class NSFW(commands.Cog,
         image = (await self.api.get('sankaku_complex', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
-    async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
-        """Get a random image from Danbooru.
-
-        You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`
-
-        **Danbooru doesn't allow more than 2 tags.**"""
-        image = (await self.api.get('danbooru', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
-        await ctx.send(**image.get_send_kwargs(self.bot))
-
     @commands.command(name='lewdneko')
     async def lewd_neko(self, ctx: mido_utils.Context):
         """Get a random lewd neko image."""
@@ -317,10 +326,8 @@ class NSFW(commands.Cog,
 
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
-        image = \
-            (await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1, guild_id=getattr(ctx.guild, 'id', None)))[
-                0]
-        await ctx.send(**image.get_send_kwargs(self.bot))
+        image = await self.get_nsfw_image(NSFWImage.Type.hentai, tags, limit=1, guild_id=getattr(ctx.guild, 'id', None))
+        await ctx.send(**image[0].get_send_kwargs(self.bot))
 
     @commands.command(name='hentaibomb')
     async def hentai_bomb(self, ctx: mido_utils.Context, *, tags: str = None):

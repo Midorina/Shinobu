@@ -137,11 +137,12 @@ class RedditAPI(CachedImageAPI):
     def __init__(self, credentials: dict, session: ClientSession, db: Pool):
         super().__init__(session, db)
 
-        self.reddit = asyncpraw.Reddit(
-            **credentials,
-            user_agent=MidoBotAPI.USER_AGENT,
-            requestor_kwargs={"session": self.session}
-        )
+        if credentials:
+            self.reddit = asyncpraw.Reddit(
+                **credentials,
+                user_agent=MidoBotAPI.USER_AGENT,
+                requestor_kwargs={"session": self.session}
+            )
 
     @staticmethod
     def parse_gfycat_to_red_gif(urls: List[str]):
@@ -182,7 +183,9 @@ class RedditAPI(CachedImageAPI):
         return ret
 
     async def get_images_from_subreddit(self, subreddit_name: str, submission_category: str = 'top', *args, **kwargs):
-        # TODO: test what happens without proper api keys and raise error according to that
+        if not hasattr(self, 'reddit'):
+            raise mido_utils.IncompleteConfigFile("Reddit credentials are not set, thus I can't pull from Reddit.")
+
         subreddit = await self.reddit.subreddit(subreddit_name)
 
         if submission_category == 'top':
@@ -431,14 +434,19 @@ class NsfwDAPIs(CachedImageAPI):
                             allow_video=False,
                             limit: int = 100,
                             guild_id: int = None) -> List[models.NSFWImage]:
+        if self.danbooru_credentials:
+            key_params = {'api_key': self.danbooru_credentials['api_key'],
+                          'login'  : self.danbooru_credentials['username']}
+        else:
+            key_params = {}
+
         images: List[models.NSFWImage] = []
 
         response: dict = await self._request_get(self.DAPI_LINKS['danbooru'], params={
-            'api_key': self.danbooru_credentials['api_key'],
-            'login'  : self.danbooru_credentials['username'],
-            'limit'  : limit,
-            'tags'   : " ".join(tags),
-            'random' : 'true'
+            'limit' : limit,
+            'tags'  : " ".join(tags),
+            'random': 'true',
+            **key_params
         }, return_json=True)
 
         if 'success' in response and response['success'] is False:
