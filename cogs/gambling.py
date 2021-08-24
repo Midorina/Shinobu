@@ -66,6 +66,9 @@ class Gambling(
 
                 if post_guild_count:
                     self.post_guild_count.start()
+            else:
+                self.bot.logger.warning(f"Since Top.GG credentials are not set, "
+                                        f"users will not require a vote to claim their dailies.")
 
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
