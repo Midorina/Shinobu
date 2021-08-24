@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import random
 import re
 from datetime import datetime, timedelta, timezone
@@ -17,14 +18,20 @@ from discord.ext.commands import BadArgument
 import mido_utils
 import models
 
-__all__ = ['XpAnnouncement', 'ModLog', 'UserDB', 'MemberDB',
+__all__ = ['XpAnnouncement', 'NSFWImage',  # these 2 are not actual tables
+           'ModLog', 'UserDB', 'MemberDB',
            'GuildDB', 'GuildLoggingDB', 'GuildNSFWDB',
-           'LoggedMessage', 'ReminderDB', 'CustomReaction', 'NSFWImage',
+           'LoggedMessage', 'ReminderDB', 'CustomReaction',
            'CachedImage', 'DonutEvent', 'TransactionLog',
            'BlacklistDB', 'XpRoleReward', 'HangmanWord']
 
 
-# todo: create create table queries
+async def run_create_table_funcs(db):
+    for class_name in __all__:
+        _class = globals()[class_name]
+        if isinstance(_class, BaseDBModel):
+            await _class.create_table(db)
+
 
 class XpAnnouncement(Enum):
     SILENT = 0
@@ -33,6 +40,8 @@ class XpAnnouncement(Enum):
 
 
 class BaseDBModel:
+    TABLE_DEFINITION = None
+
     def __init__(self, data: Record, bot):
         self.bot = bot
         self.db = self.bot.db
@@ -43,11 +52,36 @@ class BaseDBModel:
 
         self.date_added = data.get('date_added')
 
+    @classmethod
+    async def create_table(cls, db):
+        if cls.TABLE_DEFINITION is None:
+            raise NotImplemented
+
+        logging.info(f"Creating database table for class {cls.__class__.__name__}.")
+        await db.execute(cls.TABLE_DEFINITION)
+
     def __eq__(self, other):
         raise NotImplemented
 
 
 class ModLog(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS modlogs
+(
+    id                serial
+        CONSTRAINT modlogs_pkey
+            PRIMARY KEY,
+    guild_id          bigint                                 NOT NULL,
+    user_id           bigint                                 NOT NULL,
+    type              smallint                               NOT NULL,
+    reason            text,
+    executor_id       bigint,
+    length_in_seconds bigint,
+    date              timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    done              boolean,
+    hidden            boolean                  DEFAULT FALSE NOT NULL
+);
+"""
+
     class Type(Enum):
         MUTE = 0
         UNMUTE = 1
@@ -148,6 +182,32 @@ class ModLog(BaseDBModel):
 
 
 class UserDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS users
+(
+    id                        bigint                                            NOT NULL
+        CONSTRAINT users_pkey
+            PRIMARY KEY,
+    cash                      bigint                   DEFAULT 0                NOT NULL,
+    last_daily_claim          timestamp WITH TIME ZONE,
+    xp                        bigint                   DEFAULT 0                NOT NULL,
+    last_xp_gain              timestamp WITH TIME ZONE,
+    level_up_notification     smallint                 DEFAULT 0                NOT NULL,
+    waifu_affinity_id         bigint,
+    waifu_claimer_id          bigint,
+    waifu_price               bigint,
+    waifu_affinity_changes    smallint                 DEFAULT 0                NOT NULL,
+    waifu_divorce_count       smallint                 DEFAULT 0                NOT NULL,
+    waifu_items               smallint[]               DEFAULT '{}'::smallint[] NOT NULL,
+    name_and_discriminator    text,
+    date_added                timestamp WITH TIME ZONE DEFAULT NOW(),
+    last_patreon_claim_date   timestamp WITH TIME ZONE,
+    last_patreon_claim_amount bigint
+);
+
+CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
+    ON users (xp DESC);
+"""
+
     def __init__(self, user_db: Record, bot):
         super().__init__(user_db, bot)
 
@@ -311,6 +371,21 @@ class UserDB(BaseDBModel):
 
 
 class MemberDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS members
+(
+    guild_id     bigint                             NOT NULL,
+    user_id      bigint                             NOT NULL,
+    xp           bigint                   DEFAULT 0 NOT NULL,
+    last_xp_gain timestamp WITH TIME ZONE,
+    date_added   timestamp WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT pkey
+        PRIMARY KEY (guild_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS member_xp_leaderboard_index
+    ON members (xp DESC, guild_id ASC);
+"""
+
     # noinspection PyTypeChecker
     def __init__(self, member_db: Record, bot):
         super().__init__(member_db, bot)
@@ -384,6 +459,21 @@ class MemberDB(BaseDBModel):
 
 
 class GuildNSFWDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS guilds_nsfw_settings
+(
+    id                     bigint NOT NULL
+        CONSTRAINT guilds_nsfw_settings_pk
+            PRIMARY KEY,
+    auto_hentai_channel_id bigint,
+    auto_hentai_tags       text[],
+    auto_hentai_interval   integer,
+    auto_porn_channel_id   bigint,
+    auto_porn_tags         text[],
+    auto_porn_interval     integer,
+    blacklisted_tags       text[] DEFAULT '{}'::text[]
+);
+"""
+
     def __init__(self, nsfw_db: Record, bot):
         super().__init__(nsfw_db, bot)
 
@@ -470,6 +560,30 @@ class GuildNSFWDB(BaseDBModel):
 
 
 class GuildDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS guilds
+(
+    id                         bigint                                          NOT NULL
+        CONSTRAINT guilds_pk
+            PRIMARY KEY,
+    prefix                     text                     DEFAULT 's.'::text,
+    delete_commands            boolean                  DEFAULT FALSE,
+    level_up_notifs_silenced   boolean                  DEFAULT FALSE,
+    volume                     smallint                 DEFAULT 15             NOT NULL,
+    welcome_channel_id         bigint,
+    welcome_message            text,
+    bye_channel_id             bigint,
+    bye_message                text,
+    assignable_role_ids        bigint[]                 DEFAULT '{}'::bigint[] NOT NULL,
+    exclusive_assignable_roles boolean                  DEFAULT FALSE          NOT NULL,
+    welcome_delete_after       integer                  DEFAULT 0              NOT NULL,
+    bye_delete_after           integer                  DEFAULT 0              NOT NULL,
+    date_added                 timestamp WITH TIME ZONE DEFAULT NOW(),
+    last_message_date          timestamp WITH TIME ZONE DEFAULT NOW(),
+    xp_excluded_channels       bigint[]                 DEFAULT '{}'::bigint[],
+    welcome_role_id            bigint
+);
+"""
+
     def __init__(self, guild_db: Record, bot):
         super().__init__(guild_db, bot)
 
@@ -618,6 +732,15 @@ class GuildDB(BaseDBModel):
 
 
 class GuildLoggingDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS guilds_logging
+(
+    id                bigint,
+    modlog_channel_id bigint,
+    log_channel_id    bigint,
+    simple_mode       boolean
+);
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -675,6 +798,20 @@ class GuildLoggingDB(BaseDBModel):
 
 
 class LoggedMessage(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS message_log
+(
+    message_id      bigint                                 NOT NULL
+        CONSTRAINT message_log_pk
+            PRIMARY KEY,
+    author_id       bigint                                 NOT NULL,
+    channel_id      bigint                                 NOT NULL,
+    guild_id        bigint,
+    message_content text                                   NOT NULL,
+    message_embeds  text[]                   DEFAULT '{}'::text[],
+    created_at      timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+"""
+
     class UnknownUser:
         def __init__(self):
             self.id = 0
@@ -762,8 +899,15 @@ class LoggedMessage(BaseDBModel):
              ) for message in messages)
 
         await bot.db.executemany("""
-            INSERT INTO message_log(message_id, author_id, channel_id, guild_id, message_content, message_embeds, created_at) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING *;
+             INSERT INTO message_log(
+             message_id, 
+             author_id, 
+             channel_id, 
+             guild_id, 
+             message_content, 
+             message_embeds, 
+             created_at) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING *;
             """, tup)
 
         # update active guilds with this info
@@ -777,6 +921,22 @@ class LoggedMessage(BaseDBModel):
 
 
 class ReminderDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS reminders
+(
+    id                serial
+        CONSTRAINT reminders_pk
+            PRIMARY KEY,
+    author_id         bigint                                 NOT NULL,
+    channel_id        bigint                                 NOT NULL,
+    channel_type      smallint                 DEFAULT 0     NOT NULL,
+    content           text                                   NOT NULL,
+    length_in_seconds bigint                                 NOT NULL,
+    creation_date     timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    done              boolean                  DEFAULT FALSE NOT NULL
+);
+
+"""
+
     class ChannelType(Enum):
         DM = 0
         TEXT_CHANNEL = 1
@@ -833,6 +993,22 @@ class ReminderDB(BaseDBModel):
 
 
 class CustomReaction(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS custom_reactions
+(
+    id                serial
+        CONSTRAINT custom_reactions_pk
+            PRIMARY KEY,
+    guild_id          bigint,
+    trigger           text                                   NOT NULL,
+    response          text                                   NOT NULL,
+    date_added        timestamp WITH TIME ZONE DEFAULT NOW(),
+    delete_trigger    boolean                  DEFAULT FALSE NOT NULL,
+    "send_in_DM"      boolean                  DEFAULT FALSE NOT NULL,
+    contains_anywhere boolean                  DEFAULT FALSE NOT NULL,
+    use_count         integer                  DEFAULT 0     NOT NULL
+);
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -984,6 +1160,23 @@ class NSFWImage:
 
 
 class CachedImage(BaseDBModel, NSFWImage):
+    """uses the api_cache table"""
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS api_cache
+(
+    id             bigserial
+        CONSTRAINT api_cache_pk
+            PRIMARY KEY,
+    api_name       text                         NOT NULL,
+    url            text                         NOT NULL,
+    tags           text[]  DEFAULT '{}'::text[] NOT NULL,
+    report_count   integer DEFAULT 0,
+    is_gif         boolean DEFAULT FALSE,
+    last_url_check timestamp WITH TIME ZONE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
+    ON api_cache (url);"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -1053,6 +1246,22 @@ class CachedImage(BaseDBModel, NSFWImage):
 
 
 class DonutEvent(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS donut_events
+(
+    id                 serial
+        CONSTRAINT donut_events_pk
+            PRIMARY KEY,
+    guild_id           bigint                          NOT NULL,
+    channel_id         bigint                          NOT NULL,
+    message_id         bigint                          NOT NULL,
+    end_date           timestamp WITH TIME ZONE        NOT NULL,
+    attenders          bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    reward             integer  DEFAULT 1              NOT NULL,
+    start_date         timestamp WITH TIME ZONE,
+    message_is_deleted boolean  DEFAULT FALSE          NOT NULL
+);
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -1158,6 +1367,17 @@ class DonutEvent(BaseDBModel):
 
 
 class TransactionLog(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS transaction_history
+(
+    id      serial,
+    user_id bigint                                 NOT NULL,
+    amount  bigint                                 NOT NULL,
+    reason  text                                   NOT NULL,
+    date    timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -1174,6 +1394,16 @@ class TransactionLog(BaseDBModel):
 
 
 class BlacklistDB(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS blacklist
+(
+    user_or_guild_id bigint                                        NOT NULL,
+    type             text                     DEFAULT 'user'::text NOT NULL,
+    reason           text,
+    date             timestamp WITH TIME ZONE DEFAULT NOW()        NOT NULL,
+    CONSTRAINT blacklist_pk
+        PRIMARY KEY (user_or_guild_id, type)
+);"""
+
     class BlacklistType(Enum):
         guild = auto()
         user = auto()
@@ -1220,6 +1450,15 @@ class BlacklistDB(BaseDBModel):
 
 
 class XpRoleReward(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS guilds_xp_role_rewards
+(
+    guild_id   bigint,
+    level      integer,
+    role_id    bigint,
+    date_added timestamp WITH TIME ZONE
+);
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
@@ -1259,6 +1498,14 @@ class XpRoleReward(BaseDBModel):
 
 
 class HangmanWord(BaseDBModel):
+    TABLE_DEFINITION = """CREATE TABLE IF NOT EXISTS hangman_words
+(
+    id       serial,
+    category text,
+    word     text
+);
+"""
+
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
