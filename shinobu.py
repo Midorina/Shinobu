@@ -83,11 +83,16 @@ class ShinobuBot(commands.AutoShardedBot):
                 self.db = await asyncpg.create_pool(**self.config.db_credentials)
 
             except asyncpg.InvalidCatalogNameError:
-                self.logger.error(
-                    f"Looks like a database with name "
-                    f"'{self.config.db_credentials['database']}' does not exist.\n"
-                    f"Make sure it exists, then run the bot again.")
-                exit()
+                self.logger.warning(
+                    f"Looks like a database with name '{self.config.db_credentials['database']}' does not exist. "
+                    f"I will create it for you.")
+
+                temp_conn = await asyncpg.connect(**dict(self.config.db_credentials, database='template1'))
+                # https://stackoverflow.com/questions/59336747/asyncpg-syntax-error-at-or-near-1-error
+                await temp_conn.execute(
+                    f"CREATE DATABASE {self.config.db_credentials['database']} "
+                    f"OWNER {self.config.db_credentials['user']};")
+                await temp_conn.close()
 
             except Exception:
                 self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
