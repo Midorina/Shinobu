@@ -264,6 +264,7 @@ class Meta(commands.Cog,
     @commands.command(aliases=['info', 'about', 'botinfo'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
+        # TODO: add open source link to here
         mido = await self.bot.get_user_using_ipc(self.bot.config.owner_ids[0])
 
         cluster_stats = await self.bot.ipc.get_cluster_stats()
