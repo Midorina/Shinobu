@@ -530,6 +530,7 @@ class Moderation(
     @commands.command(name="serverinfo", aliases=['sinfo'])
     async def server_info(self, ctx: mido_utils.Context, server_id: mido_utils.Int64() = None):
         """Shows the information of the server."""
+        # TODO: get the guild using IPC
 
         # if user is not the owner or server id isn't specified
         if server_id is not None:
@@ -595,6 +596,7 @@ class Moderation(
 
         await ctx.send(embed=embed)
 
+    # TODO: make this available inside guilds
     @commands.command(name="userinfo", aliases=['uinfo'])
     @commands.guild_only()
     async def user_info(self, ctx: mido_utils.Context,

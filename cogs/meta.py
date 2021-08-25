@@ -322,6 +322,7 @@ class Meta(commands.Cog,
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
+        # TODO: reload the config file as well
         responses = await self.bot.ipc.reload(target_cog=cog_name)
 
         e = mido_utils.Embed(ctx.bot, description="")
@@ -363,6 +364,8 @@ class Meta(commands.Cog,
 
     @commands.command()
     async def invite(self, ctx: mido_utils.Context):
+        # TODO: add manage webhooks permission to invite links
+
         e = mido_utils.Embed(self.bot)
         e.title = f"Invite {self.bot.user} to your server:"
         e.description = f"[With Administrator Permission]" \
