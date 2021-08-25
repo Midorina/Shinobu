@@ -96,6 +96,7 @@ python3 ipc.py --port 13337
 5. Finally, open a new terminal, `cd` into the code directory run the bot (example is for bot name `shinobu`):
 
 ```python
+cd Shinobu
 python3 run.py shinobu
 ``` 
 
