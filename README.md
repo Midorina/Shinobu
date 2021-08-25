@@ -1,20 +1,23 @@
-# Shinobu Discord Bot 
-Shinobu is a Discord bot which provides service since 2016 and serves over 13,000 servers.
-It was a Nadeko clone at first, but then it got re-written from scratch using Discord.py.  
+# Shinobu Discord Bot
 
-**Invite Shinobu to your server:** https://midorina.dev/shinobu
+Shinobu is a Discord bot which provides service since 2016 and serves over 13,000 servers. It was a Nadeko clone at
+first, but then it got re-written from scratch using Discord.py.
 
-Support server: https://discord.gg/5RXauct
+There's a lot of TODO's around the code, which I could not find time to implement myself. If you find one and would like
+to contribute, that'd be appreciated :)
 
-This is the complete source code of Shinobu. It was not intended to be public at first, so there isn't any instructions to set it up yourself yet, but soon™️.
+### Links
 
-There's a lot of TODO's around the code, which I could not find time to implement myself. If you find one and would like to contribute, that'd be appreciated.
+- **Invite Shinobu to your server:** https://midorina.dev/shinobu
+- Top.GG: https://top.gg/bot/212783784163016704
+- Support server: https://discord.gg/5RXauct
 
 ## Technical Features
+
 - Autosharding (provided by discord.py)
 - Clustering
 - IPC (interprocess communication) for clusters to be able to communicate with each other
-- 15 Modules, 130 Commands
+- 15 Modules, 130+ Commands
 - Custom ORM (Object-relational mapping) to communicate with the database
 - Makes use of the following APIs:
   1. Reddit API (3D NSFW Content)
@@ -53,37 +56,40 @@ Disable or enable logging in the current channel using `s.logging` and toggle be
 Use `s.prefix` to change the way you call me, `s.invite` to get invite links or `s.deletedata` to delete everything I know about you.
 
 ### Moderation
+
 Ban/mute temporarily, hold logs, manage roles, prune messages quickly to moderate your server easily.
 
 ### NSFW
+
 Get quality NSFW images. Check out `s.autohentai` to have them posted automatically.
 
 ### Reminder
+
 Use `s.remind` to remind yourself or someone of something.
 
-### Searches
-Search something using `s.google`/`s.urban` or convert currencies using `s.convert`.
-                
-### Shitposting
-RNG shitposting using `s.8ball`, `s.pp` and `s.howgay`.  
-Image filters using `s.gay`, `s.wasted`, `s.triggered` and `s.ytcomment`.
-                
-### Waifu
-Claim someone as your waifu using `s.claim`, send gifts to them using `s.gift` and check your stats using `s.waifustats`.
-                
-### XP / Leveling
-Check your xp status using `s.xp`, set level rewards using `s.xprolereward` and compete against others in `s.xplb` and `s.xpglb`!   
+## Installation
+
+1. Install the repo and change your directory to the script's location
+
+```shell
+git clone https://github.com/Midorina/Shinobu
+cd Shinobu
+```
+
+2. Install the required libraries
+
+```shell
+python3 -m pip install -r requirements.txt
+```
+
+3. Fill in the `config_example.json` file following this guide: https://github.com/Midorina/Shinobu/wiki/Config-File.  
+   **Do not forget to rename it** to your bot's name afterwards (e.g. `config_shinobu.json`).
 
 
+4. Finally, run the bot (where `bot_name` is a bot name you specify, e.g. `python3 run.py shinobu`):
 
-## Other Information
-You can use type `s.help` to get a help message.
+```python
+python3 run.py bot_name
+``` 
 
-You can use `s.help ModuleName` (eg. `s.help reminder`) to see a list of all of the commands in that module. 
-
-For a specific command help, use `s.help CommandName` (eg. `s.help play`)
-
-Prefix can be changed using the `s.prefix` command.  
-If you forget the prefix, you can call Shinobu by pinging her. (eg. @Shinobu prefix)
-
-**If you have problems with Shinobu, or want to join donut events, feel free to join the support server.**
+If you needed additional steps during installation, please specify and I will add them.
