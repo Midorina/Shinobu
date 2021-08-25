@@ -69,14 +69,14 @@ Use `s.remind` to remind yourself or someone of something.
 
 ## Installation
 
-1. Install the repo and change your directory to the script's location
+1. Install the repo and change your directory to the script's location:
 
 ```shell
 git clone https://github.com/Midorina/Shinobu
 cd Shinobu
 ```
 
-2. Install the required libraries
+2. Install the required libraries:
 
 ```shell
 python3 -m pip install -r requirements.txt
@@ -86,10 +86,17 @@ python3 -m pip install -r requirements.txt
    **Do not forget to rename it** to your bot's name afterwards (e.g. `config_shinobu.json`).
 
 
-4. Finally, run the bot (where `bot_name` is a bot name you specify, e.g. `python3 run.py shinobu`):
+4. Run our IPC server with the port you specified in the config file (example is for port `13337`):
+
+```shell
+cd ipc
+python3 ipc.py --port 13337
+```
+
+5. Finally, open a new terminal, `cd` into the code directory run the bot (example is for bot name `shinobu`):
 
 ```python
-python3 run.py bot_name
+python3 run.py shinobu
 ``` 
 
 If you needed additional steps during installation, please specify and I will add them.
