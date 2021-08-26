@@ -269,7 +269,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
     async def _insert_from_json(self):
         self.bot.logger.info("Hangman words were not in our database. Inserting from hangman.json...")
 
-        with open('resources/hangman.json') as f:
+        with open('resources/hangman.json', encoding='utf8') as f:
             words = json.load(f)
 
             for category, words in words.items():
