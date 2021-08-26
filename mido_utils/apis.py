@@ -256,7 +256,7 @@ class RedditAPI(CachedImageAPI):
 
 
 class NsfwDAPIs(CachedImageAPI):
-    _BLACKLISTED_TAGS = [
+    BLACKLISTED_TAGS = [
         'loli',
         'shota',
         'child',
@@ -351,11 +351,11 @@ class NsfwDAPIs(CachedImageAPI):
 
     async def get_blacklisted_tags(self, guild_id: int = None):
         if not guild_id:
-            return self._BLACKLISTED_TAGS
+            return self.BLACKLISTED_TAGS
 
         nsfw_db = await models.GuildNSFWDB.get_or_create(self.bot, guild_id)
 
-        return nsfw_db.blacklisted_tags + self._BLACKLISTED_TAGS
+        return nsfw_db.blacklisted_tags + self.BLACKLISTED_TAGS
 
     async def _parse_tags(self, tags: str, guild_id: int = None) -> List[str]:
         if tags is None:

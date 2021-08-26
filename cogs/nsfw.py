@@ -425,21 +425,21 @@ class NSFW(commands.Cog,
         nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)
 
         if not tag:
-            if not nsfw_db.blacklisted_tags:
-                raise commands.UserInputError("This server does not have any blacklisted tags.")
+            blacklisted_from_backend = [f'{x} `[blacklisted from backend]`'
+                                        for x in mido_utils.NsfwDAPIs.BLACKLISTED_TAGS]
 
             e = mido_utils.Embed(ctx.bot, title=f"{ctx.guild} Blacklisted NSFW Tags")
 
-            return await e.paginate(ctx, blocks=nsfw_db.blacklisted_tags, item_per_page=15)
+            return await e.paginate(ctx, blocks=blacklisted_from_backend + nsfw_db.blacklisted_tags, item_per_page=15)
+        else:
+            tag = tag.lower()
 
-        tag = tag.lower()
+            if tag in nsfw_db.blacklisted_tags or tag in mido_utils.NsfwDAPIs.BLACKLISTED_TAGS:
+                raise commands.UserInputError(f"Tag `{tag}` is already blacklisted.")
 
-        if tag in nsfw_db.blacklisted_tags:
-            raise commands.UserInputError(f"Tag `{tag}` is already blacklisted.")
+            await nsfw_db.blacklist_tag(tag)
 
-        await nsfw_db.blacklist_tag(tag)
-
-        await ctx.send_success(f"Tag `{tag}` has been successfully blacklisted.")
+            await ctx.send_success(f"Tag `{tag}` has been successfully blacklisted.")
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
