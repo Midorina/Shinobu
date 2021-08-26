@@ -99,7 +99,7 @@ class ShinobuBot(commands.AutoShardedBot):
                 await asyncio.sleep(5.0)
 
             else:
-                await run_create_table_funcs(self.db)
+                await run_create_table_funcs(self)
                 break
 
         self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
@@ -330,7 +330,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
             # This recursive loop once gave this error:
             #  > Fatal Python error: Cannot recover from stack overflow. Python runtime state: initialized
-            # So I will use these log info messages if we happen to get this crash again
+            # So I will use these info messages if we happen to get this crash again
             self.logger.info(f"There was an error while trying to send a webhook to {channel.id}. Error: {e}\n"
                              f"Retrying...")
 

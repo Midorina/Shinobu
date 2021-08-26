@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import random
 import re
 from datetime import datetime, timedelta, timezone
@@ -54,12 +53,12 @@ class BaseDBModel:
         self.date_added = data.get('date_added')
 
     @classmethod
-    async def create_table(cls, db):
+    async def create_table(cls, bot):
         if cls.TABLE_DEFINITION is None:
             raise NotImplemented
 
-        logging.info(f"Creating database table for class {cls.__name__}.")
-        await db.execute(cls.TABLE_DEFINITION)
+        bot.logger.debug(f"Creating database table for class {cls.__name__}.")
+        await bot.db.execute(cls.TABLE_DEFINITION)
 
     def __eq__(self, other):
         raise NotImplemented
