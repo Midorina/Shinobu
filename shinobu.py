@@ -90,8 +90,8 @@ class ShinobuBot(commands.AutoShardedBot):
                 temp_conn = await asyncpg.connect(**dict(self.config.db_credentials, database='template1'))
                 # https://stackoverflow.com/questions/59336747/asyncpg-syntax-error-at-or-near-1-error
                 await temp_conn.execute(
-                    f"CREATE DATABASE {self.config.db_credentials['database']} "
-                    f"OWNER {self.config.db_credentials['user']};")
+                    f'CREATE DATABASE "{self.config.db_credentials["database"]}" '
+                    f'OWNER "{self.config.db_credentials["user"]}";')
                 await temp_conn.close()
 
             except Exception:
