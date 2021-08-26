@@ -187,6 +187,7 @@ class Gambling(
                     try:
                         ret = await self.topgg.get_user_vote(user_id)
                     except topgg.HTTPException:
+                        # TODO: this is sometimes 403. inform the host properly
                         raise mido_utils.APIError("Top.gg API is down. Please try again later.")
             else:
                 # if its cluster 0 but topgg attribute doesn't exist, return True
