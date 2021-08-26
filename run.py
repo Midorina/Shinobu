@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import logging
 import os
 import sys
@@ -44,8 +43,7 @@ def main():
 
     logger.handlers = [handler_f, handler_c1, handler_c2]
 
-    loop = asyncio.get_event_loop()
-    Launcher(loop, bot_name).start()
+    Launcher(bot_name).start()
 
 
 if __name__ == '__main__':

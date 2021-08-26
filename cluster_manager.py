@@ -4,8 +4,6 @@ import logging
 import multiprocessing
 import os
 import signal
-import sys
-import time
 import types
 from typing import List
 
@@ -13,7 +11,7 @@ import requests
 
 import shinobu
 
-log = logging.getLogger('Cluster Manager')
+cluster_logger = logging.getLogger('Cluster Manager')
 
 
 # TODO: use ipc or a pipe to listen to clusters.
@@ -52,58 +50,61 @@ def reload_package(package):
         except Exception as e:
             # asyncpg has a built-in check about redefinitions, which raises a RuntimeError
             # https://github.com/MagicStack/asyncpg/blob/master/asyncpg/exceptions/_base.py#L57
-            log.error(f"Error while trying to reload the package {package}: {e}")
+            cluster_logger.error(f"Error while trying to reload the package {package}: {e}")
 
-    log.info(f"Successfully reloaded {len(packages_to_reload)} packages.")
+    cluster_logger.info(f"Successfully reloaded {len(packages_to_reload)} packages.")
 
 
 class Launcher:
     SHARDS_PER_CLUSTER = 2
 
-    def __init__(self, loop, bot_name: str = 'midobot'):
-        self.cluster_count = 0
-
-        self.clusters: List[Cluster] = []
-
-        self.future = None
-        self.loop = loop
-        self.alive = True
-
-        self.keep_alive = None
-        self.init = time.perf_counter()
-
+    def __init__(self, bot_name: str = 'shinobu', loop=None):
         self.bot_name = bot_name
         self.bot_token = shinobu.ShinobuBot.get_config(bot_name, warn=True).token
 
-    def get_shard_count(self):
-        data = requests.get('https://discord.com/api/v7/gateway/bot', headers={
-            "Authorization": "Bot " + self.bot_token,
-            "User-Agent"   : "DiscordBot (https://github.com/Rapptz/discord.py 1.7.3) Python/3.8 aiohttp/3.6.1"
-        })
-        data.raise_for_status()
+        self.clusters: List[Cluster] = []
+        self.cluster_count = 0
 
-        content = data.json()
-        log.info(f"Successfully got shard count of {content['shards']} ({data.status_code, data.reason})")
+        self.loop = loop or asyncio.get_event_loop()
+        self.startup_task = None
+        self.rebooter_task = None
 
-        return content['shards']
+        self.alive = True
 
     def start(self):
-        self.future = asyncio.ensure_future(self.startup(), loop=self.loop)
+        self.startup_task = asyncio.ensure_future(self.prepare_and_start_clusters(), loop=self.loop)
 
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
             self.loop.run_until_complete(self.shutdown_all())
         finally:
-            self.cleanup()
+            self.loop.stop()
 
-    async def startup(self):
+            self.loop.close()
+
+    def get_shard_count(self):
+        cluster_logger.info(f"Getting required shard count from DiscordAPI...")
+
+        data = requests.get('https://discord.com/api/v7/gateway/bot', headers={
+            "Authorization": "Bot " + self.bot_token,
+            "User-Agent"   : "DiscordBot (https://github.com/Rapptz/discord.py 1.7.3) Python/3.8 aiohttp/3.6.1"
+        })
+
+        data.raise_for_status()
+        content = data.json()
+
+        cluster_logger.info(f"Successfully got shard count of {content['shards']}.")
+
+        return content['shards']
+
+    async def prepare_and_start_clusters(self):
         shards = list(range(self.get_shard_count()))
         cluster_shard_ids = [shards[x:x + self.SHARDS_PER_CLUSTER]
                              for x in range(0, len(shards), self.SHARDS_PER_CLUSTER)]
 
         self.cluster_count = len(cluster_shard_ids)
-        log.info(f"Preparing {self.cluster_count} clusters.")
+        cluster_logger.info(f"Preparing {self.cluster_count} clusters.")
 
         for i, shard_ids in enumerate(cluster_shard_ids, 0):
             self.clusters.append(
@@ -113,35 +114,36 @@ class Launcher:
 
         await self.start_clusters()
 
-        self.keep_alive = self.loop.create_task(self.rebooter())
-        self.keep_alive.add_done_callback(self.task_complete)
+        self.rebooter_task = self.loop.create_task(self.rebooter())
+        self.rebooter_task.add_done_callback(self.task_complete)
 
-        log.info(f"Startup completed in {time.perf_counter() - self.init}s")
+        cluster_logger.info(f"Startup complete.")
 
     async def start_clusters(self):
         for cluster in self.clusters:
             if not cluster.is_alive():
                 await cluster.start()
-                log.info(f"Started Cluster#{cluster.id}")
+                cluster_logger.info(f"Started Cluster#{cluster.id}.")
 
     async def shutdown_all(self):
-        log.info("Shutting down clusters")
+        cluster_logger.info("Shutting down all clusters.")
         self.alive = False
-        if self.keep_alive:
-            self.keep_alive.cancel()
+
+        if self.rebooter_task:
+            self.rebooter_task.cancel()
+
         for cluster in self.clusters:
             cluster.stop()
-        self.cleanup()
 
     async def rebooter(self):
         while self.alive:
             for cluster in self.clusters:
                 if not cluster.process.is_alive():
-                    log.warning(f"Cluster#{cluster.id} exited with code {cluster.process.exitcode}.")
+                    cluster_logger.warning(f"Cluster#{cluster.id} exited with code {cluster.process.exitcode}.")
 
                     cluster.stop()  # ensure stopped
 
-                    log.info(f"Restarting cluster#{cluster.id}")
+                    cluster_logger.info(f"Restarting cluster#{cluster.id}")
                     await cluster.start()
 
             await asyncio.sleep(5)
@@ -149,14 +151,8 @@ class Launcher:
     def task_complete(self, task):
         if task.exception():
             task.print_stack()
-            self.keep_alive = self.loop.create_task(self.rebooter())
-            self.keep_alive.add_done_callback(self.task_complete)
-
-    def cleanup(self):
-        self.loop.stop()
-        if sys.platform == 'win32':
-            log.info("press ^C again")
-        self.loop.close()
+            self.rebooter_task = self.loop.create_task(self.rebooter())
+            self.rebooter_task.add_done_callback(self.task_complete)
 
 
 class Cluster:
@@ -181,7 +177,7 @@ class Cluster:
         self.process = None
 
         self.log = logging.getLogger(f"Cluster#{cluster_id}")
-        self.log.info(f"Initialized with shard ids {shard_ids}, total shards {max_shards}")
+        self.log.info(f"I have been initialized with shards {shard_ids} ({len(shard_ids)}/{max_shards}).")
 
     def wait_close(self):
         return self.process.join()
@@ -205,6 +201,7 @@ class Cluster:
         self.process = multiprocessing.Process(name=f'{self.bot_name} #{self.kwargs["cluster_id"]}',
                                                target=shinobu.ShinobuBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
+
         self.log.info(f"Process started with PID {self.process.pid}")
 
         return True
