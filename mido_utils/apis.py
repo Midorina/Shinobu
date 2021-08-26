@@ -51,6 +51,9 @@ class MidoBotAPI:
                            return_text=False) -> Union[str, dict, ClientResponse]:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
+                if response.status == 404:
+                    raise mido_utils.NotFoundError
+
                 if not response.status == 200:
                     raise mido_utils.APIError(f"{response.status} for URL: {response.url}")
 
