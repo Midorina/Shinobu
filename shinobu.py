@@ -9,7 +9,6 @@ import aiohttp
 import asyncpg
 import discord
 import setproctitle
-from async_timeout import timeout
 from discord.ext import commands
 
 # anything not imported here will not be reloaded once the cluster is shut down.
@@ -25,6 +24,7 @@ class ShinobuBot(commands.AutoShardedBot):
     def __init__(self, **cluster_kwargs):
         self.name = cluster_kwargs.pop('bot_name')
         self.config: models.ConfigFile = self.get_config(self.name, warn=False)
+        self.owner_ids = set(self.config.owner_ids)
 
         self.cluster_id: int = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
@@ -49,35 +49,36 @@ class ShinobuBot(commands.AutoShardedBot):
         # case insensitive cogs
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
+        self.ipc: ipc.IPCClient = None
         self.db: asyncpg.pool.Pool = None
-        self.prefix_cache = {}
-        self.owner_ids = set(self.config.owner_ids)
-        self.updated_status: bool = False
+        self.uptime: mido_utils.Time = None
 
         # set process title so that we can find it like in htop
         setproctitle.setproctitle(str(self))
         self.logger = logging.getLogger(f'{self}\t')
-        self.logger.info(f'Shard IDs: {cluster_kwargs["shard_ids"]} ({cluster_kwargs["shard_count"]})')
 
         self.message_counter = 0
         self.command_counter = 0
-        self.uptime: mido_utils.Time = None
 
         self.http_session = mido_utils.MidoBotAPI.get_aiohttp_session()
 
         self.before_invoke(self.attach_db_objects_to_ctx)
 
+        self.prefix_cache = dict()
         self.webhook_cache: Dict[int, discord.Webhook] = dict()
 
-        self.loop.create_task(self.prepare_bot())
-
-        self.ipc: ipc.IPCClient = ipc.IPCClient(self)
+        self.exit_code: int = 0
+        self.updated_status: bool = False
 
         self.run()
 
     async def prepare_bot(self):
         self.uptime = mido_utils.Time()
 
+        # connect to IPC
+        self.ipc = ipc.IPCClient(self)
+
+        # TODO: have a custom class and do this in db.py
         while not self.db:
             try:
                 self.db = await asyncpg.create_pool(**self.config.db_credentials)
@@ -186,6 +187,8 @@ class ShinobuBot(commands.AutoShardedBot):
             # todo: do this in somewhere else
             await self.change_presence(status=self.status, activity=self.activity)
 
+            # change exit code from 0 to 1 to get restarted upon exit
+            self.exit_code = 1
             self.updated_status = True
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
@@ -376,20 +379,17 @@ class ShinobuBot(commands.AutoShardedBot):
                 "Please enable them and restart the bot.")
 
     async def close(self):
-        try:
-            async with timeout(30.0):
-                # close ipc connection
-                await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
+        # close ipc connection
+        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
 
-                # close the bot
-                await super().close()
+        # close the bot
+        await super().close()
 
-                # close the http session and the db connection
-                await self.http_session.close()
-                await self.db.close()
-        except asyncio.TimeoutError:
-            # if it takes too long to shutdown, just kill the process
-            os.system(f'kill {os.getpid()}')
+        # close the db connection and the http session
+        await self.db.close()
+        await self.http_session.close()
+
+        exit(self.exit_code)
 
     def __str__(self) -> str:
         return f'{self.name.title()} Cluster#{self.cluster_id}'
