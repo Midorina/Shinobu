@@ -77,10 +77,9 @@ class Launcher:
         try:
             self.loop.run_forever()
         except KeyboardInterrupt:
-            self.loop.run_until_complete(self.shutdown_all())
+            self.loop.run_until_complete(self.shutdown())
         finally:
             self.loop.stop()
-
             self.loop.close()
 
     def get_shard_count(self):
@@ -125,8 +124,7 @@ class Launcher:
                 await cluster.start()
                 cluster_logger.info(f"Started Cluster#{cluster.id}.")
 
-    async def shutdown_all(self):
-        cluster_logger.info("Shutting down all clusters.")
+    async def shutdown(self):
         self.alive = False
 
         if self.rebooter_task:
@@ -136,23 +134,47 @@ class Launcher:
             cluster.stop()
 
     async def rebooter(self):
+        """
+        Our exit codes:
+
+        0 -> I was shutdown properly. Don't restart me.
+        Literally anything else -> Restart.
+        """
         while self.alive:
             for cluster in self.clusters:
-                if not cluster.process.is_alive():
+                if not cluster.process.is_alive() and cluster.dont_restart is False:
                     cluster_logger.warning(f"Cluster#{cluster.id} exited with code {cluster.process.exitcode}.")
 
                     cluster.stop()  # ensure stopped
 
-                    cluster_logger.info(f"Restarting cluster#{cluster.id}")
-                    await cluster.start()
+                    if cluster.process.exitcode != 0:
+                        cluster_logger.info(f"Restarting cluster#{cluster.id}")
+                        await cluster.start()
+                    else:
+                        cluster.dont_restart = True
+
+            dead_and_dont_restart_cluster_count = len([x for x in self.clusters
+                                                       if not x.process.is_alive() and x.dont_restart is True])
+
+            if dead_and_dont_restart_cluster_count == self.cluster_count:
+                cluster_logger.info("All clusters seem to be dead and they don't want to be restarted, "
+                                    "so I'm killing myself too. Fuck this world.")
+                return await self.shutdown()
 
             await asyncio.sleep(5)
 
     def task_complete(self, task):
-        if task.exception():
-            task.print_stack()
-            self.rebooter_task = self.loop.create_task(self.rebooter())
-            self.rebooter_task.add_done_callback(self.task_complete)
+        try:
+            # if there was an exception besides CancelledError, just restart
+            if task.exception():
+                task.print_stack()
+                self.rebooter_task = self.loop.create_task(self.rebooter())
+                self.rebooter_task.add_done_callback(self.task_complete)
+                return
+        except asyncio.CancelledError:
+            pass
+
+        self.loop.stop()
 
 
 class Cluster:
@@ -179,6 +201,8 @@ class Cluster:
         self.log = logging.getLogger(f"Cluster#{cluster_id}")
         self.log.info(f"I have been initialized with shards {shard_ids} ({len(shard_ids)}/{max_shards}).")
 
+        self.dont_restart = False
+
     def wait_close(self):
         return self.process.join()
 
@@ -204,11 +228,10 @@ class Cluster:
 
         self.log.info(f"Process started with PID {self.process.pid}")
 
-        return True
+    def stop(self, sign=signal.SIGTERM):
+        self.log.info(f"Shutting down with signal {sign!r}.")
 
-    def stop(self, sign=signal.SIGINT):
-        self.log.info(f"Shutting down with signal {sign!r}")
         try:
             os.kill(self.process.pid, sign)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
