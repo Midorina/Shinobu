@@ -113,8 +113,6 @@ class NSFW(commands.Cog,
         return ret
 
     async def start_checking_urls_in_db(self):
-        await self.bot.wait_until_ready()
-
         while True:
             images = await CachedImage.get_oldest_checked_images(self.bot, limit=100)
             for image in images:
@@ -199,7 +197,6 @@ class NSFW(commands.Cog,
 
     @tasks.loop(hours=1.0)
     async def fill_the_database(self):
-        await self.bot.wait_until_ready()
         time = mido_utils.Time()
 
         # if credentials are set
@@ -207,6 +204,10 @@ class NSFW(commands.Cog,
             await self.reddit.fill_the_database()
 
         self.bot.logger.debug('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
+
+    @fill_the_database.before_loop
+    async def wait_for_bot_before_loop(self):
+        await self.bot.wait_until_ready()
 
     @fill_the_database.error
     async def task_error(self, error):

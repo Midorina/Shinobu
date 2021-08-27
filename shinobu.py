@@ -364,7 +364,16 @@ class ShinobuBot(commands.AutoShardedBot):
         self._connection._status = value
 
     def run(self):
-        super().run(self.config.token)
+        self.logger.info(f'Preparing the cluster to launch with Shard IDs: {self.shard_ids} ({self.shard_count})')
+        self.loop.create_task(self.prepare_bot())
+
+        try:
+            super().run(self.config.token)
+        except discord.PrivilegedIntentsRequired:
+            self.logger.error(
+                "Apparently you did not enable both the Presence and Server Members intents "
+                "in the developer portal (https://discord.com/developers/applications/). "
+                "Please enable them and restart the bot.")
 
     async def close(self):
         try:
