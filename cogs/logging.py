@@ -51,9 +51,11 @@ class Logging(
 
     @tasks.loop(seconds=30.0)
     async def cache_to_db_task(self):
-        await self.bot.wait_until_ready()
-
         await self.insert_cache_to_db()
+
+    @cache_to_db_task.before_loop
+    async def wait_for_bot_before_loop(self):
+        await self.bot.wait_until_ready()
 
     @cache_to_db_task.after_loop
     async def on_cache_to_db_cancel(self):

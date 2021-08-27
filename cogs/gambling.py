@@ -76,13 +76,15 @@ class Gambling(
     @tasks.loop(minutes=30.0)
     async def post_guild_count(self):
         """Manual posting is required due to clustering"""
-        await self.bot.wait_until_ready()
-
         if hasattr(self, 'topgg'):
             await self.topgg.http.post_guild_count(
                 guild_count=await self.bot.ipc.get_guild_count(),
                 shard_count=None,
                 shard_id=None)
+
+    @post_guild_count.before_loop
+    async def wait_for_bot_before_loop(self):
+        await self.bot.wait_until_ready()
 
     def cog_unload(self):
         self.active_donut_task.cancel()

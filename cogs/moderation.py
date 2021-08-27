@@ -32,8 +32,6 @@ class Moderation(
 
     @tasks.loop(seconds=30.0)
     async def check_modlogs(self):
-        await self.bot.wait_until_ready()
-
         time = mido_utils.Time()
         open_modlogs = await ModLog.get_open_logs(bot=self.bot)
 
@@ -58,6 +56,10 @@ class Moderation(
 
                 await modlog.complete()
         self.bot.logger.debug("Checking modlogs took:\t\t" + time.passed_seconds_in_float_formatted)
+
+    @check_modlogs.before_loop
+    async def wait_for_bot_before_loop(self):
+        await self.bot.wait_until_ready()
 
     @check_modlogs.error
     async def task_error(self, error):
