@@ -96,7 +96,9 @@ class NSFW(commands.Cog,
                     if nsfw_type is NSFWImage.Type.porn:
                         raise mido_utils.IncompleteConfigFile(
                             "Reddit cache in the database is empty. "
-                            "Please make sure you set up RedditAPI credentials properly in the config file.")
+                            "Please make sure you set up RedditAPI credentials properly in the config file "
+                            "(If you are sure that credentials are correct, please wait a bit for the database to be filled)."
+                        )
                     else:
                         new_images = await self.api.get_bomb(tags=tags_str,
                                                              limit=500,

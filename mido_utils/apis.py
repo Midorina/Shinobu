@@ -203,9 +203,14 @@ class RedditAPI(CachedImageAPI):
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
                 await asyncio.sleep(0.1)
+
         except asyncprawcore.ResponseException as e:
+            if e.response.status == 451:
+                pass
+
             logging.error(f"{e} from Reddit. You most likely entered wrong credentials.")
             raise
+
         except (asyncprawcore.NotFound, asyncprawcore.Forbidden, asyncprawcore.ServerError) as e:
             logging.error(f"Subreddit '{subreddit_name}' caused error: {e}")
             raise
@@ -223,10 +228,18 @@ class RedditAPI(CachedImageAPI):
                                       limit: int = 1,
                                       allow_gif: bool = False) -> List[models.CachedImage]:
         subreddits = models.LocalSubreddit.get_with_related_tag(category=category, tags=tags)
-        return await models.CachedImage.get_random(bot=bot,
-                                                   subreddits=subreddits,
-                                                   allow_gif=allow_gif,
-                                                   limit=limit)
+        ret = await models.CachedImage.get_random(
+            bot=bot,
+            subreddits=subreddits,
+            allow_gif=allow_gif,
+            limit=limit)
+
+        if not ret:
+            raise mido_utils.IncompleteConfigFile(
+                "Reddit cache in the database is empty. "
+                "Please make sure you set up RedditAPI credentials properly in the config file "
+                "(If you are sure that credentials are correct, please wait a bit for the database to be filled).")
+        return ret
 
     async def fill_the_database(self, go_ham=False):
         # top
