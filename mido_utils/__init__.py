@@ -7,4 +7,4 @@ from .embed import Embed
 from .exceptions import *
 from .music import BaseSong, Song, VoicePlayer
 from .resources import emotes, images, links, strings
-from .time_stuff import Time
+from .time import Time

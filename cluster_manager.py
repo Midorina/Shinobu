@@ -30,7 +30,7 @@ def _get_packages_to_reload(package):
                 child_module_path = getattr(child_module, "__file__", None)
 
                 if child_module_path and child_module_path.startswith(main_file_directory) \
-                        and 'env/' not in child_module_path:
+                        and 'env' + os.sep not in child_module_path:
                     if child_module_path not in visited_module_paths:
                         visited_module_paths.add(child_module_path)
                         ret.add(child_module)
