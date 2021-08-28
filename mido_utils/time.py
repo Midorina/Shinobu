@@ -2,7 +2,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
-from discord.ext.commands import BadArgument
+from discord.ext.commands import BadArgument, UserInputError
 
 time_multipliers = {
     's' : 1,
@@ -107,10 +107,17 @@ class Time:
     @classmethod
     def add_to_current_date_and_get(cls, seconds: int):
         now = datetime.now(timezone.utc)
-        end_date = now + timedelta(seconds=seconds)
-        return Time(start_date=now,
-                    end_date=end_date,
-                    initial_seconds=seconds)
+
+        try:
+            end_date = now + timedelta(seconds=seconds)
+        except OverflowError:
+            raise UserInputError("That date is too far past the current date "
+                                 "that you probably won't be able to see that day. "
+                                 "Please input a closer date and try again.")
+        else:
+            return Time(start_date=now,
+                        end_date=end_date,
+                        initial_seconds=seconds)
 
     @classmethod
     def add_to_previous_date_and_get(cls, previous_date: datetime, seconds: int):
