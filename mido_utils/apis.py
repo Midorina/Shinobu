@@ -206,7 +206,9 @@ class RedditAPI(CachedImageAPI):
 
         except asyncprawcore.ResponseException as e:
             if e.response.status == 451:
-                pass
+                logging.warning(
+                    f"Got 451 while fetching images from {subreddit_name} with category: {submission_category}. Returning silently.")
+                return
 
             logging.error(f"{e} from Reddit. You most likely entered wrong credentials.")
             raise
