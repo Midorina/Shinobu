@@ -172,7 +172,7 @@ class _InternalIPCHandler:
                     # if we're waiting for this, get it, else, ignore
                     if data.key in self.key_queue:
                         await self.responses.put(data)
-                        self.bot.logger.info(f"Websocket received: {data}")
+                        self.bot.logger.debug(f"Websocket received: {data}")
                     continue
 
                 elif data.type == 'command':
@@ -217,7 +217,7 @@ class _InternalIPCHandler:
                          key=key)
 
         await self._send(msg.dumps())
-        self.bot.logger.info("Made request: " + msg.dumps())
+        self.bot.logger.debug("Made request to the websocket: " + msg.dumps())
 
         return await self._get_responses(msg.key)
 

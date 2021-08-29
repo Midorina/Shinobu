@@ -278,7 +278,7 @@ class Meta(commands.Cog,
                             f"Join the [support server]({mido_utils.links.support_server}) " \
                             f"if you would like to provide feedback, " \
                             f"get the latest news and/or join {mido_utils.emotes.currency} events.\n\n" \
-                            f"I am open sourced. Check out my code -> {mido_utils.resources.links.github}."
+                            f"I am open sourced. Check out my code -> {mido_utils.resources.links.github}"
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
