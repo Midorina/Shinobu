@@ -207,7 +207,8 @@ class RedditAPI(CachedImageAPI):
         except asyncprawcore.ResponseException as e:
             if e.response.status == 451:
                 logging.warning(
-                    f"Got 451 while fetching images from {subreddit_name} with category: {submission_category}. Returning silently.")
+                    f"Got 451 while fetching images from {subreddit_name} "
+                    f"with category: {submission_category}. Returning silently.")
                 return
 
             logging.error(f"{e} from Reddit. You most likely entered wrong credentials.")
@@ -253,8 +254,10 @@ class RedditAPI(CachedImageAPI):
         # week
         # day
         # hour
+        all_subs = models.LocalSubreddit.get_all()
+        random.shuffle(all_subs)
 
-        for sub in models.LocalSubreddit.get_all():
+        for sub in all_subs:
             sub_name = sub.subreddit_name
 
             try:
@@ -474,6 +477,10 @@ class NsfwDAPIs(CachedImageAPI):
 
         if 'success' in response and response['success'] is False:
             raise mido_utils.NotFoundError
+
+        # make it a list if it isn't
+        # https://github.com/danbooru/danbooru/issues/4867
+        response = [response] if isinstance(response, dict) else response
 
         for data in response:
             try:
