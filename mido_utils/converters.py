@@ -255,7 +255,14 @@ async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: 
             if field in embed.keys() and isinstance(embed[field], str):
                 embed[field] = {'url': embed[field]}
 
-        return content, discord.Embed.from_dict(embed)
+        try:
+            embed = discord.Embed.from_dict(embed)
+        except ValueError:
+            # probably wrong timestamp
+            embed.pop('timestamp')
+            embed = discord.Embed.from_dict(embed)
+
+        return content, embed
 
 
 def html_to_discord(text: str):
