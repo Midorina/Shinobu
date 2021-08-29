@@ -264,19 +264,21 @@ class Meta(commands.Cog,
     @commands.command(aliases=['info', 'about', 'botinfo'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
-        # TODO: add open source link to here
-        mido = await self.bot.get_user_using_ipc(self.bot.config.owner_ids[0])
+        mido = await self.bot.get_user_using_ipc(90076279646212096)
 
         cluster_stats = await self.bot.ipc.get_cluster_stats()
 
         embed = mido_utils.Embed(bot=ctx.bot)
 
-        embed.description = f"I'm a general purpose bot that provides various features! " \
-                            f"Type `{ctx.prefix}help` to learn more.\n\n" \
-                            f"Type `{ctx.prefix}invite` to invite me to your server.\n\n" \
-                            f"**I've recently got re-written, so some features might be missing or misbehaving.**\n\n" \
+        embed.description = f"I'm a general purpose bot that provides various features!\n" \
+                            f"\n" \
+                            f"**Type `{ctx.prefix}invite` to invite me** to your server.\n" \
+                            f"**Type `{ctx.prefix}help` to get help** about commands.\n" \
+                            f"\n" \
                             f"Join the [support server]({mido_utils.links.support_server}) " \
-                            f"if you would like to provide feedback, get the latest news and/or join donut events."
+                            f"if you would like to provide feedback, " \
+                            f"get the latest news and/or join {mido_utils.emotes.currency} events.\n\n" \
+                            f"I am open sourced. Check out my code -> {mido_utils.resources.links.github}."
 
         embed.set_author(name=f"{self.bot.user}",
                          icon_url=self.bot.user.avatar_url,
@@ -316,7 +318,7 @@ class Meta(commands.Cog,
 
         if mido:  # intents disabled
             embed.set_footer(icon_url=mido.avatar_url,
-                             text=f"Made by {mido.display_name} with love ♥")
+                             text=f"Made by {mido.display_name} with ♥")
 
         await ctx.send(embed=embed)
 

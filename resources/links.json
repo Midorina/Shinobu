@@ -3,6 +3,7 @@
   "website"          : "https://midorina.dev/",
   "support_server"   : "https://discord.gg/5RXauct",
   "patreon"          : "https://www.patreon.com/ShinobuBot",
+  "github"           : "https://github.com/Midorina/Shinobu",
   "invite_admin"     : "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=8&scope=bot",
   "invite_minimal"   : "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=271969366&scope=bot",
   "invite_selectable": "https://discord.com/api/oauth2/authorize?client_id=212783784163016704&permissions=-1&scope=bot",

@@ -17,6 +17,8 @@ from discord.ext.commands import BadArgument
 import mido_utils
 import models
 
+# TODO: possibly rewrite this
+
 __all__ = ['XpAnnouncement', 'NSFWImage',  # these 2 are not actual tables
            'ModLog', 'UserDB', 'MemberDB',
            'GuildDB', 'GuildLoggingDB', 'GuildNSFWDB',
