@@ -310,8 +310,10 @@ class ShinobuBot(commands.AutoShardedBot):
 
             await webhook.send(*args, **kwargs, username=self.user.display_name, avatar_url=self.user.avatar_url)
 
-        except discord.Forbidden:
+        except discord.Forbidden as e:
+            # probably no manage webhooks permission
             await channel.send("I need **Manage Webhooks** permission to continue.")
+            raise e
 
         except discord.NotFound:
             # webhook is probably deleted, so delete it from cache as well

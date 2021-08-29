@@ -290,10 +290,19 @@ class Logging(
             else:
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
-        await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
-                                       embed=e,
-                                       file=file,
-                                       allowed_mentions=discord.AllowedMentions.none())
+        try:
+            await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
+                                           embed=e,
+                                           file=file,
+                                           allowed_mentions=discord.AllowedMentions.none())
+        except discord.Forbidden:
+            try:
+                await guild_settings.logging_channel.send(
+                    "Due to missing permissions, I am stopping the logging feature.")
+            except discord.Forbidden:
+                pass
+            finally:
+                await guild_settings.set_log_channel(None)  # disable
 
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):

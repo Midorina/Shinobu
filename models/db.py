@@ -786,7 +786,7 @@ class GuildLoggingDB(BaseDBModel):
         await self.db.execute("UPDATE guilds_logging SET modlog_channel_id=$1 WHERE id=$2;",
                               self.modlog_channel_id, self.id)
 
-    async def set_log_channel(self, channel_id: int):
+    async def set_log_channel(self, channel_id: Optional[int]):
         self.log_channel_id = channel_id
         await self.db.execute("UPDATE guilds_logging SET log_channel_id=$1 WHERE id=$2;",
                               self.log_channel_id, self.id)

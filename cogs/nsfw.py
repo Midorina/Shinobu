@@ -182,7 +182,7 @@ class NSFW(commands.Cog,
             try:
                 await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
             except discord.Forbidden:
-                nsfw_channel = None  # reset
+                fail_counter = 5
                 break
 
             self.bot.logger.debug(f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
