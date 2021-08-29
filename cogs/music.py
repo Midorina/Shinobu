@@ -18,18 +18,20 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         if self.bot.config.spotify_credentials:
             self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
 
-        if not hasattr(self.bot, 'wavelink'):
-            if self.bot.config.lavalink_nodes_credentials:
-                self.wavelink = self.bot.wavelink = Client(bot=self.bot)
+        if self.bot.config.lavalink_nodes_credentials:
+            if not hasattr(self.bot, 'wavelink'):
+                self.bot.wavelink = Client(bot=self.bot)
 
                 self.bot.loop.create_task(self.start_nodes())
+
+            self.wavelink = self.bot.wavelink
 
     async def _initiate_node(self, **kwargs):
         await self.bot.wait_until_ready()
 
         node = await self.wavelink.initiate_node(**kwargs)
         if not node.is_available:
-            self.bot.logger.error("Looks like a Lavalink node could not establish a coonnection. "
+            self.bot.logger.error("Looks like a Lavalink node could not establish a connection. "
                                   "Please make sure you entered proper credentials to the config file.")
 
     async def start_nodes(self):
@@ -63,7 +65,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         error = getattr(error, 'original', error)
         if isinstance(error, ZeroConnectedNodes):
             await self.reload_nodes()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
             await ctx.reinvoke()
 
     @WavelinkMixin.listener(event="on_track_exception")
@@ -83,6 +85,17 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         if ctx.voice_client and ctx.voice_client.channel.id == ctx.voice_player.channel_id:
             raise mido_utils.MusicError("I'm already connected to your voice channel.")
+
+        channel = ctx.author.voice.channel
+
+        # Conect and Speak
+        required_perms = discord.Permissions(3145728)
+        channel_perms = channel.permissions_for(ctx.guild.me)
+
+        if not channel_perms.is_superset(required_perms):
+            raise mido_utils.MusicError(f"I need both **Connect** and **Speak** permissions "
+                                        f"in **{channel}** to be able to play music.")
+            # raise commands.BotMissingPermissions(['connect', 'speak'])
 
         try:
             await ctx.voice_player.connect(ctx.author.voice.channel.id)
@@ -337,9 +350,14 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             task = self.bot.loop.create_task(ctx.invoke(self._join))
 
         added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query, spotify=getattr(self, 'spotify_api'))
+
         if task:
-            await task
-            task.result()
+            try:
+                await task
+                task.result()
+            except mido_utils.MusicError as e:
+                await ctx.voice_player.destroy()
+                raise e
 
         if len(added_songs) > 1:  # if its a playlist
             shuffle_emote = '🔀'
