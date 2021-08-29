@@ -18,7 +18,7 @@ to contribute, that'd be appreciated :)
 - Clustering
 - IPC (interprocess communication) for clusters to be able to communicate with each other
 - 15 Modules, 130+ Commands
-- Custom ORM (Object-relational mapping) to communicate with the database
+- Custom ORM to communicate with the database
 - Makes use of the following APIs:
   1. Reddit API (3D NSFW Content)
   2. Danbooru API (2D NSFW Content)
