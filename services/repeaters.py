@@ -83,7 +83,11 @@ class RepeaterService(BaseShinobuService):
                 task.print_stack()
         except asyncio.CancelledError:
             pass
-        self.active_repeaters.remove(task)
+
+        try:
+            self.active_repeaters.remove(task)
+        except ValueError:
+            pass
 
     def stop(self):
         self.launch_repeaters_task.cancel()

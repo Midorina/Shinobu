@@ -71,7 +71,11 @@ class ReminderService(BaseShinobuService):
                 task.print_stack()
         except asyncio.CancelledError:
             pass
-        self.active_reminders.remove(task)
+
+        try:
+            self.active_reminders.remove(task)
+        except ValueError:
+            pass
 
     def stop(self):
         self.launch_reminders_task.cancel()
