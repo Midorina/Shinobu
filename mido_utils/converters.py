@@ -229,7 +229,7 @@ async def parse_text_with_context(text: str, bot,
                     "%music.playing%": voice_player.current.title,
                 }
             )
-    except wavelink.ZeroConnectedNodes:
+    except (wavelink.ZeroConnectedNodes, AttributeError):
         pass
 
     # Miscellaneous placeholders

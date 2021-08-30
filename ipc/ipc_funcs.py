@@ -270,6 +270,8 @@ class IPCServer:
             self.cpu_usage_cache = self.process.cpu_percent(interval=0)
 
     async def send_to_log_channel(self, data: IPCMessage):
+        await self.bot.wait_until_ready()
+
         if self.bot.log_channel:
             embed = discord.Embed.from_dict(data.embed) if data.embed else None
             await self.bot.log_channel.send(content=data.content, embed=embed)
@@ -351,7 +353,7 @@ class IPCClient:
                 f"Message could not be sent to the log channel. "
                 f"Please make sure you pass an ID of a proper channel that bot can post in to the config file.\n"
                 f"Content: {content}\n"
-                f"Embed: {embed.to_dict()}")
+                f"Embed: {embed.to_dict() if embed else None}")
 
     async def get_guild_count(self) -> int:
         responses = await self.handler.request('get_guild_count')
