@@ -329,7 +329,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         ctx.voice_player.song_queue.remove(index - 1)
         await ctx.send_success('✅ Removed the song.')
 
-    @commands.command(name='loop', aliases=['repeat'])
+    @commands.command(name='loop', aliases=['repeatqueue'])
     async def _loop(self, ctx: mido_utils.Context):
         """Enable the loop feature to keep playing the current queue."""
         ctx.voice_player.loop = not ctx.voice_player.loop
