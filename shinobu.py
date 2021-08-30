@@ -323,19 +323,12 @@ class ShinobuBot(commands.AutoShardedBot):
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except (discord.DiscordServerError,
-                discord.HTTPException,
                 aiohttp.ServerDisconnectedError,
-                aiohttp.ClientOSError) as e:
+                aiohttp.ClientOSError,
+                asyncio.TimeoutError) as e:
             # probably discord servers dying
-            # or it is dropping our connection for attempting too many requests
-            if isinstance(e, discord.HTTPException) and e.code < 500:
-                raise e
-
             await asyncio.sleep(5.0)
 
-            # This recursive loop once gave this error:
-            #  > Fatal Python error: Cannot recover from stack overflow. Python runtime state: initialized
-            # So I will use these info messages if we happen to get this crash again
             self.logger.info(f"There was an error while trying to send a webhook to {channel.id}. Error: {e}\n"
                              f"Retrying...")
 
