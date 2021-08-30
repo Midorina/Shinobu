@@ -81,8 +81,8 @@ class ShinobuBot(commands.AutoShardedBot):
         # TODO: have a custom class and do this in db.py
         while not self.db:
             try:
-                self.db = await asyncpg.create_pool(**self.config.db_credentials)
-
+                self.db = await asyncpg.create_pool(**self.config.db_credentials,
+                                                    max_inactive_connection_lifetime=60, min_size=5, max_size=10)
             except asyncpg.InvalidCatalogNameError:
                 self.logger.warning(
                     f"Looks like a database with name '{self.config.db_credentials['database']}' does not exist. "
