@@ -66,8 +66,11 @@ class ReminderService(BaseShinobuService):
         await reminder.complete()
 
     def task_complete(self, task):
-        if task.exception():
-            task.print_stack()
+        try:
+            if task.exception():
+                task.print_stack()
+        except asyncio.CancelledError:
+            pass
         self.active_reminders.remove(task)
 
     def stop(self):

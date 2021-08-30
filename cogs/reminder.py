@@ -127,7 +127,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
         try:
             reminder_to_remove = reminders[reminder_index - 1]
         except IndexError:
-            raise commands.UserInputError("Invalid repeater index!")
+            raise commands.UserInputError("Invalid reminder index!")
 
         self.reminder_service.cancel_reminder(reminder_to_remove)
         await reminder_to_remove.complete()
@@ -151,7 +151,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
 
         **Examples:**
             `{ctx.prefix}repeat here 10m Please behave.`
-            `{ctx.prefix}remind #general 12h Please make sure you read rules.`
+            `{ctx.prefix}repeat #general 12h Please make sure you read rules.`
 
         **Available time length letters:**
             `s` -> seconds
@@ -176,11 +176,11 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
         if len(guild_repeaters) > 5:
             raise commands.UserInputError("You can't have more than 5 repeaters in a guild. Sorry.")
 
-        reminder = await RepeatDB.create(bot=ctx.bot, channel_id=channel.id,
+        repeater = await RepeatDB.create(bot=ctx.bot, channel_id=channel.id,
                                          guild_id=ctx.guild.id, message=message,
                                          post_interval=interval.initial_remaining_seconds,
                                          created_by_id=ctx.author.id)
-        self.repeater_service.add_repeater(reminder)
+        self.repeater_service.add_repeater(repeater)
 
         e = mido_utils.Embed(bot=ctx.bot,
                              description=f"Success! Your message will be repeated "

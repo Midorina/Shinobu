@@ -78,8 +78,11 @@ class RepeaterService(BaseShinobuService):
             await repeater.just_posted(last_message.id)
 
     def task_complete(self, task):
-        if task.exception():
-            task.print_stack()
+        try:
+            if task.exception():
+                task.print_stack()
+        except asyncio.CancelledError:
+            pass
         self.active_repeaters.remove(task)
 
     def stop(self):
