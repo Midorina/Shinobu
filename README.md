@@ -32,41 +32,6 @@ to contribute, that'd be appreciated :)
   10. Blizzard API (Searching Hearthstone Cards)
   11. Patreon API (Supporter Features)
 
-## List of modules:
-
-### Music
-Play music using `s.play`. You can use song names or YouTube/**Spotify** playlist/album/single links.
-
-### Assignable Roles
-You can use the `s.welcomerole` command to automatically assign a role to new members or `s.aar` to add a self-assignable role for all members which can be acquired using `s.iam`.
-
-### Custom Reactions
-You can add custom reactions with a trigger and a response using `s.acr`.
-
-### Gambling
-Use the `s.daily` command to get **250 donuts** and use them in gambling and other games!
-
-### Games
-Play race with friends (with bets if you want) or Hangman.
-
-### Logging
-Disable or enable logging in the current channel using `s.logging` and toggle between simple and detailed mode using `s.loggingmode`.
-
-### Meta
-Use `s.prefix` to change the way you call me, `s.invite` to get invite links or `s.deletedata` to delete everything I know about you.
-
-### Moderation
-
-Ban/mute temporarily, hold logs, manage roles, prune messages quickly to moderate your server easily.
-
-### NSFW
-
-Get quality NSFW images. Check out `s.autohentai` to have them posted automatically.
-
-### Reminder
-
-Use `s.remind` to remind yourself or someone of something.
-
 ## Installation
 
 1. Install the repo and change your directory to the script's location:
