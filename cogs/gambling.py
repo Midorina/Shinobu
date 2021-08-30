@@ -87,9 +87,10 @@ class Gambling(
         await self.bot.wait_until_ready()
 
     def cog_unload(self):
-        self.active_donut_task.cancel()
         if hasattr(self, 'topgg'):
             self.bot.loop.create_task(self.topgg.close())
+
+        self.active_donut_task.cancel()
 
     async def get_active_donut_events(self):
         """This function gets active donut events and processes them"""

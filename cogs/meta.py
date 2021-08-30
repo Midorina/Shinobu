@@ -325,7 +325,8 @@ class Meta(commands.Cog,
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
-        # TODO: reload the config file as well
+        self.bot.config = self.bot.get_config(self.bot.name, warn=False)
+
         responses = await self.bot.ipc.reload(target_cog=cog_name)
 
         e = mido_utils.Embed(ctx.bot, description="")
