@@ -1,11 +1,11 @@
-import asyncio
 from typing import Union
 
 import discord
 from discord.ext import commands
 
 import mido_utils
-from models.db import ReminderDB
+import services
+from models.db import ReminderDB, RepeatDB
 from shinobu import ShinobuBot
 
 
@@ -15,63 +15,12 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-        self.active_reminders = list()
-
-        self.check_db_reminders_task = self.bot.loop.create_task(self.check_db_reminders())
-
-    async def check_db_reminders(self):
-        reminders = await ReminderDB.get_uncompleted_reminders(bot=self.bot)
-
-        for reminder in reminders:
-            self.add_reminder(reminder)
-
-    async def complete_reminder(self, reminder: ReminderDB):
-        # sleep until its time
-        await asyncio.sleep(delay=reminder.time_obj.remaining_seconds)
-
-        channel = author = self.bot.get_user(reminder.author_id)
-
-        if reminder.channel_type != ReminderDB.ChannelType.DM:
-            channel = self.bot.get_channel(reminder.channel_id)
-
-        if not channel:
-            return
-
-        e = mido_utils.Embed(bot=self.bot,
-                             title="A Friendly Reminder:",
-                             description=reminder.content)
-        e.add_field(name="Creator",
-                    value=f"**{str(author)}**")
-        e.add_field(name="Creation Date",
-                    value=f"{reminder.time_obj.start_date_string}\n"
-                          f"(**{reminder.time_obj.initial_remaining_string} ago**)")
-
-        try:
-            await channel.send(embed=e)
-        except discord.Forbidden:
-            pass
-
-        await reminder.complete()
-
-    def add_reminder(self, reminder: ReminderDB):
-        task = self.bot.loop.create_task(self.complete_reminder(reminder), name=str(reminder.id))
-
-        self.active_reminders.append(task)
-
-    def cancel_reminder(self, reminder: ReminderDB):
-        # find the reminder
-        for task in self.active_reminders:
-            if task.get_name() == str(reminder.id):
-                task.cancel()
-                self.active_reminders.remove(task)
+        self.reminder_service = services.ReminderService(self.bot)
+        self.repeater_service = services.RepeaterService(self.bot)
 
     def cog_unload(self):
-        self.check_db_reminders_task.cancel()
-
-        for task in self.active_reminders:
-            task.cancel()
-
-        self.active_reminders = list()
+        self.reminder_service.stop()
+        self.repeater_service.stop()
 
     @commands.command()
     async def remind(self,
@@ -120,7 +69,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
                                            channel_type=channel_type,
                                            content=str(message),
                                            date_obj=length)
-        self.add_reminder(reminder)
+        self.reminder_service.add_reminder(reminder)
 
         e = mido_utils.Embed(bot=ctx.bot,
                              description=f"Success! "
@@ -178,12 +127,117 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
         try:
             reminder_to_remove = reminders[reminder_index - 1]
         except IndexError:
-            raise commands.UserInputError("Invalid reminder index!")
+            raise commands.UserInputError("Invalid repeater index!")
 
-        self.cancel_reminder(reminder_to_remove)
+        self.reminder_service.cancel_reminder(reminder_to_remove)
         await reminder_to_remove.complete()
 
         await ctx.send_success(f"Reminder **#{reminder_index}** has been successfully deleted.")
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(administrator=True)
+    async def repeat(self,
+                     ctx: mido_utils.Context,
+                     channel: Union[discord.TextChannel, str],
+                     interval: Union[mido_utils.Time, str],
+                     *, message: str):
+        """Adds a repeater.
+
+        Use `here` as the channel to get the repeater in the current channel.
+        You can specify any other text channel to get the repeater on there.
+
+        An embed can be used. Check `{ctx.prefix}help acr` to get a link to create an embed structure and learn placeholders.
+
+        **Examples:**
+            `{ctx.prefix}repeat here 10m Please behave.`
+            `{ctx.prefix}remind #general 12h Please make sure you read rules.`
+
+        **Available time length letters:**
+            `s` -> seconds
+            `m` -> minutes
+            `h` -> hours
+            `d` -> days
+            `w` -> weeks
+            `mo` -> months
+        """
+        if isinstance(channel, str):
+            if channel.casefold() == 'here':
+                channel = ctx.channel
+            else:
+                raise commands.BadArgument("Incorrect channel! Please input either `here` or specify a channel.")
+
+        # interval check
+        if interval.initial_remaining_seconds < 30:
+            raise commands.UserInputError("Interval can not be less than 30 seconds. Sorry.")
+
+        # repeater count check
+        guild_repeaters = await RepeatDB.get_of_a_guild(ctx.bot, ctx.guild.id)
+        if len(guild_repeaters) > 5:
+            raise commands.UserInputError("You can't have more than 5 repeaters in a guild. Sorry.")
+
+        reminder = await RepeatDB.create(bot=ctx.bot, channel_id=channel.id,
+                                         guild_id=ctx.guild.id, message=message,
+                                         post_interval=interval.initial_remaining_seconds,
+                                         created_by_id=ctx.author.id)
+        self.repeater_service.add_repeater(reminder)
+
+        e = mido_utils.Embed(bot=ctx.bot,
+                             description=f"Success! Your message will be repeated "
+                                         f"every {interval.initial_remaining_string} in **{channel.mention}**.")
+        await ctx.send(embed=e)
+
+    @commands.command()
+    @commands.guild_only()
+    async def repeatlist(self,
+                         ctx: mido_utils.Context):
+        """See the list of repeaters in this guild."""
+        repeaters = await RepeatDB.get_of_a_guild(bot=ctx.bot, guild_id=ctx.guild.id)
+
+        if not repeaters:
+            raise commands.UserInputError("This guild does not have any repeaters.")
+
+        e = mido_utils.Embed(self.bot)
+        e.set_author(name=f"{ctx.guild}'s Repeaters", icon_url=ctx.guild.icon_url)
+
+        blocks = []
+        for i, repeater in enumerate(repeaters, 1):
+            block = f'**#{i}**\n' \
+                    f'`Channel:` <#{repeater.channel_id}>\n' \
+                    f'`Every:` **{mido_utils.Time.parse_seconds_to_str(repeater.post_interval)}**\n' \
+                    f'`Message:` {repeater.message[200:] + "..." if len(repeater.message) > 200 else repeater.message}\n' \
+                    f'`Created by`: <@{repeater.created_by_id}>'
+
+            blocks.append(block)
+
+        await e.paginate(ctx, blocks, extra_sep='\n')
+
+    @commands.command(aliases=['repeatremove', 'repeatdel', 'repeatrm'])
+    @commands.guild_only()
+    @commands.has_permissions(administrator=True)
+    async def repeatdelete(self,
+                           ctx: mido_utils.Context,
+                           repeater_index: int):
+        """
+        Delete a repeater you have using its index.
+
+        You can see a complete list of your repeater and their indexes using `{ctx.prefix}repeatlist`
+        """
+
+        repeaters = await RepeatDB.get_of_a_guild(bot=ctx.bot, guild_id=ctx.guild.id)
+
+        if not repeaters:
+            raise commands.UserInputError("This guild does not have any repeaters.")
+
+        try:
+            repeater_to_remove = repeaters[repeater_index - 1]
+        except IndexError:
+            raise commands.UserInputError("Invalid repeater index!")
+
+        self.repeater_service.cancel_repeater(repeater_to_remove)
+        await repeater_to_remove.delete()
+
+        await ctx.send_success(f"Repeater **#{repeater_index}** has been successfully deleted.")
 
 
 def setup(bot):

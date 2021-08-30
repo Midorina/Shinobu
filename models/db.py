@@ -24,7 +24,7 @@ __all__ = ['XpAnnouncement', 'NSFWImage',  # these 2 are not actual tables
            'GuildDB', 'GuildLoggingDB', 'GuildNSFWDB',
            'LoggedMessage', 'ReminderDB', 'CustomReaction',
            'CachedImage', 'DonutEvent', 'TransactionLog',
-           'BlacklistDB', 'XpRoleReward', 'HangmanWord']
+           'BlacklistDB', 'XpRoleReward', 'HangmanWord', 'RepeatDB']
 
 
 async def run_create_table_funcs(db):
@@ -1540,3 +1540,92 @@ class HangmanWord(BaseDBModel):
         ret = await bot.db.fetchrow("SELECT * FROM hangman_words WHERE category = $1 ORDER BY RANDOM() LIMIT 1;",
                                     category)
         return cls(ret, bot)
+
+
+class RepeatDB(BaseDBModel):
+    TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS guilds_repeat
+(
+    id                   serial
+        CONSTRAINT guilds_repeat_pk
+            PRIMARY KEY,
+    guild_id             bigint                                 NOT NULL,
+    channel_id           bigint                                 NOT NULL,
+    creation_date        timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    post_interval        bigint                                 NOT NULL,
+    message              text                                   NOT NULL,
+    delete_previous      boolean                  DEFAULT TRUE  NOT NULL,
+    last_post_date       timestamp WITH TIME ZONE,
+    created_by           bigint                                 NOT NULL,
+    last_post_message_id bigint
+);
+"""
+
+    def __init__(self, data: Record, bot):
+        super().__init__(data, bot)
+
+        self.guild_id: int = data.get('guild_id')
+        self.channel_id: int = data.get('channel_id')
+
+        self.message: str = data.get('message')
+        self.post_interval: int = data.get('post_interval')
+        self.delete_previous: bool = data.get('delete_previous')
+
+        self.creation_date: mido_utils.Time = mido_utils.Time(start_date=data.get('creation_date'))
+
+        self.last_post_date: mido_utils.Time = mido_utils.Time(
+            data.get('last_post_date', datetime(2000, 1, 1, tzinfo=timezone.utc)))
+        self.last_post_message_id: int = data.get('last_post_message_id')
+
+        self.created_by_id: int = data.get('created_by')
+
+    @property
+    def guild(self) -> Optional[discord.Guild]:
+        return self.bot.get_guild(self.guild_id)
+
+    @property
+    def channel(self) -> Optional[discord.TextChannel]:
+        return self.bot.get_channel(self.channel_id)
+
+    @classmethod
+    async def create(cls,
+                     bot,
+                     guild_id: int,
+                     channel_id: int,
+                     message: str,
+                     post_interval: int,
+                     created_by_id: int,
+                     delete_previous: bool = True) -> RepeatDB:
+        created = await bot.db.fetchrow(
+            """INSERT INTO 
+            guilds_repeat(guild_id, channel_id, message, post_interval, delete_previous, created_by) 
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;""",
+            guild_id, channel_id, message, post_interval, delete_previous, created_by_id)
+
+        return cls(created, bot)
+
+    @classmethod
+    async def get_all(cls, bot) -> List[RepeatDB]:
+        guild_ids = [x.id for x in bot.guilds]
+        ret = await bot.db.fetch("SELECT * FROM guilds_repeat WHERE guild_id=ANY($1);", guild_ids)
+
+        return [cls(repeat, bot) for repeat in ret]
+
+    @classmethod
+    async def get_of_a_guild(cls, bot, guild_id: int) -> List[RepeatDB]:
+        ret = await bot.db.fetch("SELECT * FROM guilds_repeat WHERE guild_id=$1;", guild_id)
+
+        return sorted((cls(repeat, bot) for repeat in ret), key=lambda x: x.creation_date.start_date)
+
+    async def just_posted(self, message_id: int):
+        self.last_post_date = mido_utils.Time()
+        self.last_post_message_id = message_id
+        await self.bot.db.execute("UPDATE guilds_repeat SET last_post_date=$1, last_post_message_id=$2 WHERE id=$3;",
+                                  self.last_post_date.start_date, message_id, self.id)
+
+    async def delete(self):
+        await self.bot.db.execute("DELETE FROM guilds_repeat WHERE id=$1;", self.id)
+
+    def __eq__(self, other):
+        if isinstance(other, RepeatDB):
+            return self.id == other.id

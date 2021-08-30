@@ -116,8 +116,10 @@ def readable_currency(number: int) -> str:
     return readable_bigint(number) + mido_utils.emotes.currency
 
 
-async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: discord.Member,
+async def parse_text_with_context(text: str, bot,
+                                  guild: discord.Guild,
                                   channel: discord.TextChannel,
+                                  author: discord.Member = None,
                                   message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
     # missing or not-properly-working placeholders:
     # misc stuff
@@ -175,24 +177,27 @@ async def parse_text_with_context(text: str, bot, guild: discord.Guild, author: 
         )
 
     # user placeholders
-    base_dict.update(
-        {
-            # old
-            "%user%"             : author.mention,
+    if author:
+        base_dict.update(
+            {
+                # old
+                "%user%"             : author.mention,
 
-            # new
-            "%user.mention%"     : author.mention,
-            "%user.fullname%"    : str(author),
-            "%user.name%"        : author.display_name,
-            "%user.discrim%"     : str(author).split('#')[-1],
-            "%user.avatar%"      : author.avatar_url,
-            "%user.id%"          : author.id,
-            "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
-            "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
-            "%user.joined_time%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None',
-            "%user.joined_date%" : author.joined_at.strftime('%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None'
-        }
-    )
+                # new
+                "%user.mention%"     : author.mention,
+                "%user.fullname%"    : str(author),
+                "%user.name%"        : author.display_name,
+                "%user.discrim%"     : str(author).split('#')[-1],
+                "%user.avatar%"      : author.avatar_url,
+                "%user.id%"          : author.id,
+                "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
+                "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
+                "%user.joined_time%" : author.joined_at.strftime(
+                    '%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None',
+                "%user.joined_date%" : author.joined_at.strftime(
+                    '%Y-%m-%d, %H:%M:%S UTC') if author.joined_at else 'None'
+            }
+        )
 
     # bot stats placeholders
     clusters = await bot.ipc.get_cluster_stats()
