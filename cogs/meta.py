@@ -22,7 +22,7 @@ class MidoHelp(commands.HelpCommand):
         self.verify_checks = False
 
     def command_not_found(self, string):
-        return f'Couldn\'t find any command called `{string}`'
+        raise commands.UserInputError(f"There isn't any command called `{string}`.")
 
     def get_command_signature(self, command):
         parent = command.full_parent_name
