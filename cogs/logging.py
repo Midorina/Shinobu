@@ -291,7 +291,7 @@ class Logging(
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
         try:
-            await self.bot.send_as_webhook(guild_settings.logging_channel, content=content,
+            await self.bot.send_as_webhook(guild_settings.logging_channel, content=content[:2000],
                                            embed=e,
                                            file=file,
                                            allowed_mentions=discord.AllowedMentions.none())
