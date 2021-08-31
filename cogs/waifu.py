@@ -256,7 +256,7 @@ class Waifu(
             await ctx.send_success(base_msg)
 
     @commands.command(rate=1, per=21600, type=BucketType.user)  # 6 hours
-    async def divorce(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter()):
+    async def divorce(self, ctx: mido_utils.Context, target: mido_utils.UserConverter()):
         """
         Divorce a waifu.
         - You will get half of the money you've spent back if the waifu's affinity isn't towards you.

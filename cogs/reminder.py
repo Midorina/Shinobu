@@ -140,7 +140,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
     async def repeat(self,
                      ctx: mido_utils.Context,
                      channel: Union[discord.TextChannel, str],
-                     interval: Union[mido_utils.Time, str],
+                     interval: mido_utils.Time,
                      *, message: str):
         """Adds a repeater.
 

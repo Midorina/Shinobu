@@ -242,7 +242,7 @@ class Gambling(
                 content=f"Your daily is ready! You can vote [here]({mido_utils.links.upvote}).",
                 date_obj=mido_utils.Time.add_to_current_date_and_get(seconds=self.bot.config.cooldowns['daily'])
             )
-            ctx.bot.get_cog('Reminder').add_reminder(reminder)
+            ctx.bot.get_cog('Reminder').reminder_service.add_reminder(reminder)
 
             await ctx.edit_custom(m, base_msg + f"Success! I will remind you to get your daily again "
                                                 f"in {reminder.time_obj.initial_remaining_string}.")
