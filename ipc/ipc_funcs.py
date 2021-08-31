@@ -132,8 +132,12 @@ class _InternalIPCHandler:
                 self.bot.logger.info("Websocket connection succeeded.")
                 break
 
-        if not self.ws_task:
+        self.assign_ws_task()
+
+    def assign_ws_task(self):
+        if not self.ws_task or self.ws_task.done() is True:
             self.ws_task = self.bot.loop.create_task(self._websocket_loop())
+            self.ws_task.add_done_callback(self._websocket_loop_done)
 
     async def _get_responses(self, key: str) -> List[IPCMessage]:
         ret = []
@@ -163,7 +167,7 @@ class _InternalIPCHandler:
         return ret
 
     async def _websocket_loop(self):
-        self.bot.logger.info("Websocket loop has successfully  started.")
+        self.bot.logger.info("Websocket loop has successfully started.")
         while True:
             try:
                 data = IPCMessage.get_from_raw(await self.ws.recv())
@@ -194,14 +198,15 @@ class _InternalIPCHandler:
                 else:
                     raise ipc_errors.UnknownRequestType
             except websockets.ConnectionClosed as exc:
-                if exc.code == 1000:
-                    self.bot.logger.warn("Websocket connection seems to be closed safely. Stopping the websocket loop.")
-                    return
+                # if exc.code == 1000:
+                #     self.bot.logger.warn("Websocket connection seems to be closed safely. Stopping the websocket loop.")
+                #     return
                 self.bot.logger.error(f"Websocket connection seems to be closed with code {exc.code}.")
                 await self._try_to_reconnect()
-            except asyncio.CancelledError:
-                self.bot.logger.info("Websocket loop task cancelled. Returning...")
-                return
+
+            except asyncio.CancelledError as e:
+                raise e
+
             except Exception:
                 self.bot.logger.exception("Unexpected error in websocket loop!")
 
@@ -231,6 +236,8 @@ class _InternalIPCHandler:
             self.bot.logger.info("Successfully reconnected!")
         await asyncio.sleep(sleep)
 
+        self.assign_ws_task()
+
     async def _send(self, data: str):
         while True:
             try:
@@ -248,6 +255,16 @@ class _InternalIPCHandler:
         self.ws_task = None
 
         await self.ws.close(code=1000, reason=reason)
+
+    def _websocket_loop_done(self, task):
+        try:
+            if task.exception():  # if there was an exception besides CancelledError, just restart
+                task.print_stack()
+                self.assign_ws_task()
+                return
+
+        except asyncio.CancelledError:
+            self.bot.logger.info("Websocket loop task cancelled.")
 
 
 class IPCServer:

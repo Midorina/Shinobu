@@ -82,7 +82,7 @@ class CustomReactions(
 
                 self.bot.logger.debug(f"Was not able to send the embed "
                                       f"in custom reaction with ID: {cr.id}\n"
-                                      f"Embed content: {embed.to_dict()}")
+                                      f"Embed content: {embed.to_dict() if embed else None}")
             else:
                 self.bot.logger.info(f"User [{message.author}] "
                                      f"executed custom reaction [{cr.trigger}]"
