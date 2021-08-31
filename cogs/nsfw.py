@@ -362,8 +362,8 @@ class NSFW(commands.Cog,
 
                 return await ctx.send_success(f"Auto-{nsfw_type.name} service has successfully been disabled.")
 
-        if interval < 3:
-            raise commands.UserInputError("Interval can not be less than 3!")
+        if interval < 5:
+            raise commands.UserInputError("Interval can not be less than 5!")
 
         await nsfw_db.set_auto_nsfw(nsfw_type=nsfw_type,
                                     channel_id=ctx.channel.id,
@@ -383,7 +383,7 @@ class NSFW(commands.Cog,
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have hentai automatically posted!
 
-        Interval argument can be 3 seconds minimum.
+        Interval argument can be 5 seconds minimum.
 
         Put `+` between tags.
         Put `|` between tag groups. A random tag group will be chosen each time.
@@ -406,7 +406,7 @@ class NSFW(commands.Cog,
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have porn automatically posted!
 
-        Interval argument can be 3 seconds minimum.
+        Interval argument can be 5 seconds minimum.
 
         Put `|` between tag groups. A random tag group will be chosen each time.
         Please provide a single tag for each tag group (unlike `autohentai`)
