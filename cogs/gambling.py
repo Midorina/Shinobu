@@ -324,7 +324,7 @@ class Gambling(
         e.description = f"**{ctx.author}** has just won: " \
                         f"**{mido_utils.readable_currency(won_cash)}** [x{won_multiplier}]\n\n"
         for i, multiplier_and_arrow in enumerate(possibilities_and_arrows.items()):
-            multiplier, arrow = multiplier_and_arrow
+            multiplier = multiplier_and_arrow   # removed , arrow since it was unused 
 
             if i == 4:
                 e.description += empty + won_arrow + empty * 4
@@ -348,12 +348,8 @@ class Gambling(
         """
         emojis = [mido_utils.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
 
-        slot = []
-        for i in range(3):
-            slot.append([])
-            for j in range(3):
-                slot[i].append(random.choice(emojis))
-
+        slot = [random.choices(emojis, k=3) for _ in range(3)] 
+        
         middle = slot[1]
         if middle.count(emojis[0]) == 3:  # 3 donuts
             win_multiplier = 30
