@@ -300,7 +300,7 @@ class Logging(
             try:
                 await guild_settings.logging_channel.send(
                     "Due to missing permissions, I am stopping the logging feature.")
-            except discord.Forbidden:
+            except (discord.Forbidden, AttributeError):
                 pass
             finally:
                 await guild_settings.set_log_channel(None)  # disable
