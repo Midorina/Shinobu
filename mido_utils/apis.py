@@ -601,7 +601,7 @@ class SomeRandomAPI(MidoBotAPI):
     async def youtube_comment(self, avatar_url: str, username: str, comment: str):
         return await self._request_get(self.URLs["youtube"],
                                        params={'avatar'  : avatar_url,
-                                               "username": username,
+                                               "username": username[:25],
                                                "comment" : comment,
                                                "dark"    : 'true'},
                                        return_url=True)
