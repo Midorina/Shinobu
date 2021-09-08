@@ -452,6 +452,9 @@ class Moderation(
 
         You need the **Manage Roles** permissions to use this command.
         """
+        if len(role_name) > 100:
+            raise commands.BadArgument("Role name can't be more than 100 characters.")
+
         role = await ctx.guild.create_role(name=role_name,
                                            reason=f'Created by {ctx.author}.')
 
