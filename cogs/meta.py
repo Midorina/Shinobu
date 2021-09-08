@@ -113,11 +113,14 @@ class MidoHelp(commands.HelpCommand):
             else:
                 embed.description = command.help.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
+        embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.avatar_url)
+        embed.timestamp = datetime.utcnow()
+
     async def send_command_help(self, command, content=''):
         if command.hidden:
             raise commands.CheckFailure("That is a hidden command. Sorry.")
 
-        embed = mido_utils.Embed(self.context.bot, default_footer=True)
+        embed = mido_utils.Embed(self.context.bot)
         self.common_command_formatting(embed, command)
         await self.context.send(content=content, embed=embed)
 
