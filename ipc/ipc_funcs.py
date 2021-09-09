@@ -226,7 +226,7 @@ class _InternalIPCHandler:
 
         return await self._get_responses(msg.key)
 
-    async def _try_to_reconnect(self, sleep=2.0):
+    async def _try_to_reconnect(self, sleep=1.0):
         self.bot.logger.info("Attempting reconnect...")
         try:
             await self._connect_to_ipc()
@@ -236,17 +236,13 @@ class _InternalIPCHandler:
             self.bot.logger.info("Successfully reconnected!")
         await asyncio.sleep(sleep)
 
-        self.assign_ws_task()
-
     async def _send(self, data: str):
         while True:
             try:
                 await self.ws.send(data)
             except websockets.ConnectionClosed:
                 self.bot.logger.error(f"Websocket connection seems to be closed. Retrying to send the message: {data}")
-                await self._try_to_reconnect()
-                await asyncio.sleep(1.0)
-                continue
+                await self._try_to_reconnect(sleep=1.0)
             else:
                 return
 
@@ -260,8 +256,8 @@ class _InternalIPCHandler:
         try:
             if task.exception():  # if there was an exception besides CancelledError, just restart
                 task.print_stack()
-                self.assign_ws_task()
-                return
+
+            self.assign_ws_task()
 
         except asyncio.CancelledError:
             self.bot.logger.info("Websocket loop task cancelled.")
