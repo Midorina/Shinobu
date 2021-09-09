@@ -30,6 +30,11 @@ class AssignableRoles(
         # welcome role
         if guild_db.welcome_role_id:
             role = member.guild.get_role(guild_db.welcome_role_id)
+            if not role:
+                await member.guild.owner.send(f"The welcome role of guild **{member.guild}** seems to be deleted, "
+                                              f"so I'm resetting my welcome role configuration.")
+                return await guild_db.set_welcome_role(None)
+
             try:
                 await member.add_roles(role, reason="Welcome role.")
             except discord.Forbidden:
