@@ -290,9 +290,14 @@ class Logging(
             else:
                 content = f"{time} :x: {len(msgs)} messages have been deleted in {self.detailed(channel)}."
 
+        # length checks
+        if e and isinstance(e.description, str):
+            e.description = e.description[:4090]
+        content = content[:2040] if content else None
+
         try:
             await self.bot.send_as_webhook(guild_settings.logging_channel,
-                                           content=content[:2000] if content else None,
+                                           content=content,
                                            embed=e,
                                            file=file,
                                            allowed_mentions=discord.AllowedMentions.none())

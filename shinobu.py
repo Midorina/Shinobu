@@ -325,13 +325,17 @@ class ShinobuBot(commands.AutoShardedBot):
         except (discord.DiscordServerError,
                 aiohttp.ServerDisconnectedError,
                 aiohttp.ClientOSError,
-                asyncio.TimeoutError) as e:
-            # probably discord servers dying
-            await asyncio.sleep(5.0)
+                asyncio.TimeoutError,
+                discord.HTTPException) as e:
+            if isinstance(e, discord.HTTPException) and e.status < 500:
+                # if its not a server error and something wrong from our side, raise again
+                raise e
 
+            # probably discord servers dying
             self.logger.info(f"There was an error while trying to send a webhook to {channel.id}. Error: {e}\n"
                              f"Retrying...")
 
+            await asyncio.sleep(5.0)
             return await self.send_as_webhook(channel, *args, **kwargs)
 
         except Exception as e:

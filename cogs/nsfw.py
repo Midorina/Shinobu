@@ -184,6 +184,8 @@ class NSFW(commands.Cog,
             except discord.Forbidden:
                 fail_counter = 5
                 break
+            else:
+                fail_counter = 0
 
             self.bot.logger.debug(f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
 
