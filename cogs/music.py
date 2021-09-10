@@ -36,16 +36,16 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
     async def start_nodes(self):
         # initiate the each node specified in the cfg file
-        for node in self.bot.config.lavalink_nodes_credentials:
-            await self._initiate_node(**node)
+        for node_credentials in self.bot.config.lavalink_nodes_credentials:
+            await self._initiate_node(**node_credentials)
 
     async def reload_nodes(self):
-        for node in self.bot.config.lavalink_nodes_credentials:
-            identifier = node['identifier']
-            if identifier in self.wavelink.nodes:
-                await self.wavelink.nodes[identifier].destroy()
+        # destroy existing nodes
+        for node in self.wavelink.nodes.values():
+            await node.destroy()
 
-            await self._initiate_node(**node)
+        # initiate the new ones
+        await self.start_nodes()
 
     async def cog_check(self, ctx: mido_utils.Context):
         if not ctx.guild:
@@ -63,7 +63,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         error = getattr(error, 'original', error)
-        if isinstance(error, ZeroConnectedNodes):
+        if mido_utils.better_is_instance(error, ZeroConnectedNodes):
             await self.reload_nodes()
             await asyncio.sleep(1)
             await ctx.reinvoke()

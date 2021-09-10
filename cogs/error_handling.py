@@ -1,6 +1,5 @@
 import sys
 import traceback
-from typing import Any, Tuple, Union
 
 import discord
 from discord.ext import commands
@@ -8,14 +7,6 @@ from discord.ext import commands
 import mido_utils
 from ipc import ipc_errors
 from shinobu import ShinobuBot
-
-
-def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
-    # importlib.reload bug
-    if isinstance(cls, tuple):
-        return isinstance(org, cls) or str(type(org)) in [str(x) for x in cls]
-    else:
-        return isinstance(org, cls) or str(type(org)) == str(cls)
 
 
 class ErrorHandling(commands.Cog):
@@ -59,31 +50,31 @@ class ErrorHandling(commands.Cog):
                 return
 
             # this is to observe missing commands
-            elif better_is_instance(error, commands.CommandNotFound):
+            elif mido_utils.better_is_instance(error, commands.CommandNotFound):
                 return ctx.bot.logger.info(f"Unknown command: {ctx.message.content} | {ctx.author} | {ctx.guild}")
 
-            elif better_is_instance(error, mido_utils.RaceError):
+            elif mido_utils.better_is_instance(error, mido_utils.RaceError):
                 return await ctx.send_error(error)
 
-            elif better_is_instance(error, commands.NSFWChannelRequired):
+            elif mido_utils.better_is_instance(error, commands.NSFWChannelRequired):
                 return await ctx.send_error('This command can only be used in channels that are marked as NSFW.')
 
-            elif better_is_instance(error, mido_utils.InsufficientCash):
+            elif mido_utils.better_is_instance(error, mido_utils.InsufficientCash):
                 return await ctx.send_error("You don't have enough money to do that!")
 
-            elif better_is_instance(error, commands.NoPrivateMessage):
+            elif mido_utils.better_is_instance(error, commands.NoPrivateMessage):
                 return await ctx.send_error("This command can not be used through DMs!")
 
-            elif better_is_instance(error, commands.errors.MaxConcurrencyReached):
+            elif mido_utils.better_is_instance(error, commands.errors.MaxConcurrencyReached):
                 suffix = 'per %s' % error.per.name if error.per.name != 'default' else 'globally'
                 plural = '%s times %s' if error.number > 1 else '%s time %s'
                 fmt = plural % (error.number, suffix)
                 return await ctx.send_error(f"This command can only be used {fmt}.")
 
-            elif better_is_instance(error, commands.NotOwner):
+            elif mido_utils.better_is_instance(error, commands.NotOwner):
                 return await ctx.send_error(error, "This is an owner-only command. Sorry.")
 
-            elif better_is_instance(error, commands.BotMissingPermissions):
+            elif mido_utils.better_is_instance(error, commands.BotMissingPermissions):
                 missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_perms]
                 if len(missing) > 2:
                     fmt = '{}, and {}'.format(", ".join(missing[:-1]), missing[-1])
@@ -92,32 +83,32 @@ class ErrorHandling(commands.Cog):
                 return await ctx.send_error(
                     f"I am missing these necessary permissions to execute `{ctx.prefix}{ctx.command}`:\n**{fmt}**")
 
-            elif better_is_instance(error, discord.Forbidden):
+            elif mido_utils.better_is_instance(error, discord.Forbidden):
                 return await ctx.send_error("I am missing some necessary permissions to do what I need to do.")
 
-            elif better_is_instance(error, commands.DisabledCommand):
+            elif mido_utils.better_is_instance(error, commands.DisabledCommand):
                 return await ctx.send_error("This command is temporarily disabled. Sorry for the inconvenience.")
 
             # cooldown errors
             # TODO: merge commands.CommandOnCooldown with mido_utils.OnCooldownError
-            elif better_is_instance(error, commands.CommandOnCooldown):
+            elif mido_utils.better_is_instance(error, commands.CommandOnCooldown):
                 # if remaining seconds are less than 0.7, ignore
                 if error.retry_after < 0.7:
                     return
 
                 remaining = mido_utils.Time.parse_seconds_to_str(total_seconds=error.retry_after)
                 return await ctx.send_error(f"You're on cooldown! Try again after **{remaining}**.")
-            elif better_is_instance(error, mido_utils.OnCooldownError):
+            elif mido_utils.better_is_instance(error, mido_utils.OnCooldownError):
                 return await ctx.send_error(error, "You're on cooldown!")
 
-            elif better_is_instance(error, commands.MissingRequiredArgument):
+            elif mido_utils.better_is_instance(error, commands.MissingRequiredArgument):
                 return await ctx.send_help(entity=ctx.command, content=f"**You are missing this required argument: "
                                                                        f"`{error.param.name}`**")
 
-            elif better_is_instance(error, commands.CheckFailure):
+            elif mido_utils.better_is_instance(error, commands.CheckFailure):
                 return await ctx.send_error(error, "You don't have required permissions to do that!")
 
-            elif better_is_instance(error, discord.HTTPException):
+            elif mido_utils.better_is_instance(error, discord.HTTPException):
                 if error.code == 0:
                     return await ctx.send_error("Discord API is currently having issues. Please use the command again.")
 
@@ -125,36 +116,37 @@ class ErrorHandling(commands.Cog):
                     return await ctx.send_error(
                         "I don't have permission to use external emojis! Please give me permission to use them.")
 
-            elif better_is_instance(error, mido_utils.NotFoundError):
+            elif mido_utils.better_is_instance(error, mido_utils.NotFoundError):
                 return await ctx.send_error(error, "I couldn't find anything with that query.")
 
-            elif better_is_instance(error, mido_utils.RateLimited):
+            elif mido_utils.better_is_instance(error, mido_utils.RateLimited):
                 return await ctx.send_error(error, "You are rate limited. Please try again in a few minutes.")
 
-            elif better_is_instance(error, mido_utils.APIError):
+            elif mido_utils.better_is_instance(error, mido_utils.APIError):
                 await ctx.send_error("There was an error communicating with the API. Please try again later.")
                 inform = False
 
-            elif better_is_instance(error, mido_utils.InvalidURL):
+            elif mido_utils.better_is_instance(error, mido_utils.InvalidURL):
                 return await ctx.send_error(error, "Invalid URL. Please specify a proper URL.")
 
-            elif better_is_instance(error,
-                                    (commands.BadArgument,
-                                     commands.ExpectedClosingQuoteError,
-                                     commands.UnexpectedQuoteError,
-                                     commands.InvalidEndOfQuotedStringError)):
+            elif mido_utils.better_is_instance(error,
+                                               (commands.BadArgument,
+                                                commands.ExpectedClosingQuoteError,
+                                                commands.UnexpectedQuoteError,
+                                                commands.InvalidEndOfQuotedStringError)):
                 return await ctx.send_help(entity=ctx.command, content=f"**{error}**")
 
-            elif better_is_instance(error, (mido_utils.MusicError,
-                                            commands.UserInputError,
-                                            mido_utils.TimedOut,
-                                            mido_utils.DidntVoteError,
-                                            mido_utils.UnknownCurrency,
-                                            mido_utils.NotPatron,
-                                            mido_utils.InsufficientPatronLevel,
-                                            mido_utils.CantClaimRightNow,
-                                            ipc_errors.RequestFailed,
-                                            mido_utils.IncompleteConfigFile)):
+            elif mido_utils.better_is_instance(
+                    error, (mido_utils.MusicError,
+                            commands.UserInputError,
+                            mido_utils.TimedOut,
+                            mido_utils.DidntVoteError,
+                            mido_utils.UnknownCurrency,
+                            mido_utils.NotPatron,
+                            mido_utils.InsufficientPatronLevel,
+                            mido_utils.CantClaimRightNow,
+                            ipc_errors.RequestFailed,
+                            mido_utils.IncompleteConfigFile)):
                 return await ctx.send_error(error)
 
             if inform:
@@ -168,7 +160,7 @@ class ErrorHandling(commands.Cog):
         error_msg = "\n".join(traceback.format_exception(*exc_info))
         ctx.bot.logger.exception("Details of the last command error:", exc_info=exc_info)
 
-        if better_is_instance(ctx.channel, discord.DMChannel):
+        if mido_utils.better_is_instance(ctx.channel, discord.DMChannel):
             used_in = f"DM {ctx.channel.id}"
         else:
             used_in = f"{ctx.channel.name}({ctx.channel.id}), guild {ctx.guild.name}({ctx.guild.id})"

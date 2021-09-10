@@ -327,7 +327,7 @@ class ShinobuBot(commands.AutoShardedBot):
                 aiohttp.ClientOSError,
                 asyncio.TimeoutError,
                 discord.HTTPException) as e:
-            if isinstance(e, discord.HTTPException) and e.status < 500:
+            if mido_utils.better_is_instance(e, discord.HTTPException) and e.status < 500:
                 # if its not a server error and something wrong from our side, raise again
                 raise e
 

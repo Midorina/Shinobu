@@ -42,8 +42,7 @@ class ReminderService(BaseShinobuService):
 
         channel = author = self.bot.get_user(reminder.author_id)
 
-        # str checking due to importlib.reload bug
-        if str(reminder.channel_type) != str(ReminderDB.ChannelType.DM):
+        if mido_utils.better_is_instance(reminder.channel_type, ReminderDB.ChannelType.DM):
             channel = self.bot.get_channel(reminder.channel_id)
 
         if not channel:
