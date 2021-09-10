@@ -170,7 +170,7 @@ class Waifu(
             random.shuffle(waifus)
             for i, waifu in enumerate(waifus, 1):
                 if len(waifus_field_val) < 950:
-                    waifus_field_val += waifu.discord_name + '\n'
+                    waifus_field_val += str(waifu.discord_name) + '\n'
                 else:
                     waifus_field_val += f"**And {len(waifus) - i} more waifu(s)...**"
                     break

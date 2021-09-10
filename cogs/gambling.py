@@ -302,6 +302,7 @@ class Gambling(
         """Turn the wheel!
 
         What you bet will be multiplied by what you hit and get back to you."""
+        # TODO: use a code block an move "possibilities_and_arrows" to somewhere else
         possibilities_and_arrows = {
             1.5: '↖️',
             1.7: '⬆️',
@@ -323,9 +324,7 @@ class Gambling(
 
         e.description = f"**{ctx.author}** has just won: " \
                         f"**{mido_utils.readable_currency(won_cash)}** [x{won_multiplier}]\n\n"
-        for i, multiplier_and_arrow in enumerate(possibilities_and_arrows.items()):
-            multiplier, arrow = multiplier_and_arrow
-
+        for i, multiplier in enumerate(possibilities_and_arrows.keys()):
             if i == 4:
                 e.description += empty + won_arrow + empty * 4
 
