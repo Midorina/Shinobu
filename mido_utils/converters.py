@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import discord
 import wavelink
@@ -87,7 +87,7 @@ class Int64(commands.Converter):
 
 
 # todo: add 'k' support
-async def ensure_not_broke_and_parse_bet(ctx: mido_utils.Context, bet_amount: str) -> int:
+async def ensure_not_broke_and_parse_bet(ctx: mido_utils.Context, bet_amount: Union[str, int]) -> int:
     if isinstance(bet_amount, str):
         if bet_amount == 'all':
             bet_amount = int(ctx.user_db.cash)
@@ -120,7 +120,7 @@ async def parse_text_with_context(text: str, bot,
                                   guild: discord.Guild,
                                   channel: discord.TextChannel,
                                   author: discord.Member = None,
-                                  message_obj: discord.Message = None) -> (str, Optional[discord.Embed]):
+                                  message_obj: discord.Message = None) -> Tuple[str, Optional[discord.Embed]]:
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff

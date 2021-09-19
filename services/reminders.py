@@ -41,8 +41,8 @@ class ReminderService(BaseShinobuService):
         await asyncio.sleep(delay=reminder.time_obj.remaining_seconds)
 
         channel = author = self.bot.get_user(reminder.author_id)
-
-        if mido_utils.better_is_instance(reminder.channel_type, ReminderDB.ChannelType.DM):
+        # value has to be used due to importlib bug
+        if reminder.channel_type.value != ReminderDB.ChannelType.DM.value:
             channel = self.bot.get_channel(reminder.channel_id)
 
         if not channel:

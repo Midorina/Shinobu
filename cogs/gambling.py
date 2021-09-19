@@ -347,11 +347,7 @@ class Gambling(
         """
         emojis = [mido_utils.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
 
-        slot = []
-        for i in range(3):
-            slot.append([])
-            for j in range(3):
-                slot[i].append(random.choice(emojis))
+        slot = [random.choices(emojis, k=3) for _ in range(3)]
 
         middle = slot[1]
         if middle.count(emojis[0]) == 3:  # 3 donuts

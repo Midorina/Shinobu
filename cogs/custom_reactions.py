@@ -71,18 +71,19 @@ class CustomReactions(
             except (discord.Forbidden, discord.NotFound):
                 pass
             except discord.HTTPException as e:
-                await channel_to_send.send(
-                    f"There was an error while sending the custom reaction. "
-                    f"It's most likely a bad embed structure.\n"
-                    f"```{e}```"
-                    f"I am deleting the custom reaction so that you can re-create it easily. "
-                    f"Please try to put a properly built embed next time.\n"
-                )
-                await cr.delete_from_db()
+                if e.status < 500:  # if not an internal server error
+                    await channel_to_send.send(
+                        f"There was an error while sending the custom reaction. "
+                        f"It's most likely a bad embed structure.\n"
+                        f"```{str(e)[:1000]}```"
+                        f"I am deleting the custom reaction so that you can re-create it easily. "
+                        f"Please try to put a properly built embed next time.\n"
+                    )
+                    await cr.delete_from_db()
 
-                self.bot.logger.debug(f"Was not able to send the embed "
-                                      f"in custom reaction with ID: {cr.id}\n"
-                                      f"Embed content: {embed.to_dict() if embed else None}")
+                    self.bot.logger.debug(f"Was not able to send the embed "
+                                          f"in custom reaction with ID: {cr.id}\n"
+                                          f"Embed content: {embed.to_dict() if embed else None}")
             else:
                 self.bot.logger.info(f"User [{message.author}] "
                                      f"executed custom reaction [{cr.trigger}]"

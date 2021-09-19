@@ -104,6 +104,7 @@ class Shitposting(
 
         await ctx.send_simple_image(url)
 
+    @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
     @commands.command()
     async def dadjoke(self, ctx: mido_utils.Context):
         """Get a random dad joke."""

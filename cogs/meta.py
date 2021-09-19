@@ -341,7 +341,7 @@ class Meta(commands.Cog,
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def shutdown(self, ctx, *, cluster_id: int = None):
-        if cluster_id:
+        if cluster_id is not None:
             await ctx.send(f"Shutting down cluster **{cluster_id}**...")
         else:
             await ctx.send("Shutting down all shards...")
