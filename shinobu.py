@@ -67,7 +67,7 @@ class ShinobuBot(commands.AutoShardedBot):
         self.prefix_cache = dict()
         self.webhook_cache: Dict[int, discord.Webhook] = dict()
 
-        self.exit_code: int = 0
+        self.exit_code: int = 1  # 1 == restart me
         self.updated_status: bool = False
 
         self.run()
@@ -187,8 +187,6 @@ class ShinobuBot(commands.AutoShardedBot):
             # todo: do this in somewhere else
             await self.change_presence(status=self.status, activity=self.activity)
 
-            # change exit code from 0 to 1 to get restarted upon exit
-            self.exit_code = 1
             self.updated_status = True
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:

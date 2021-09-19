@@ -107,6 +107,7 @@ class _InternalIPCHandler:
 
         self.responses = asyncio.Queue()
         self.key_queue = []
+
         self.bot.loop.create_task(self._connect_to_ipc())
 
     @staticmethod
@@ -117,18 +118,17 @@ class _InternalIPCHandler:
         while True:
             try:
                 self.ws = await websockets.connect(f'ws://localhost:{self.port}')
-
-                await self.ws.send(self.identity.encode('utf-8'))
-                await self.ws.recv()
-            except OSError:
+            except (OSError, asyncio.TimeoutError, websockets.InvalidMessage):
                 self.bot.logger.error("Websocket connection attempt is refused. "
                                       f"IPC server is most likely dead or never launched at all.\n"
                                       f"Please launch {os.getcwd()}/ipc/ipc.py with port {self.port}."
-                                      " Retrying in 10 seconds...")
-                await asyncio.sleep(10.0)
+                                      " Retrying in 5 seconds...")
+                await asyncio.sleep(5.0)
             except asyncio.CancelledError:
-                return
+                return self.bot.logger.info("Connecting to ipc task has been cancelled.")
             else:
+                await self.ws.send(self.identity.encode('utf-8'))
+                await self.ws.recv()
                 self.bot.logger.info("Websocket connection succeeded.")
                 break
 
@@ -136,35 +136,11 @@ class _InternalIPCHandler:
 
     def assign_ws_task(self):
         if not self.ws_task or self.ws_task.done() is True:
+            # if self.ws_task:  # make sure its stopped
+            #     self.ws_task.cancel()
+
             self.ws_task = self.bot.loop.create_task(self._websocket_loop())
             self.ws_task.add_done_callback(self._websocket_loop_done)
-
-    async def _get_responses(self, key: str) -> List[IPCMessage]:
-        ret = []
-
-        try:
-            async with timeout(5.0):
-                while len(ret) < self.bot.cluster_count:
-                    item: IPCMessage = await self.responses.get()
-                    if item.key == str(key):
-                        # if there was an error, raise it
-                        if item.successful is False:
-                            raise ipc_errors.RequestFailed(item.return_value)
-
-                        ret.append(item)
-                    else:
-                        # todo: throw the response away if it was sent more than 6 seconds ago
-                        await self.responses.put(item)
-                        await asyncio.sleep(0.01)
-        except asyncio.TimeoutError:
-            pass
-
-        self.key_queue.remove(key)
-
-        # sort responses
-        ret.sort(key=lambda x: x.author)
-
-        return ret
 
     async def _websocket_loop(self):
         self.bot.logger.info("Websocket loop has successfully started.")
@@ -193,25 +169,59 @@ class _InternalIPCHandler:
                                          type='response',
                                          key=data.key,
                                          data={'return_value': returned_value})
+
                     await self._send(ret.dumps())
                     self.bot.logger.debug("Responded with: " + ret.dumps())
                 else:
                     raise ipc_errors.UnknownRequestType
+
             except websockets.ConnectionClosed as exc:
-                # if exc.code == 1000:
-                #     self.bot.logger.warn("Websocket connection seems to be closed safely. Stopping the websocket loop.")
-                #     return
                 self.bot.logger.error(f"Websocket connection seems to be closed with code {exc.code}.")
-                await self._try_to_reconnect()
+                await self._try_to_reconnect(sleep=3.0)
 
             except asyncio.CancelledError as e:
                 raise e
 
+            except RuntimeError:
+                self.bot.logger.exception("RuntimeError while trying to receive from websocket. "
+                                          "Probably duplicate task? Aborting.")
+                return
+
             except Exception:
                 self.bot.logger.exception("Unexpected error in websocket loop!")
 
-    async def request(self, endpoint: str, **kwargs):
+            await asyncio.sleep(0.01)  # small sleep to not hog
+
+    async def _get_responses(self, key: str) -> List[IPCMessage]:
+        ret = []
+
+        try:
+            async with timeout(3.0):
+                while len(ret) < self.bot.cluster_count:
+                    item: IPCMessage = await self.responses.get()
+                    if item.key == str(key):
+                        # if there was an error, raise it
+                        if item.successful is False:
+                            raise ipc_errors.RequestFailed(item.return_value)
+
+                        ret.append(item)
+                    else:
+                        # todo: throw the response away if it was sent more than 6 seconds ago
+                        await self.responses.put(item)
+                        await asyncio.sleep(0.01)
+        except asyncio.TimeoutError:
+            pass
+
+        self.key_queue.remove(key)
+
+        # sort responses
+        ret.sort(key=lambda x: x.author)
+
+        return ret
+
+    async def request(self, endpoint: str, **kwargs) -> List[IPCMessage]:
         key = self.get_key()
+
         # put the key in the queue so that the response doesn't get ignored
         self.key_queue.append(key)
 
@@ -240,9 +250,10 @@ class _InternalIPCHandler:
         while True:
             try:
                 await self.ws.send(data)
-            except websockets.ConnectionClosed:
-                self.bot.logger.error(f"Websocket connection seems to be closed. Retrying to send the message: {data}")
-                await self._try_to_reconnect(sleep=1.0)
+            except (websockets.ConnectionClosed, AttributeError):
+                self.bot.logger.error(f"Websocket connection seems to be closed. "
+                                      f"Waiting for connection to be recovered to send the message: {data}")
+                await asyncio.sleep(1.0)
             else:
                 return
 

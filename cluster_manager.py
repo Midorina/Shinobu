@@ -14,7 +14,7 @@ import shinobu
 cluster_logger = logging.getLogger('Cluster Manager')
 
 
-# TODO: use ipc or a pipe to listen to clusters.
+# TODO: use ipc or a pipe to listen to clusters and use that to stop/start/restart clusters
 
 def _get_packages_to_reload(package):
     assert (hasattr(package, "__package__"))
@@ -168,13 +168,13 @@ class Launcher:
             # if there was an exception besides CancelledError, just restart
             if task.exception():
                 task.print_stack()
+
                 self.rebooter_task = self.loop.create_task(self.rebooter())
                 self.rebooter_task.add_done_callback(self.task_complete)
                 return
-        except asyncio.CancelledError:
-            pass
 
-        self.loop.stop()
+        except asyncio.CancelledError:
+            self.loop.stop()
 
 
 class Cluster:
