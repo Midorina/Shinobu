@@ -376,11 +376,11 @@ class ShinobuBot(commands.AutoShardedBot):
                 "Please enable them and restart the bot.")
 
     async def close(self):
-        # close ipc connection
-        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
-
         # close the bot
         await super().close()
+
+        # close ipc connection
+        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
 
         # close the db connection and the http session
         await self.db.close()

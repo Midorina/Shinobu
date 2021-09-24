@@ -109,6 +109,7 @@ class _InternalIPCHandler:
         self.key_queue = []
 
         self.bot.loop.create_task(self._connect_to_ipc())
+        self.attempting_reconnect = False
 
     @staticmethod
     def get_key() -> str:
@@ -237,23 +238,32 @@ class _InternalIPCHandler:
         return await self._get_responses(msg.key)
 
     async def _try_to_reconnect(self, sleep=1.0):
-        self.bot.logger.info("Attempting reconnect...")
-        try:
-            await self._connect_to_ipc()
-        except Exception:
-            self.bot.logger.exception(f"Exception occurred while trying to reconnect!")
+        if self.attempting_reconnect is False:
+            self.attempting_reconnect = True
+            self.bot.logger.info("Attempting reconnect...")
+            try:
+                await self._connect_to_ipc()
+            except Exception:
+                self.bot.logger.exception(f"Exception occurred while trying to reconnect!")
+            else:
+                self.bot.logger.info("Successfully reconnected!")
+            finally:
+                self.attempting_reconnect = False
         else:
-            self.bot.logger.info("Successfully reconnected!")
+            self.bot.logger.info("Looks like we're already attempting reconnect. Sleeping...")
+
         await asyncio.sleep(sleep)
 
     async def _send(self, data: str):
-        while True:
+        attempt = 0
+        while attempt < 5:
+            attempt += 1
             try:
                 await self.ws.send(data)
             except (websockets.ConnectionClosed, AttributeError):
                 self.bot.logger.error(f"Websocket connection seems to be closed. "
                                       f"Waiting for connection to be recovered to send the message: {data}")
-                await asyncio.sleep(1.0)
+                await self._try_to_reconnect(sleep=1.0)
             else:
                 return
 
@@ -298,7 +308,9 @@ class IPCServer:
 
         if self.bot.log_channel:
             embed = discord.Embed.from_dict(data.embed) if data.embed else None
-            await self.bot.log_channel.send(content=data.content, embed=embed)
+            content = data.content[:2000] if data.content else None
+
+            await self.bot.log_channel.send(content=content, embed=embed)
             return True
 
     async def get_guild_count(self, data: IPCMessage):
@@ -402,7 +414,7 @@ class IPCClient:
     async def shutdown(self, cluster_id: int = None) -> None:
         await self.handler.request('shutdown', cluster_id=cluster_id)
 
-    async def close_ipc(self, reason: str = None) -> None:
+    async def close_ipc(self, reason: str = 'Close called by bot.') -> None:
         await self.handler.close(reason)
 
     async def get_cluster_stats(self) -> List[IPCMessage]:

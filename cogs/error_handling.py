@@ -27,7 +27,7 @@ class ErrorHandling(commands.Cog):
                                         color=mido_utils.Color.red(),
                                         description=f"```py\n{error_msg[-2000:]}```")
 
-        await self.bot.ipc.send_to_log_channel(content=content[:4000], embed=traceback_embed)
+        await self.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: mido_utils.Context, error):
