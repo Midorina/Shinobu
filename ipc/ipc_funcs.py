@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import uuid
+from datetime import datetime
 from typing import List, Optional, Tuple, Type
 
 import discord
@@ -12,16 +13,18 @@ import websockets
 from async_timeout import timeout
 
 from ipc import ipc_errors
+from mido_utils import Time
 from models.patreon import UserAndPledgerCombined
 
 __all__ = ['IPCClient', 'SerializedObject']
+DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 # todo: possibly rewrite this
 class IPCMessage:
     MANDATORY_ATTRS = ('author', 'type', 'key')
 
-    def __init__(self, author: id, type: str, key: str, data: dict, successful: bool = True):
+    def __init__(self, author: id, type: str, key: str, data: dict, created_at: str = None, successful: bool = True):
         self._data = data
 
         # cluster id
@@ -35,6 +38,10 @@ class IPCMessage:
 
         # whether the response is successful or not
         self.successful = successful
+
+        # creation date
+        self.created_at: Time = Time(datetime.strptime(created_at, DATE_FORMAT), offset_naive=True) if created_at \
+            else Time(datetime.now())
 
     def __getattr__(self, item):
         if self.type == 'response' and isinstance(self._data['return_value'], dict) and item != 'return_value':
@@ -58,6 +65,7 @@ class IPCMessage:
                 'type'      : self.type,
                 'key'       : self.key,
                 'successful': self.successful,
+                'created_at': self.created_at.start_date.strftime(DATE_FORMAT),
                 'data'      : self._data}
 
     def dumps(self) -> str:
@@ -105,7 +113,7 @@ class _InternalIPCHandler:
         self.ws: websockets.WebSocketClientProtocol = None
         self.ws_task: asyncio.Task = None
 
-        self.responses = asyncio.Queue()
+        self.responses = asyncio.Queue()  # or LifoQueue() ?
         self.key_queue = []
 
         self.bot.loop.create_task(self._connect_to_ipc())
@@ -197,9 +205,10 @@ class _InternalIPCHandler:
         ret = []
 
         try:
-            async with timeout(3.0):
+            async with timeout(2.0):
                 while len(ret) < self.bot.cluster_count:
                     item: IPCMessage = await self.responses.get()
+
                     if item.key == str(key):
                         # if there was an error, raise it
                         if item.successful is False:
@@ -207,13 +216,17 @@ class _InternalIPCHandler:
 
                         ret.append(item)
                     else:
-                        # todo: throw the response away if it was sent more than 6 seconds ago
-                        await self.responses.put(item)
-                        await asyncio.sleep(0.01)
+                        # if it was sent less than 10 seconds ago, put it back
+                        # as something else might be waiting to get it
+                        if item.created_at.passed_seconds < 10.0:
+                            await self.responses.put(item)
+                        await asyncio.sleep(0.001)
+
         except asyncio.TimeoutError:
             pass
 
-        self.key_queue.remove(key)
+        finally:
+            self.key_queue.remove(key)
 
         # sort responses
         ret.sort(key=lambda x: x.author)

@@ -330,6 +330,7 @@ class Meta(commands.Cog,
     @commands.command(hidden=True)
     @mido_utils.is_owner()
     async def reload(self, ctx, cog_name: str = None):
+        # TODO: reload config inside ipc function so that all clusters reload the config
         self.bot.config = self.bot.get_config(self.bot.name, warn=False)
 
         responses = await self.bot.ipc.reload(target_cog=cog_name)

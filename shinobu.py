@@ -184,8 +184,10 @@ class ShinobuBot(commands.AutoShardedBot):
             self.status = discord.Status.online
             self.activity = discord.Game(name=self.config.playing)
 
-            # todo: do this in somewhere else
-            await self.change_presence(status=self.status, activity=self.activity)
+            try:  # todo: do this in somewhere else
+                await self.change_presence(status=self.status, activity=self.activity)
+            except ConnectionResetError:
+                pass
 
             self.updated_status = True
 
