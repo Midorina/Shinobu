@@ -42,7 +42,7 @@ def main():
     handler_c2.setFormatter(_format)
 
     logger.handlers = [handler_f, handler_c1, handler_c2]
-
+    # FIXME: merge loggers
     Launcher(bot_name).start()
 
 

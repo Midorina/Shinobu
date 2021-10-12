@@ -48,6 +48,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await self.start_nodes()
 
     async def cog_check(self, ctx: mido_utils.Context):
+        # todo: add_reactions perm check
         if not ctx.guild:
             raise commands.NoPrivateMessage
         else:
