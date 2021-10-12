@@ -238,7 +238,7 @@ class Waifu(
             raise commands.UserInputError(
                 f"You must pay at least **{mido_utils.readable_bigint(required_amount)}** to claim {target.mention}.")
 
-        await ctx.user_db.remove_cash(required_amount, reason=f"Claimed waifu {target.id}.")
+        await ctx.user_db.remove_cash(price, reason=f"Claimed waifu {target.id}.")
 
         await target_db.waifu.get_claimed(ctx.author.id, price)
 
