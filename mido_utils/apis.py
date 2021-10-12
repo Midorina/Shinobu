@@ -51,10 +51,9 @@ class MidoBotAPI:
                            return_text=False) -> Union[str, dict, ClientResponse]:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
-                if response.status == 404:
-                    raise mido_utils.NotFoundError
-
                 if not response.status == 200:
+                    if response.status == 404:
+                        raise mido_utils.NotFoundError(f"404 for URL: {response.url}")
                     raise mido_utils.APIError(f"{response.status} for URL: {response.url}")
 
                 if return_url is True:
@@ -70,9 +69,9 @@ class MidoBotAPI:
                             js = None
 
                     if not js:
-                        raise mido_utils.NotFoundError
+                        raise mido_utils.NotFoundError(f"{response.url} returned an empty response.")
                     elif 'error' in js:
-                        raise mido_utils.RateLimited
+                        raise mido_utils.RateLimited(f"{response.url} responded with error: {js['error']}")
 
                     return js
 
@@ -80,8 +79,9 @@ class MidoBotAPI:
                     return await response.text()
                 else:
                     return response
-        except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError, aiohttp.ClientConnectorError):
-            raise mido_utils.APIError
+
+        except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError, aiohttp.ClientConnectorError) as e:
+            raise mido_utils.APIError(f"An error occurred while trying to make a GET request to {url}: {e}")
 
 
 class CachedImageAPI(MidoBotAPI):
