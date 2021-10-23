@@ -81,7 +81,7 @@ class MidoBotAPI:
                     return response
 
         except (aiohttp.ServerDisconnectedError, asyncio.TimeoutError, aiohttp.ClientConnectorError) as e:
-            raise mido_utils.APIError(f"An error occurred while trying to make a GET request to {url}: {e}")
+            raise mido_utils.APIError(f"An error occurred while trying to make a GET request to {url}: {e.__name__}")
 
 
 class CachedImageAPI(MidoBotAPI):

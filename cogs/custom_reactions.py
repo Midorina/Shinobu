@@ -33,7 +33,7 @@ class CustomReactions(
                 CREATE OR REPLACE FUNCTION f_like_escape(text)
                   RETURNS text  LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
                 $func$
-                SELECT replace(replace(replace($1
+                SELECT REPLACE(REPLACE(REPLACE($1
                          , '\', '\\')  -- must come 1st
                          , '%', '\%')
                          , '_', '\_');
@@ -47,7 +47,11 @@ class CustomReactions(
             return False
 
         try:
-            cr = await CustomReaction.try_get(self.bot, msg=message.content, guild_id=message.guild.id)
+            cr = await CustomReaction.try_get(
+                self.bot,
+                msg=message.content.replace('\x00', ''),  # remove 0x00
+                guild_id=message.guild.id)
+
         except Exception:
             await self.bot.get_cog('ErrorHandling').on_error(f"CR error happened with message: {message.content}")
             return
