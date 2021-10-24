@@ -315,7 +315,8 @@ class NsfwDAPIs(CachedImageAPI):
         elif nsfw_type == 'sankaku_complex':
             # max 2 args
             tags = tags[:2]
-            tags.extend(('rating:explicit', 'order:random', 'score:>=50'))
+            # sankaku doesnt support score filtering
+            tags.extend(('rating:explicit', 'order:random'))
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, 100, guild_id]
