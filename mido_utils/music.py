@@ -59,7 +59,7 @@ class VoicePlayer(Player):
             self.task.cancel()
 
     async def add_songs(self, ctx: mido_utils.Context, *songs: Song, add_to_beginning=False):
-        for i, song in enumerate(songs):
+        for i, song in enumerate(reversed(songs) if add_to_beginning is True else songs):
             if len(self.song_queue) > 5000:
                 raise mido_utils.OnCooldownError("You can't add more than 5000 songs.")
 

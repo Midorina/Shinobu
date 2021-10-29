@@ -352,7 +352,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(name='playnext', aliases=['pn'])
     async def _play_next(self, ctx: mido_utils.Context, *, query: str):
-        """Put a song to the top of your song queue so that it gets played next."""
+        """Put a song/songs to the top of your song queue so that it gets played next."""
         task = await self.create_or_handle_vc_task(ctx)
 
         songs = await ctx.voice_player.fetch_songs_from_query(ctx, query, spotify=self.spotify_api)
