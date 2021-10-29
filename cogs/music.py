@@ -1,9 +1,10 @@
 import asyncio
 import math
+from typing import Optional
 
 import discord
 from discord.ext import commands
-from wavelink import Client, Node, WavelinkMixin, ZeroConnectedNodes, events
+from wavelink import Client, Node, NodeOccupied, WavelinkMixin, ZeroConnectedNodes, events
 
 import mido_utils
 from shinobu import ShinobuBot
@@ -15,24 +16,31 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         self.forcekip_by_default = True
 
+        self.spotify_api: Optional[mido_utils.SpotifyAPI] = None
+        self.wavelink: Optional[Client] = None
+
         if self.bot.config.spotify_credentials:
             self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)
 
         if self.bot.config.lavalink_nodes_credentials:
+            self.wavelink = Client(bot=self.bot)
+            self.bot.loop.create_task(self.start_nodes())
+
             if not hasattr(self.bot, 'wavelink'):
-                self.bot.wavelink = Client(bot=self.bot)
-
-                self.bot.loop.create_task(self.start_nodes())
-
-            self.wavelink = self.bot.wavelink
+                self.bot.wavelink = self.wavelink
 
     async def _initiate_node(self, **kwargs):
         await self.bot.wait_until_ready()
 
-        node = await self.wavelink.initiate_node(**kwargs)
-        if not node.is_available:
-            self.bot.logger.error("Looks like a Lavalink node could not establish a connection. "
-                                  "Please make sure you entered proper credentials to the config file.")
+        try:
+            node = await self.wavelink.initiate_node(**kwargs)
+        except NodeOccupied:
+            self.bot.logger.warn(f"The Lavalink node {kwargs['identifier']} seems to be already initiated. Ignoring.")
+        else:
+            if not node.is_available:
+                self.bot.logger.error(
+                    f"Looks like the Lavalink node {kwargs['identifier']} could not establish a connection. "
+                    "Please make sure you entered proper credentials to the config file.")
 
     async def start_nodes(self):
         # initiate the each node specified in the cfg file
@@ -342,46 +350,30 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             await ctx.send_success("Loop feature has been disabled.")
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
+    @commands.command(name='playnext', aliases=['pn'])
+    async def _play_next(self, ctx: mido_utils.Context, *, query: str):
+        """Put a song to the top of your song queue so that it gets played next."""
+        task = await self.create_or_handle_vc_task(ctx)
+
+        songs = await ctx.voice_player.fetch_songs_from_query(ctx, query, spotify=self.spotify_api)
+        await ctx.voice_player.add_songs(ctx, *songs, add_to_beginning=True)
+
+        await self.create_or_handle_vc_task(ctx, task)
+
+        await self.songs_added_message(ctx, songs)
+
+    @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
     @commands.command(name='play', aliases=['p'])
     async def _play(self, ctx: mido_utils.Context, *, query: str):
         """Queue a song to play! You can use song names or YouTube/**Spotify** playlist/album/single links."""
+        task = await self.create_or_handle_vc_task(ctx)
 
-        task = None
-        if not ctx.voice_player.channel_id:
-            task = self.bot.loop.create_task(ctx.invoke(self._join))
+        songs = await ctx.voice_player.fetch_songs_from_query(ctx, query, spotify=self.spotify_api)
+        await ctx.voice_player.add_songs(ctx, *songs)
 
-        added_songs = await ctx.voice_player.parse_query_and_add_songs(ctx, query, spotify=getattr(self, 'spotify_api'))
+        await self.create_or_handle_vc_task(ctx, task)
 
-        if task:
-            try:
-                await task
-                task.result()
-            except mido_utils.MusicError as e:
-                await ctx.voice_player.destroy()
-                raise e
-
-        if len(added_songs) > 1:  # if its a playlist
-            shuffle_emote = '🔀'
-            m = await ctx.send_success(
-                f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
-                f'You can type `{ctx.prefix}queue` to see it.\n\n'
-                f'*You can click {shuffle_emote} if you\'d like to shuffle the queue.*'
-            )
-            await m.add_reaction(shuffle_emote)
-
-            r = await mido_utils.Embed.wait_for_reaction(ctx.bot, m, [shuffle_emote], author_id=ctx.author.id)
-            if r:
-                ctx.voice_player.song_queue.shuffle()
-                await ctx.edit_custom(m, f'**{len(added_songs)}** songs have been successfully added to the queue!\n\n'
-                                         f'You can type `{ctx.prefix}queue` to see it.\n\n'
-                                         f'***{shuffle_emote} You\'ve successfully shuffled the queue.***')
-
-        else:
-            if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
-                await ctx.send_success(
-                    f'**{added_songs[0].title}** has been successfully added to the queue.\n\n'
-                    f'You can type `{ctx.prefix}queue` to see it.'
-                )
+        await self.songs_added_message(ctx, songs)
 
     @commands.command(name='youtube', aliases=['yt'])
     async def _find_video(self, ctx: mido_utils.Context, *, query: str):
@@ -448,6 +440,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
     @_play.before_invoke
     @_join.before_invoke
+    @_play_next.before_invoke
     async def ensure_can_control(self, ctx: mido_utils.Context):
         """This func ensures that the author can control the player."""
         if not ctx.author.voice or not ctx.author.voice.channel:
@@ -459,6 +452,43 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         if not ctx.author.voice.channel.permissions_for(ctx.guild.me).is_superset(discord.Permissions(1049600)):
             raise commands.UserInputError("I do not have permission to connect to that voice channel!")
+
+    async def create_or_handle_vc_task(self, ctx, task=None):
+        if not task:
+            if not ctx.voice_player.channel_id:
+                return self.bot.loop.create_task(ctx.invoke(self._join))
+        else:
+            try:
+                await task
+                task.result()
+            except mido_utils.MusicError as e:
+                await ctx.voice_player.destroy()
+                raise e
+
+    @staticmethod
+    async def songs_added_message(ctx: mido_utils.Context, songs: list):
+        if len(songs) > 1:  # if its a playlist
+            shuffle_emote = '🔀'
+            m = await ctx.send_success(
+                f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
+                f'You can type `{ctx.prefix}queue` to see it.\n\n'
+                f'*You can click {shuffle_emote} if you\'d like to shuffle the queue.*'
+            )
+            await m.add_reaction(shuffle_emote)
+
+            r = await mido_utils.Embed.wait_for_reaction(ctx.bot, m, [shuffle_emote], author_id=ctx.author.id)
+            if r:
+                ctx.voice_player.song_queue.shuffle()
+                await ctx.edit_custom(m, f'**{len(songs)}** songs have been successfully added to the queue!\n\n'
+                                         f'You can type `{ctx.prefix}queue` to see it.\n\n'
+                                         f'***{shuffle_emote} You\'ve successfully shuffled the queue.***')
+
+        else:
+            if len(ctx.voice_player.song_queue) >= 1 and ctx.voice_player.is_playing:
+                await ctx.send_success(
+                    f'**{songs[0].title}** has been successfully added to the queue.\n\n'
+                    f'You can type `{ctx.prefix}queue` to see it.'
+                )
 
 
 def setup(bot):

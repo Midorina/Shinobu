@@ -58,15 +58,18 @@ class VoicePlayer(Player):
         finally:
             self.task.cancel()
 
-    async def add_songs(self, ctx: mido_utils.Context, *songs: Song):
+    async def add_songs(self, ctx: mido_utils.Context, *songs: Song, add_to_beginning=False):
         for i, song in enumerate(songs):
-            if len(self.song_queue) > 500 and i == 0:
-                raise mido_utils.OnCooldownError("You can't add more than 500 songs.")
+            if len(self.song_queue) > 5000:
+                raise mido_utils.OnCooldownError("You can't add more than 5000 songs.")
 
             if isinstance(song, Track):
                 song = Song.convert(song, ctx)
 
-            await self.song_queue.put(song)
+            if add_to_beginning is True:
+                await self.song_queue.append_left(song)
+            else:
+                await self.song_queue.put(song)
 
     async def _get_tracks_from_query(self, ctx, query: str) -> List[Song]:
         original_query = query
@@ -101,19 +104,17 @@ class VoicePlayer(Player):
 
         return list(map(lambda x: Song.convert(x, ctx), songs))
 
-    async def parse_query_and_add_songs(self, ctx: mido_utils.Context, query: str, spotify=None):
+    async def fetch_songs_from_query(self, ctx: mido_utils.Context, query: str, spotify=None):
         if query.startswith('https://open.spotify.com/'):  # spotify link
             if not spotify:
                 raise mido_utils.IncompleteConfigFile(
                     "Spotify credentials have not been set up in the configuration file. "
                     "Please fill that in and restart the bot.")
-            songs_to_add = [x for x in await spotify.get_songs(ctx, query) if x is not None]
+            songs = [x for x in await spotify.get_songs(ctx, query) if x is not None]
         else:
-            songs_to_add = await self._get_tracks_from_query(ctx, query)
+            songs = await self._get_tracks_from_query(ctx, query)
 
-        await self.add_songs(ctx, *songs_to_add)
-
-        return songs_to_add
+        return songs
 
     async def skip(self):
         await self.stop()
@@ -289,3 +290,12 @@ class SongQueue(asyncio.Queue):
 
     def remove(self, index: int):
         del self._queue[index]
+
+    async def append_left(self, item):
+        # self._queue.appendleft(item)  #
+        await self.put(item)
+
+        for _ in range(self.qsize() - 1):
+            item = self.get_nowait()
+            self.task_done()
+            self.put_nowait(item)
