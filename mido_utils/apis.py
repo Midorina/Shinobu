@@ -319,7 +319,7 @@ class NsfwDAPIs(CachedImageAPI):
             tags.extend(('rating:explicit', 'order:random'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video, limit, 100, guild_id]
+            args = [nsfw_type, tags, allow_video, limit, 0, guild_id]
 
         elif nsfw_type == 'danbooru':
             # max 2 args
@@ -414,7 +414,8 @@ class NsfwDAPIs(CachedImageAPI):
                 if tag.startswith('score'):
                     tags.remove(tag)
 
-            tags.append(f'score:>={score}')
+            if score > 0:
+                tags.append(f'score:>={score}')
 
         while True:
             try:
