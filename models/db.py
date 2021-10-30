@@ -359,8 +359,8 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
     async def get_xp_rank(self) -> int:
         result = await self.db.fetchrow("""
             SELECT COUNT(*) FROM users
-            WHERE users.xp >= (SELECT u2.xp FROM users u2 WHERE u2.id = $1);
-            """, self.id)
+            WHERE users.xp >= $1;
+            """, self.total_xp)
 
         return result['count']
 
@@ -480,8 +480,8 @@ CREATE INDEX IF NOT EXISTS member_xp_leaderboard_index
         result = await self.db.fetchrow("""
             SELECT COUNT(*) FROM members 
             WHERE guild_id=$1 
-            AND members.xp >= (SELECT m2.xp FROM members m2 WHERE m2.guild_id=$1 AND m2.user_id=$2);
-            """, self.guild.id, self.id)
+            AND members.xp >= $2;
+            """, self.guild.id, self.total_xp)
 
         return result['count']
 
