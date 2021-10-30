@@ -190,6 +190,7 @@ class UserDB(BaseDBModel):
         CONSTRAINT users_pkey
             PRIMARY KEY,
     cash                      bigint                   DEFAULT 0                NOT NULL,
+    eaten_cash                bigint                   DEFAULT 0                NOT NULL,
     last_daily_claim          timestamp WITH TIME ZONE,
     xp                        bigint                   DEFAULT 0                NOT NULL,
     last_xp_gain              timestamp WITH TIME ZONE,
@@ -214,6 +215,7 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
         super().__init__(user_db, bot)
 
         self.cash: int = user_db.get('cash')
+        self.eaten_cash: int = user_db.get('eaten_cash')
 
         self._discord_name = user_db.get('name_and_discriminator') or self.id
 
@@ -267,12 +269,20 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
         return [cls(user_db, bot) for user_db in ret]
 
     @property
+    def cash_str(self) -> str:
+        return mido_utils.readable_currency(self.cash)
+
+    @property
     def cash_str_without_emoji(self) -> str:
         return mido_utils.readable_bigint(self.cash)
 
     @property
-    def cash_str(self) -> str:
-        return mido_utils.readable_currency(self.cash)
+    def eaten_cash_str(self) -> str:
+        return mido_utils.readable_currency(self.eaten_cash)
+
+    @property
+    def eaten_cash_str_without_emoji(self) -> str:
+        return mido_utils.readable_bigint(self.eaten_cash)
 
     async def update_name(self, new_name: str):
         self._discord_name = new_name
@@ -306,6 +316,26 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
             raise mido_utils.InsufficientCash
 
         await self.add_cash(amount=0 - amount, reason=reason)
+
+    async def eat_cash(self, amount: int):
+        await self.remove_cash(amount, reason='Ate it.')
+
+        self.eaten_cash += amount
+
+        await self.db.execute("UPDATE users SET eaten_cash=$1 WHERE id=$2;", self.eaten_cash, self.id)
+
+    async def get_eaten_cash_rank(self) -> int:
+        result = await self.db.fetchrow("""
+            SELECT COUNT(*) FROM users
+            WHERE users.eaten_cash >= $1;
+            """, self.eaten_cash)
+
+        return result['count']
+
+    @classmethod
+    async def get_top_cash_eaten_people(cls, bot, limit: int = 10) -> List[UserDB]:
+        top = await bot.db.fetch("""SELECT * FROM users ORDER BY eaten_cash DESC LIMIT $1;""", limit)
+        return [UserDB(user, bot) for user in top]
 
     async def add_xp(self, amount: int, owner=False):
         if not self.xp_status.end_date_has_passed and not owner:

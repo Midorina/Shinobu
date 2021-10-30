@@ -1,6 +1,6 @@
 import math
 import random
-from typing import List, Union
+from typing import List, Optional, Union
 
 import discord
 import topgg
@@ -548,6 +548,47 @@ class Gambling(
             blocks.append(block)
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
+
+    @commands.command(aliases=['eatdonut'])
+    async def eat(self, ctx: mido_utils.Context, amount: Optional[Union[int, str]] = None):
+        """Eat donuts! Do not specify amount if you just want to see how many donuts you have eaten."""
+        if not amount:
+            return await ctx.send_success(f"You have eaten **{ctx.user_db.eaten_cash_str}** donuts in total.")
+        else:
+            await mido_utils.ensure_not_broke_and_parse_bet(ctx, amount)
+
+            await ctx.user_db.eat_cash(amount)
+
+            e = mido_utils.Embed(ctx.bot)
+
+            plural = "s" if amount > 1 else ""
+            e.description = f"You have just eaten **{mido_utils.readable_currency(amount)}** donut{plural}."
+
+            e.set_footer(text=f"Total Eaten Donuts: {ctx.user_db.eaten_cash_str_without_emoji}"
+                              f" | Rank: #{await ctx.user_db.get_eaten_cash_rank()}")
+
+            await ctx.send(embed=e)
+
+    @commands.command(aliases=['edlb', 'donuteatenlb', 'delb'])
+    async def eatendonutlb(self, ctx: mido_utils.Context):
+        """See the global donut eaten leaderboard!"""
+        crazy_people = await UserDB.get_top_cash_eaten_people(bot=ctx.bot, limit=100)
+
+        e = mido_utils.Embed(bot=self.bot,
+                             title=f"People Who Ate Most {mido_utils.emotes.currency}")
+
+        blocks = []
+        for i, user in enumerate(crazy_people, 1):
+            # if its the #1 user
+            if i == 1:
+                user_obj = await self.bot.get_user_using_ipc(user.id)
+                if user_obj:
+                    e.set_thumbnail(url=user_obj.avatar_url)
+
+            blocks.append(f"`#{i}` **{user.discord_name}**\n"
+                          f"{user.eaten_cash_str}")
+
+        await e.paginate(ctx, blocks, item_per_page=10, extra_sep='\n')
 
     @wheel.before_invoke
     @betroll.before_invoke
