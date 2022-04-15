@@ -1,6 +1,6 @@
 # Shinobu Discord Bot
 
-Shinobu is a Discord bot which provides service since 2016 and serves over 13,000 servers. It was a Nadeko clone at
+Shinobu is a Discord bot which provides service since 2016 and serves over 20,000 servers. It was a Nadeko clone at
 first, but then it got re-written from scratch using Discord.py.
 
 There's a lot of TODO's around the code, which I could not find time to implement myself. If you find one and would like
