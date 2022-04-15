@@ -79,11 +79,11 @@ class VoicePlayer(Player):
         song = None
         while not song:
             attempt = 0
-            while attempt < 4:
+            while attempt < 5:
                 song = await self.wavelink.get_tracks(query=query, retry_on_failure=True)
                 if song:
                     break
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)
                 attempt += 1
 
             if not song and query.endswith(' Audio'):

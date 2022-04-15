@@ -1268,7 +1268,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
                     return False
                 else:
                     raise Exception(f"Unknown status code {response.status} for link: {self.url}")
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, aiohttp.ClientOSError):
             return None
         except aiohttp.ClientConnectorError:
             return False

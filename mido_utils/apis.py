@@ -332,10 +332,13 @@ class NsfwDAPIs(CachedImageAPI):
         else:
             raise Exception(f"Unknown nsfw type: {nsfw_type}")
 
-        fetched_imgs = await func(*args)
+        try:
+            fetched_imgs = await func(*args)
 
-        if not fetched_imgs:
-            raise mido_utils.NotFoundError
+            if not fetched_imgs:
+                raise mido_utils.NotFoundError
+        except mido_utils.NotFoundError:  # suspend status.url message
+            raise mido_utils.NotFoundError(f"Could not find any content with tags: {tags}")
 
         # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
 
