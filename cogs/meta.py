@@ -407,6 +407,18 @@ class Meta(commands.Cog,
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
+    @commands.command(aliases=['policy', 'privacypolicy'])
+    async def privacy(self, ctx: mido_utils.Context):
+
+        e = mido_utils.Embed(self.bot)
+        e.title = f"{self.bot.user} Privacy Policy"
+        e.description = f"By using this bot, or being in a server that this bot is also in, " \
+                        f"you agree that you allow your messages and voice activity to be logged temporarily " \
+                        f"for administration purposes. If you do not agree to this, " \
+                        f"please kick me or leave the servers that I'm in."
+
+        await ctx.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Meta(bot))
