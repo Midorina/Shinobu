@@ -7,7 +7,7 @@ from discord.ext import commands, tasks
 
 import mido_utils
 from models.db import CachedImage, GuildNSFWDB, NSFWImage
-from services import BaseCache, RedisCache
+from services import RedisCache
 from shinobu import ShinobuBot
 
 
@@ -29,7 +29,7 @@ class NSFW(commands.Cog,
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
         self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
 
-        self.cache: BaseCache = RedisCache(self.bot)
+        self.cache: RedisCache = RedisCache(self.bot)
 
     async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags_str: str, limit=1, allow_video=False,
                              guild_id: int = None) -> List[NSFWImage]:
@@ -83,7 +83,8 @@ class NSFW(commands.Cog,
                                                              guild_id=guild_id)
 
                 ret.append(new_images.pop())  # use one of the new images
-                await self.cache.append(cache_key, *(image.cache_value for image in new_images))  # add to cache
+                if new_images:  # add to cache if there are remaining new images
+                    await self.cache.append(cache_key, *(image.cache_value for image in new_images))
 
         return ret
 
@@ -173,7 +174,10 @@ class NSFW(commands.Cog,
                 e = mido_utils.Embed(bot=self.bot,
                                      colour=discord.Colour.red(),
                                      description=f"Too many failed attempts. Disabling auto-{nsfw_type.name}...")
-                await nsfw_channel.send(embed=e)
+                try:
+                    await nsfw_channel.send(embed=e)
+                except:
+                    pass
 
             return await guild.set_auto_nsfw(nsfw_type=nsfw_type)  # reset
 

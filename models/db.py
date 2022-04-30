@@ -1147,6 +1147,8 @@ class CustomReaction(BaseDBModel):
 
 
 class NSFWImage:
+    SEPARATOR = '|;^'
+
     EMBED_PREVIEW_FORMATS = ('png', 'jpg', 'jpeg', 'gif', 'gifv')
 
     class Type(Enum):
@@ -1155,16 +1157,21 @@ class NSFWImage:
 
     def __init__(self, url: str, tags: List[str] = None, api_name: str = None):
         self.url = url
-        self.tags = tags
+        self.tags = tags or []
         self.api_name = api_name
 
     @property
     def cache_value(self) -> str:
-        return self.url + '|' + '+'.join(self.tags) + '|' + self.api_name
+        # TODO: maybe give up on detailed cache value to save processing power?
+        return self.url \
+               + NSFWImage.SEPARATOR \
+               + '+'.join(tag for tag in self.tags if tag) \
+               + NSFWImage.SEPARATOR \
+               + self.api_name
 
     @classmethod
     def convert_from_cache(cls, value: str) -> NSFWImage:
-        url, tags, api_name = value.split('|')
+        url, tags, api_name = value.split(NSFWImage.SEPARATOR)
         return cls(url, tags.split('+'), api_name)
 
     @property
@@ -1222,7 +1229,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
         super().__init__(data, bot)
 
         self.url: str = data.get('url')
-        self.tags: List[str] = data.get('tags')
+        self.tags: List[str] = data.get('tags', [])
         # self.api_name: str = data.get('api_name')
         self.api_name: str = 'Shinobu NSFW API'
 

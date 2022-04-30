@@ -70,8 +70,8 @@ def redis_falls_back_to_local(func):
         global REDIS_NOT_WORKING
 
         try:
-            if REDIS_NOT_WORKING:
-                raise aioredis.ConnectionError
+            # if REDIS_NOT_WORKING:
+            #     raise aioredis.ConnectionError
 
             return await func(self, *args, **kwargs)
 
@@ -80,8 +80,7 @@ def redis_falls_back_to_local(func):
                 REDIS_NOT_WORKING = True
 
                 logging.warning(
-                    "Redis connection has failed. Falling back to local cache. Redis is strongly suggested. "
-                    "You need to restart the bot if you fix Redis.")
+                    "Redis connection has failed. Falling back to local cache. Redis is strongly suggested.")
 
             return await getattr(super(self.__class__, self), func.__name__)(*args, **kwargs)
 
@@ -94,7 +93,7 @@ class RedisCache(LocalCache):
 
         self._pool: ConnectionPool = aioredis.ConnectionPool.from_url(
             self.bot.config.redis_host,
-            max_connections=10,
+            max_connections=20,
             decode_responses=True)
         self.redis_cache: Redis = aioredis.Redis(connection_pool=self._pool)
 
@@ -112,7 +111,10 @@ class RedisCache(LocalCache):
 
     @redis_falls_back_to_local
     async def pop_random(self, key: str) -> str:
-        return await self.redis_cache.spop(key)
+        # for some unknown reason, sometimes spop returns all values???
+        # so specify a count to make sure to receive a tuple
+        # and only return the first one
+        return (await self.redis_cache.spop(key, 1))[0]
 
     @redis_falls_back_to_local
     async def append(self, key: str, *values: str) -> None:
