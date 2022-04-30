@@ -17,7 +17,7 @@ def main():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    # todo: colored logging
+    # TODO: colored logging
     _format = logging.Formatter(fmt='[{asctime}.{msecs:.0f}] [{levelname:<7}] {name}: {message}',
                                 datefmt='%Y-%m-%d %H:%M:%S',
                                 style='{')

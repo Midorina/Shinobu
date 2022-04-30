@@ -1159,6 +1159,15 @@ class NSFWImage:
         self.api_name = api_name
 
     @property
+    def cache_value(self) -> str:
+        return self.url + '|' + '+'.join(self.tags) + '|' + self.api_name
+
+    @classmethod
+    def convert_from_cache(cls, value: str) -> NSFWImage:
+        url, tags, api_name = value.split('|')
+        return cls(url, tags.split('+'), api_name)
+
+    @property
     def readable_tags(self):
         return ", ".join(self.tags).replace("_", " ")
 
@@ -1213,7 +1222,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
         super().__init__(data, bot)
 
         self.url: str = data.get('url')
-        self.tags: str = data.get('tags')
+        self.tags: List[str] = data.get('tags')
         # self.api_name: str = data.get('api_name')
         self.api_name: str = 'Shinobu NSFW API'
 

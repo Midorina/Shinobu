@@ -39,6 +39,8 @@ class ConfigFile:
 
         self.currency_api_key: str = data.get('currency_api_key')
 
+        self.redis_host: str = data.get('redis_host')
+
         self.check_validity(warn)
 
     def check_validity(self, warn: bool):

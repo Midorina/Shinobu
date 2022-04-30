@@ -1,12 +1,13 @@
 import asyncio
 import random
-from typing import Dict, List
+from typing import List
 
 import discord
 from discord.ext import commands, tasks
 
 import mido_utils
 from models.db import CachedImage, GuildNSFWDB, NSFWImage
+from services import BaseCache, RedisCache
 from shinobu import ShinobuBot
 
 
@@ -28,57 +29,32 @@ class NSFW(commands.Cog,
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
         self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
 
-        # tag: image list
-        self.hentai_cache: Dict[str, List[NSFWImage]] = dict()
-        self.porn_cache: Dict[str, List[NSFWImage]] = dict()
-
-    def get_nsfw_cache(self, nsfw_type: NSFWImage.Type):
-        if nsfw_type is NSFWImage.Type.hentai:
-            return self.hentai_cache
-        elif nsfw_type is NSFWImage.Type.porn:
-            return self.porn_cache
-        else:
-            raise mido_utils.UnknownNSFWType
+        self.cache: BaseCache = RedisCache(self.bot)
 
     async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags_str: str, limit=1, allow_video=False,
                              guild_id: int = None) -> List[NSFWImage]:
         tag_list = tags_str.replace(' ', '_').lower().split('+') if tags_str else []
+
         blacklisted_tags = await self.api.get_blacklisted_tags(guild_id)
+        tag_list = list(filter(lambda x: x not in blacklisted_tags, tag_list))  # remove blacklisted tags
+        tags_str = '+'.join(tag_list)  # build tags_str back
 
-        # remove blacklisted tags from requested tags
-        tag_list = list(filter(lambda x: x not in blacklisted_tags, tag_list))
-        # build tags_str back
-        tags_str = '+'.join(tag_list)
-
-        if not allow_video and tags_str:
-            allow_video = 'video' in tags_str
+        allow_video = allow_video or 'video' in tags_str
 
         ret = []
+        cache_key = nsfw_type.name + tags_str
 
-        cache = self.get_nsfw_cache(nsfw_type)
-
-        i = 0
         while len(ret) < limit:
             try:
-                pulled = cache[tags_str].pop(0)
+                # if we don't have enough images in the cache, raise IndexError to get more images
+                if limit >= await self.cache.get_key_length(cache_key):
+                    raise IndexError
 
-                add = True
-                # check for blacklisted tags
-                for tag in pulled.tags:
-                    if tag in blacklisted_tags:
-                        # image is blacklisted
-                        add = False
-                        break
+                pulled = NSFWImage.convert_from_cache(await self.cache.pop_random(cache_key))
 
-                if add is True:
+                image_is_blacklisted = len(set(pulled.tags).intersection(blacklisted_tags)) > 0
+                if not image_is_blacklisted:
                     ret.append(pulled)
-                else:
-                    cache[tags_str].append(pulled)
-                    i += 1
-
-                    # if we scanned the whole cache, raise IndexError to get more images
-                    if i >= len(cache[tags_str]):
-                        raise IndexError
 
             except (KeyError, IndexError):
                 new_images = None
@@ -97,7 +73,8 @@ class NSFW(commands.Cog,
                         raise mido_utils.IncompleteConfigFile(
                             "Reddit cache in the database is empty. "
                             "Please make sure you set up RedditAPI credentials properly in the config file "
-                            "(If you are sure that credentials are correct, please wait a bit for the database to be filled)."
+                            "(If you are sure that credentials are correct, "
+                            "please wait a bit for the database to be filled)."
                         )
                     else:
                         new_images = await self.api.get_bomb(tags=tags_str,
@@ -105,12 +82,8 @@ class NSFW(commands.Cog,
                                                              allow_video=allow_video,
                                                              guild_id=guild_id)
 
-                if tags_str in cache.keys():
-                    cache[tags_str].extend(new_images)
-                else:
-                    cache[tags_str] = new_images
-
-                ret.append(cache[tags_str].pop(0))
+                ret.append(new_images.pop())  # use one of the new images
+                await self.cache.append(cache_key, *(image.cache_value for image in new_images))  # add to cache
 
         return ret
 
@@ -156,48 +129,59 @@ class NSFW(commands.Cog,
                 self.active_auto_nsfw_services.remove(task)
 
     async def auto_nsfw_loop(self, guild: GuildNSFWDB, nsfw_type: NSFWImage.Type):
+        try:
+            db_channel_id, db_tags, db_interval = guild.get_auto_nsfw_properties(nsfw_type)
 
-        db_channel_id, db_tags, db_interval = guild.get_auto_nsfw_properties(nsfw_type)
+            nsfw_channel = self.bot.get_channel(db_channel_id)
 
-        nsfw_channel = self.bot.get_channel(db_channel_id)
+            fail_counter = 0
+            while nsfw_channel and fail_counter < 5:  # if channel isn't found or set, code goes to the end
+                time = mido_utils.Time()
 
-        fail_counter = 0
-        while nsfw_channel and fail_counter < 5:  # if channel isn't found or set, code goes to the end
-            time = mido_utils.Time()
-            self.bot.logger.debug(
-                f"CACHE SIZE: {sum(len(x) for x in self.porn_cache.values()) + sum(len(x) for x in self.hentai_cache.values())}")
+                # DEBUGGING
+                # cache_keys = await self.cache.get_keys()
+                # image_count = sum([await self.cache.get_key_length(key) for key in cache_keys])
+                # self.bot.logger.info(f"CACHE SIZE: {len(cache_keys)} keys, {image_count} images.")
 
-            tags = random.choice(db_tags) if db_tags else None
-            try:
-                image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags_str=tags, limit=1, guild_id=guild.id))[0]
-            except mido_utils.NotFoundError:
+                tags = random.choice(db_tags) if db_tags else None
+                try:
+                    image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags_str=tags, limit=1, guild_id=guild.id))[
+                        0]
+                except mido_utils.NotFoundError:
+                    e = mido_utils.Embed(bot=self.bot,
+                                         colour=discord.Colour.red(),
+                                         description=f"Could  not find anything with tag: `{tags}`")
+                    await nsfw_channel.send(embed=e)
+
+                    fail_counter += 1
+                    continue
+
+                try:
+                    await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
+                except discord.Forbidden:
+                    fail_counter = 5
+                    break
+                else:
+                    fail_counter = 0
+
+                self.bot.logger.debug(
+                    f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
+
+                await asyncio.sleep(db_interval)
+
+            if fail_counter >= 5 and nsfw_channel:
                 e = mido_utils.Embed(bot=self.bot,
                                      colour=discord.Colour.red(),
-                                     description=f"Could  not find anything with tag: `{tags}`")
+                                     description=f"Too many failed attempts. Disabling auto-{nsfw_type.name}...")
                 await nsfw_channel.send(embed=e)
 
-                fail_counter += 1
-                continue
+            return await guild.set_auto_nsfw(nsfw_type=nsfw_type)  # reset
 
-            try:
-                await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
-            except discord.Forbidden:
-                fail_counter = 5
-                break
-            else:
-                fail_counter = 0
-
-            self.bot.logger.debug(f"Sending auto-{nsfw_type.name} took:\t\t{time.passed_seconds_in_float_formatted}")
-
-            await asyncio.sleep(db_interval)
-
-        if fail_counter >= 5 and nsfw_channel:
-            e = mido_utils.Embed(bot=self.bot,
-                                 colour=discord.Colour.red(),
-                                 description=f"Too many failed attempts. Disabling auto-{nsfw_type.name}...")
-            await nsfw_channel.send(embed=e)
-
-        return await guild.set_auto_nsfw(nsfw_type=nsfw_type)  # reset
+        except Exception:
+            self.bot.logger.exception(
+                f"Auto NSFW task of guild {guild.id} "
+                f"for NSFW type {nsfw_type.name} "
+                f"crashed due to the following exception:")
 
     @tasks.loop(hours=1.0)
     async def fill_the_database(self):
@@ -229,6 +213,8 @@ class NSFW(commands.Cog,
         return True
 
     def cog_unload(self):
+        self.bot.loop.create_task(self.cache.disconnect())
+
         self.start_auto_nsfw_task.cancel()
         self.start_checking_urls_task.cancel()
         self.fill_the_database.cancel()

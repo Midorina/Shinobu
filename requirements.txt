@@ -10,3 +10,4 @@ beautifulsoup4~=4.9.0
 setproctitle~=1.2.2
 requests~=2.25.1
 topggpy~=1.3.0
+aioredis~=2.0.1
