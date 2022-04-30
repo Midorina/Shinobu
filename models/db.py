@@ -1171,6 +1171,9 @@ class NSFWImage:
 
     @classmethod
     def convert_from_cache(cls, value: str) -> NSFWImage:
+        if isinstance(value, tuple):
+            value = value[0]
+
         url, tags, api_name = value.split(NSFWImage.SEPARATOR)
         return cls(url, tags.split('+'), api_name)
 
