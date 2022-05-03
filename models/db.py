@@ -1175,6 +1175,10 @@ class NSFWImage:
             value = value[0]
 
         url, tags, api_name = value.split(NSFWImage.SEPARATOR)
+
+        if isinstance(tags, tuple):
+            tags = tags[0]
+
         return cls(url, tags.split('+'), api_name)
 
     @property
