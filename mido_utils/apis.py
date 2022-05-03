@@ -102,6 +102,7 @@ class CachedImageAPI(MidoBotAPI):
 
 
 class NekosLifeAPI(CachedImageAPI):
+    # 03.05.2022 NSFW tags have been removed from NekosLifeAPI. reason unknown.
     BASE_URL = 'https://nekos.life/api/v2'
     NOT_FOUND_URL = 'https://cdn.nekos.life/smallboobs/404.png'
 

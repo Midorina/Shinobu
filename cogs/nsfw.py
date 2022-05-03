@@ -307,14 +307,6 @@ class NSFW(commands.Cog,
         image = (await self.api.get('sankaku_complex', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(name='lewdneko')
-    async def lewd_neko(self, ctx: mido_utils.Context):
-        """Get a random lewd neko image."""
-
-        image = await self.neko.get_random_neko(nsfw=True)
-
-        await ctx.send(**image.get_send_kwargs(self.bot))
-
     @commands.command()
     async def hentai(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random hentai image.
