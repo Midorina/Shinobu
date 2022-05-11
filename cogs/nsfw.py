@@ -294,12 +294,13 @@ class NSFW(commands.Cog,
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
 
-        image = (await self.api.get('rule34', tags, guild_id=ctx.guild.id if ctx.guild else None))[0]
+        image = random.choice(
+            await self.api.get('rule34', tags, guild_id=ctx.guild.id if ctx.guild else None, limit=15))
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.command(aliases=['sankakucomplex'])
     async def sankaku(self, ctx: mido_utils.Context, *, tags: str = None):
-        """Get a random image from Rule34.
+        """Get a random image from Sankaku Complex.
 
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`"""
