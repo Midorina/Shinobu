@@ -63,6 +63,8 @@ class LocalCache(BaseCache):
         except (KeyError, IndexError):
             self.cache[key] = set(values)
 
+        # TODO implement expiration for local cache
+
 
 def redis_falls_back_to_local(func):
     @functools.wraps(func)
@@ -119,6 +121,7 @@ class RedisCache(LocalCache):
     @redis_falls_back_to_local
     async def append(self, key: str, *values: str) -> None:
         await self.redis_cache.sadd(key, *values)
+        await self.redis_cache.expire(key, 3600)  # expire after one hour
 
     @redis_falls_back_to_local
     async def disconnect(self) -> None:
