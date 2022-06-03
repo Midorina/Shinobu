@@ -679,6 +679,7 @@ class Google(MidoBotAPI):
             if r.status == 200:
                 soup = BeautifulSoup(await r.text(), "html.parser")
 
+                # FIXME this
                 return self.parse_results(soup.find_all("div",
                                                         {'class': [self.LINK_AND_TITLE_CLASS, self.DESCRIPTION_CLASS]}))
 
