@@ -306,21 +306,26 @@ class NsfwDAPIs(CachedImageAPI):
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
             List[models.NSFWImage]:
         tags = await self._parse_tags(tags, guild_id)
+        # disabled score filtering for gelbooru due to rate limits
+        # and Sankaku doesnt support score filtering
+        score = 0
 
         if nsfw_type in ('rule34', 'gelbooru'):
-            tags.extend(('rating:explicit', 'sort:random', 'score:>=50'))
+            tags.extend(('rating:explicit', 'sort:random'))
+
+            if nsfw_type == 'rule34':
+                score = 100
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video, limit, 100, guild_id]
+            args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
         elif nsfw_type == 'sankaku_complex':
             # max 2 args
             tags = tags[:2]
-            # sankaku doesnt support score filtering
             tags.extend(('rating:explicit', 'order:random'))
 
             func = self._get_nsfw_dapi
-            args = [nsfw_type, tags, allow_video, limit, 0, guild_id]
+            args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
         elif nsfw_type == 'danbooru':
             # max 2 args
@@ -431,16 +436,20 @@ class NsfwDAPIs(CachedImageAPI):
                     'limit': limit,
                     'json' : 1
                 }, return_json=True)
+
             except mido_utils.NotFoundError:
-                if score > 10:
+                if score >= 10:
                     return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 10, limit=limit)
                 else:
                     raise mido_utils.NotFoundError
 
+            if dapi_name == 'gelbooru':
+                response_jsond = response_jsond['post']
+
             for data in response_jsond:
                 if dapi_name in ('gelbooru', 'sankaku_complex'):
                     image_url = data.get('file_url')
-                    # sankaku can sometimes give null for file urls
+                    # Sankaku can sometimes give null for file urls
                     if not image_url:
                         continue
 
