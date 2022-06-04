@@ -302,6 +302,7 @@ class NsfwDAPIs(CachedImageAPI):
         self.bot = bot
 
         self.danbooru_credentials = self.bot.config.danbooru_credentials
+        self.gelbooru_credentials = self.bot.config.gelbooru_credentials
 
     async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
             List[models.NSFWImage]:
@@ -426,7 +427,14 @@ class NsfwDAPIs(CachedImageAPI):
             if score > 0:
                 tags.append(f'score:>={score}')
 
-        while True:
+        if self.gelbooru_credentials and dapi_name == 'gelbooru':
+            key_params = {'api_key': self.gelbooru_credentials['api_key'],
+                          'user_id': self.gelbooru_credentials['user_id']}
+        else:
+            key_params = {}
+
+        attempt = 0
+        while attempt < 2:
             try:
                 response_jsond = await self._request_get(self.DAPI_LINKS[dapi_name], params={
                     'page' : 'dapi',
@@ -434,7 +442,8 @@ class NsfwDAPIs(CachedImageAPI):
                     'q'    : 'index',
                     'tags' : " ".join(tags),
                     'limit': limit,
-                    'json' : 1
+                    'json' : 1,
+                    **key_params
                 }, return_json=True)
 
             except mido_utils.NotFoundError:
@@ -464,11 +473,14 @@ class NsfwDAPIs(CachedImageAPI):
                     image_tags = data.get('tags').split(' ')
 
                 if await self.is_blacklisted(image_tags, guild_id) or (not allow_video and self.is_video(image_url)):
+                    attempt += 1
                     continue
                 else:
                     images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi_name))
 
             return images
+
+        raise mido_utils.NotFoundError
 
     async def _get_danbooru(self,
                             tags=None,

@@ -36,6 +36,7 @@ class ConfigFile:
         self.blizzard_credentials: Dict[str, str] = data.get('blizzard_credentials')
         self.patreon_credentials: Dict[str, Union[str, int]] = data.get('patreon_credentials')
         self.danbooru_credentials: Dict[str, str] = data.get('danbooru_credentials')
+        self.gelbooru_credentials: Dict[str, str] = data.get('gelbooru_credentials')
 
         self.currency_api_key: str = data.get('currency_api_key')
 
@@ -57,6 +58,7 @@ class ConfigFile:
         self.check_blizzard_credentials_validity(warn)
         self.check_patreon_credentials_validity(warn)
         self.check_danbooru_credentials_validity(warn)
+        self.check_gelbooru_credentials_validity(warn)
         self.check_currency_api_key_validity(warn)
 
         # mandatory field check
@@ -134,6 +136,11 @@ class ConfigFile:
         """No warning needed."""
         if self.danbooru_credentials and self.danbooru_credentials["api_key"] == "api_key":
             self.danbooru_credentials = None
+
+    def check_gelbooru_credentials_validity(self, warn: bool):
+        """No warning needed."""
+        if self.gelbooru_credentials and self.gelbooru_credentials["api_key"] == "api_key":
+            self.gelbooru_credentials = None
 
     def check_currency_api_key_validity(self, warn: bool):
         if self.currency_api_key and self.currency_api_key == "api_key":

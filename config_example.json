@@ -59,5 +59,9 @@
     "username": "username",
     "api_key" : "api_key"
   },
+  "gelbooru_credentials"      : {
+    "user_id": "user_id",
+    "api_key": "api_key"
+  },
   "currency_api_key"          : "api_key"
 }
