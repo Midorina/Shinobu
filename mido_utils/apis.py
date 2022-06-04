@@ -433,54 +433,52 @@ class NsfwDAPIs(CachedImageAPI):
         else:
             key_params = {}
 
-        attempt = 0
-        while attempt < 2:
-            try:
-                response_jsond = await self._request_get(self.DAPI_LINKS[dapi_name], params={
-                    'page' : 'dapi',
-                    's'    : 'post',
-                    'q'    : 'index',
-                    'tags' : " ".join(tags),
-                    'limit': limit,
-                    'json' : 1,
-                    **key_params
-                }, return_json=True)
+        try:
+            response_jsond = await self._request_get(self.DAPI_LINKS[dapi_name], params={
+                'page' : 'dapi',
+                's'    : 'post',
+                'q'    : 'index',
+                'tags' : " ".join(tags),
+                'limit': limit,
+                'json' : 1,
+                **key_params
+            }, return_json=True)
 
-            except mido_utils.NotFoundError:
-                if score >= 10:
-                    return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 10, limit=limit)
-                else:
-                    raise mido_utils.NotFoundError
+        except mido_utils.NotFoundError:
+            if score >= 10:
+                return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 10, limit=limit)
+            else:
+                raise mido_utils.NotFoundError
 
-            if dapi_name == 'gelbooru':
-                response_jsond = response_jsond['post']
+        if dapi_name == 'gelbooru':
+            response_jsond = response_jsond['post']
 
-            for data in response_jsond:
-                if dapi_name in ('gelbooru', 'sankaku_complex'):
-                    image_url = data.get('file_url')
-                    # Sankaku can sometimes give null for file urls
-                    if not image_url:
-                        continue
-
-                elif dapi_name == 'rule34':
-                    image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
-                else:
-                    raise Exception(f"Unknown DAPI name: {dapi_name}")
-
-                if dapi_name == 'sankaku_complex':
-                    image_tags = [x['name'] for x in data.get('tags')]
-                else:
-                    image_tags = data.get('tags').split(' ')
-
-                if await self.is_blacklisted(image_tags, guild_id) or (not allow_video and self.is_video(image_url)):
-                    attempt += 1
+        for data in response_jsond:
+            if dapi_name in ('gelbooru', 'sankaku_complex'):
+                image_url = data.get('file_url')
+                # Sankaku can sometimes give null for file urls
+                if not image_url:
                     continue
-                else:
-                    images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi_name))
 
-            return images
+            elif dapi_name == 'rule34':
+                image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
+            else:
+                raise Exception(f"Unknown DAPI name: {dapi_name}")
 
-        raise mido_utils.NotFoundError
+            if dapi_name == 'sankaku_complex':
+                image_tags = [x['name'] for x in data.get('tags')]
+            else:
+                image_tags = data.get('tags').split(' ')
+
+            if await self.is_blacklisted(image_tags, guild_id) or (not allow_video and self.is_video(image_url)):
+                continue
+            else:
+                images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi_name))
+
+        if not images:
+            raise mido_utils.NotFoundError
+
+        return images
 
     async def _get_danbooru(self,
                             tags=None,
@@ -525,8 +523,8 @@ class NsfwDAPIs(CachedImageAPI):
 
         if not images:
             raise mido_utils.NotFoundError
-        else:
-            return images
+
+        return images
 
 
 class SomeRandomAPI(MidoBotAPI):
