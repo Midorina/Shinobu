@@ -95,6 +95,12 @@ class NSFW(commands.Cog,
                 if new_images:  # add to cache if there are remaining new images
                     await self.cache.append(cache_key, *(image.cache_value for image in new_images))
 
+                    # if a source is provided, add the images to the cache without the source key as well
+                    # bad for us but good for external apis, this may be solved in a more efficient way
+                    if nsfw_source:
+                        await self.cache.append(cache_key.replace(nsfw_source.name, ''),
+                                                *(image.cache_value for image in new_images))
+
         return ret
 
     async def start_checking_urls_in_db(self):
