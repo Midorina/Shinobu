@@ -6,7 +6,8 @@ import json
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple, Union
+from enum import Enum
+from typing import Dict, List, Optional, Tuple, Union
 
 import aiohttp
 import asyncpraw
@@ -203,7 +204,7 @@ class RedditAPI(CachedImageAPI):
         try:
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.5)
 
         except asyncprawcore.ResponseException as e:
             if e.response.status == 451:
@@ -273,8 +274,29 @@ class RedditAPI(CachedImageAPI):
             except Exception:
                 break
 
+            finally:
+                await asyncio.sleep(10.0)
+
 
 class NsfwDAPIs(CachedImageAPI):
+    class DAPI(Enum):
+        danbooru = 'https://danbooru.donmai.us/posts.json'
+        gelbooru = 'https://gelbooru.com/index.php'
+        rule34 = 'https://rule34.xxx/index.php'
+        sankaku_complex = 'https://capi-v2.sankakucomplex.com/posts'
+
+        @property
+        def url(self) -> str:
+            return self.value
+
+        @classmethod
+        def get_all_as_dict(cls) -> Dict[str, str]:
+            return {_dapi.name: _dapi.value for _dapi in cls}
+
+        @classmethod
+        def get_all(cls) -> List[NsfwDAPIs.DAPI]:
+            return [_dapi for _dapi in cls]
+
     BLACKLISTED_TAGS = [
         'loli',
         'shota',
@@ -289,13 +311,6 @@ class NsfwDAPIs(CachedImageAPI):
         'small nipples'
     ]
 
-    DAPI_LINKS = {
-        'danbooru'       : 'https://danbooru.donmai.us/posts.json',
-        'gelbooru'       : 'https://gelbooru.com/index.php',
-        'rule34'         : 'https://rule34.xxx/index.php',
-        'sankaku_complex': 'https://capi-v2.sankakucomplex.com/posts'
-    }
-
     def __init__(self, session: ClientSession, bot):
         super().__init__(session, bot.db)
 
@@ -304,23 +319,26 @@ class NsfwDAPIs(CachedImageAPI):
         self.danbooru_credentials = self.bot.config.danbooru_credentials
         self.gelbooru_credentials = self.bot.config.gelbooru_credentials
 
-    async def get(self, nsfw_type: str, tags: str = None, limit: int = 1, allow_video=False, guild_id: int = None) -> \
-            List[models.NSFWImage]:
+    async def get(
+            self, nsfw_type: NsfwDAPIs.DAPI,
+            tags: str = None,
+            limit: int = 1,
+            allow_video=True,
+            guild_id: int = None
+    ) -> List[models.NSFWImage]:
         tags = await self._parse_tags(tags, guild_id)
+
         # disabled score filtering for gelbooru due to rate limits
         # and Sankaku doesnt support score filtering
-        score = 0
+        score = 100 if nsfw_type is NsfwDAPIs.DAPI.rule34 else 0
 
-        if nsfw_type in ('rule34', 'gelbooru'):
+        if nsfw_type is NsfwDAPIs.DAPI.rule34 or nsfw_type is NsfwDAPIs.DAPI.gelbooru:
             tags.extend(('rating:explicit', 'sort:random'))
-
-            if nsfw_type == 'rule34':
-                score = 100
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
-        elif nsfw_type == 'sankaku_complex':
+        elif nsfw_type is NsfwDAPIs.DAPI.sankaku_complex:
             # max 2 args
             tags = tags[:2]
             tags.extend(('rating:explicit', 'order:random'))
@@ -328,7 +346,7 @@ class NsfwDAPIs(CachedImageAPI):
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
-        elif nsfw_type == 'danbooru':
+        elif nsfw_type is NsfwDAPIs.DAPI.danbooru:
             # max 2 args
             tags = tags[:2]
             tags.append('rating:explicit')
@@ -337,7 +355,7 @@ class NsfwDAPIs(CachedImageAPI):
             args = [tags, allow_video, limit, guild_id]
 
         else:
-            raise Exception(f"Unknown nsfw type: {nsfw_type}")
+            raise Exception(f"Unknown NSFW type: {nsfw_type}")
 
         try:
             fetched_imgs = await func(*args)
@@ -355,11 +373,13 @@ class NsfwDAPIs(CachedImageAPI):
             return fetched_imgs
 
     async def get_bomb(self, tags, limit=3, allow_video: bool = True, guild_id: int = None) -> List[models.NSFWImage]:
-        sample = limit if limit <= len(self.DAPI_LINKS.keys()) else len(self.DAPI_LINKS.keys())
+        dapi_links = self.DAPI.get_all()
+
+        sample = limit if limit <= len(dapi_links) else len(dapi_links)
 
         images = []
         aws = []
-        for dapi in random.sample(self.DAPI_LINKS.keys(), sample):
+        for dapi in random.sample(dapi_links, sample):
             aws.append(self.get(nsfw_type=dapi,
                                 tags=tags,
                                 limit=limit,
@@ -409,9 +429,9 @@ class NsfwDAPIs(CachedImageAPI):
         return url.endswith('.webm') or url.endswith('.mp4')
 
     async def _get_nsfw_dapi(self,
-                             dapi_name: str,
+                             dapi: NsfwDAPIs.DAPI,
                              tags: List[str],
-                             allow_video=False,
+                             allow_video: bool = True,
                              limit: int = 100,
                              score: int = 100,
                              guild_id: int = None) -> List[models.NSFWImage]:
@@ -427,14 +447,18 @@ class NsfwDAPIs(CachedImageAPI):
             if score > 0:
                 tags.append(f'score:>={score}')
 
-        if self.gelbooru_credentials and dapi_name == 'gelbooru':
+        if self.gelbooru_credentials and dapi is NsfwDAPIs.DAPI.gelbooru:
             key_params = {'api_key': self.gelbooru_credentials['api_key'],
                           'user_id': self.gelbooru_credentials['user_id']}
         else:
             key_params = {}
 
+        # add tags that we don't want
+        if dapi is not NsfwDAPIs.DAPI.sankaku_complex:
+            tags.extend((f'-{_tag}' for _tag in await self.get_blacklisted_tags(guild_id)) if guild_id else ())
+
         try:
-            response_jsond = await self._request_get(self.DAPI_LINKS[dapi_name], params={
+            response_jsond = await self._request_get(dapi.url, params={
                 'page' : 'dapi',
                 's'    : 'post',
                 'q'    : 'index',
@@ -446,26 +470,26 @@ class NsfwDAPIs(CachedImageAPI):
 
         except mido_utils.NotFoundError:
             if score >= 10:
-                return await self._get_nsfw_dapi(dapi_name, tags, allow_video, score=score - 10, limit=limit)
+                return await self._get_nsfw_dapi(dapi, tags, allow_video, score=score - 10, limit=limit)
             else:
                 raise mido_utils.NotFoundError
 
-        if dapi_name == 'gelbooru':
+        if dapi is NsfwDAPIs.DAPI.gelbooru:
             response_jsond = response_jsond['post']
 
         for data in response_jsond:
-            if dapi_name in ('gelbooru', 'sankaku_complex'):
+            if dapi is NsfwDAPIs.DAPI.gelbooru or dapi is NsfwDAPIs.DAPI.sankaku_complex:
                 image_url = data.get('file_url')
                 # Sankaku can sometimes give null for file urls
                 if not image_url:
                     continue
 
-            elif dapi_name == 'rule34':
+            elif dapi is NsfwDAPIs.DAPI.rule34:
                 image_url = f"https://img.rule34.xxx/images/{data.get('directory')}/{data.get('image')}"
             else:
-                raise Exception(f"Unknown DAPI name: {dapi_name}")
+                raise Exception(f"Unknown DAPI: {dapi}")
 
-            if dapi_name == 'sankaku_complex':
+            if dapi is NsfwDAPIs.DAPI.sankaku_complex:
                 image_tags = [x['name'] for x in data.get('tags')]
             else:
                 image_tags = data.get('tags').split(' ')
@@ -473,7 +497,7 @@ class NsfwDAPIs(CachedImageAPI):
             if await self.is_blacklisted(image_tags, guild_id) or (not allow_video and self.is_video(image_url)):
                 continue
             else:
-                images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi_name))
+                images.append(models.NSFWImage(image_url, tags=image_tags, api_name=dapi.name))
 
         if not images:
             raise mido_utils.NotFoundError
@@ -482,7 +506,7 @@ class NsfwDAPIs(CachedImageAPI):
 
     async def _get_danbooru(self,
                             tags=None,
-                            allow_video=False,
+                            allow_video: bool = True,
                             limit: int = 100,
                             guild_id: int = None) -> List[models.NSFWImage]:
         if self.danbooru_credentials:
@@ -493,7 +517,7 @@ class NsfwDAPIs(CachedImageAPI):
 
         images: List[models.NSFWImage] = []
 
-        response: dict = await self._request_get(self.DAPI_LINKS['danbooru'], params={
+        response: dict = await self._request_get(NsfwDAPIs.DAPI.danbooru.value, params={
             'limit' : limit,
             'tags'  : " ".join(tags),
             'random': 'true',
@@ -519,12 +543,17 @@ class NsfwDAPIs(CachedImageAPI):
             if await self.is_blacklisted(tags, guild_id) or (not allow_video and self.is_video(img_url)):
                 continue
 
-            images.append(models.NSFWImage(img_url, tags, api_name='danbooru'))
+            images.append(models.NSFWImage(img_url, tags, api_name=NsfwDAPIs.DAPI.danbooru.name))
 
         if not images:
             raise mido_utils.NotFoundError
 
         return images
+
+
+class Rule34(NsfwDAPIs):
+    def __init__(self, *args, **kwargs) -> None:
+        super(Rule34, self).__init__(*args, **kwargs)
 
 
 class SomeRandomAPI(MidoBotAPI):

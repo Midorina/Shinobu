@@ -68,7 +68,6 @@ class IncompleteConfigFile(CommandError):
 
 
 # race exceptions
-
 class RaceError(CommandError):
     pass
 
@@ -87,7 +86,6 @@ class CantClaimRightNow(CommandError):
 
 
 # backend exceptions
-
 class UnknownNSFWType(Exception):
     def __init__(self, nsfw_type):
         self.nsfw_type = nsfw_type
