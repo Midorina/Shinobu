@@ -286,7 +286,7 @@ class NSFW(commands.Cog,
         You must put '+' between different tags.
         `{ctx.prefix}hentaibomb yuri+group`
 
-        **Danbooru doesn't allow more than 2 tags.**"""
+        **Danbooru doesn't allow more than 1 tag.**"""
         image = (await self.get_nsfw_image(
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None,
             nsfw_source=NsfwDAPIs.DAPI.danbooru))[0]
@@ -323,7 +323,9 @@ class NSFW(commands.Cog,
         """Get a random image from Sankaku Complex.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentaibomb yuri+group`
+
+        **Sankaku Complex doesn't allow more than 3 tags.**"""
         image = (await self.get_nsfw_image(
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None,
             nsfw_source=NsfwDAPIs.DAPI.sankaku_complex))[0]
