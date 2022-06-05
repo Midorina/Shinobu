@@ -14,7 +14,7 @@ time_multipliers = {
 }
 
 
-# todo: rewrite this
+# TODO: rewrite this?
 
 
 class Time:
@@ -30,7 +30,7 @@ class Time:
 
         self.offset_naive = offset_naive
 
-    def now(self):
+    def _now(self):
         if self.offset_naive is True:
             return datetime.now()
         else:
@@ -61,11 +61,11 @@ class Time:
     def end_date_has_passed(self):
         if not self.end_date:
             raise Exception("No end date!")
-        return self.end_date <= self.now()
+        return self.end_date <= self._now()
 
     @property
     def passed_seconds_in_float(self) -> float:
-        return (self.now() - self.start_date) / timedelta(seconds=1)
+        return (self._now() - self.start_date) / timedelta(seconds=1)
 
     @property
     def passed_seconds(self) -> int:
@@ -83,9 +83,9 @@ class Time:
     @property
     def remaining_seconds(self):
         if self.end_date:
-            remaining_in_float = (self.end_date - self.now()) / timedelta(seconds=1)
+            remaining_in_float = (self.end_date - self._now()) / timedelta(seconds=1)
         else:
-            remaining_in_float = (self.now() - self.start_date) / timedelta(seconds=1)
+            remaining_in_float = (self._now() - self.start_date) / timedelta(seconds=1)
 
         if remaining_in_float < 0:
             return 0
