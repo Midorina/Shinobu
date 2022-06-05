@@ -509,7 +509,7 @@ class GuildNSFWDB(BaseDBModel):
     def __init__(self, nsfw_db: Record, bot):
         super().__init__(nsfw_db, bot)
 
-        self.blacklisted_tags: List[str] = [tag.replace(' ', '_') for tag in nsfw_db.get('blacklisted_tags')]
+        self.blacklisted_tags: List[str] = [tag.replace(' ', '_') for tag in nsfw_db.get('blacklisted_tags', [])]
 
         # auto hentai
         self.auto_hentai_channel_id: int = nsfw_db.get('auto_hentai_channel_id')
