@@ -339,17 +339,15 @@ class NsfwDAPIs(CachedImageAPI):
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
         elif nsfw_type is NsfwDAPIs.DAPI.sankaku_complex:
-            # max 2 args
-            tags = tags[:2]
-            tags.extend(('rating:explicit', 'order:random'))
+            # max 5 args
+            tags = [*tags[:3], 'rating:explicit', 'order:random']
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
         elif nsfw_type is NsfwDAPIs.DAPI.danbooru:
             # max 2 args
-            tags = tags[:2]
-            tags.append('rating:explicit')
+            tags = [tags[0], 'rating:explicit']
 
             func = self._get_danbooru
             args = [tags, allow_video, limit, guild_id]
@@ -549,11 +547,6 @@ class NsfwDAPIs(CachedImageAPI):
             raise mido_utils.NotFoundError
 
         return images
-
-
-class Rule34(NsfwDAPIs):
-    def __init__(self, *args, **kwargs) -> None:
-        super(Rule34, self).__init__(*args, **kwargs)
 
 
 class SomeRandomAPI(MidoBotAPI):
