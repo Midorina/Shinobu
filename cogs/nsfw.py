@@ -162,19 +162,19 @@ class NSFW(commands.Cog,
 
                 tags = random.choice(db_tags) if db_tags else None
                 try:
-                    image = (await self.get_nsfw_image(nsfw_type=nsfw_type, tags_str=tags, limit=1, guild_id=guild.id)
-                             )[0]
-                except mido_utils.NotFoundError:
-                    e = mido_utils.Embed(bot=self.bot,
-                                         colour=discord.Colour.red(),
-                                         description=f"Could  not find anything with tag: `{tags}`")
-                    await nsfw_channel.send(embed=e)
+                    try:
+                        image = (await self.get_nsfw_image(
+                            nsfw_type=nsfw_type, tags_str=tags, limit=1, guild_id=guild.id))[0]
+                    except mido_utils.NotFoundError:
+                        e = mido_utils.Embed(bot=self.bot,
+                                             colour=discord.Colour.red(),
+                                             description=f"Could  not find anything with tag: `{tags}`")
+                        await nsfw_channel.send(embed=e)
 
-                    fail_counter += 1
-                    continue
-
-                try:
-                    await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
+                        fail_counter += 1
+                        continue
+                    else:
+                        await self.bot.send_as_webhook(nsfw_channel, **image.get_send_kwargs(self.bot))
                 except discord.Forbidden:
                     fail_counter = 5
                     break
