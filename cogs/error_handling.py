@@ -1,5 +1,6 @@
 import sys
 import traceback
+from typing import Dict
 
 import discord
 from discord.ext import commands
@@ -12,6 +13,8 @@ from shinobu import ShinobuBot
 class ErrorHandling(commands.Cog):
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
+
+        self.cooldown_warning_cache: Dict[int, mido_utils.Time] = dict()
 
     # this doesn't fire as a listener
     async def on_error(self, event: str, *args, **kwargs):
@@ -92,12 +95,25 @@ class ErrorHandling(commands.Cog):
             # cooldown errors
             # TODO: merge commands.CommandOnCooldown with mido_utils.OnCooldownError
             elif mido_utils.better_is_instance(error, commands.CommandOnCooldown):
-                # if remaining seconds are less than 0.7, ignore
-                if error.retry_after < 0.7:
-                    return
+                key = ctx.guild.id if ctx.guild else ctx.author.id
+                should_send_message = True
 
-                remaining = mido_utils.Time.parse_seconds_to_str(total_seconds=error.retry_after)
-                return await ctx.send_error(f"You're on cooldown! Try again after **{remaining}**.")
+                try:
+                    next_warning = self.cooldown_warning_cache[key]
+                    should_send_message = next_warning.end_date_has_passed
+
+                    if should_send_message:
+                        raise KeyError  # raise to re-set the key
+
+                except KeyError:
+                    self.cooldown_warning_cache[key] = mido_utils.Time.add_to_current_date_and_get(2)
+
+                if should_send_message:
+                    remaining = mido_utils.Time.parse_seconds_to_str(total_seconds=error.retry_after)
+                    await ctx.send_error(f"You're on cooldown! Try again after **{remaining}**.")
+
+                return
+
             elif mido_utils.better_is_instance(error, mido_utils.OnCooldownError):
                 return await ctx.send_error(error, "You're on cooldown!")
 
