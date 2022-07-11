@@ -89,7 +89,8 @@ class NSFW(commands.Cog,
                         new_images = await self._api.get_bomb(tags=tags_str,
                                                               limit=500,
                                                               allow_video=allow_video,
-                                                              guild_id=guild_id)
+                                                              guild_id=guild_id,
+                                                              return_all=True)
 
                 ret.append(new_images.pop())  # use one of the new images
                 if new_images:  # add to cache if there are remaining new images
@@ -284,7 +285,7 @@ class NSFW(commands.Cog,
         """Get a random image from Danbooru.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`
+        `{ctx.prefix}danbooru yuri+group`
 
         **Danbooru doesn't allow more than 1 tag.**"""
         image = (await self.get_nsfw_image(
@@ -298,7 +299,7 @@ class NSFW(commands.Cog,
         """Get a random image from Gelbooru.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}gelbooru yuri+group`"""
         image = (await self.get_nsfw_image(
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None,
             nsfw_source=NsfwDAPIs.DAPI.gelbooru))[0]
@@ -310,7 +311,7 @@ class NSFW(commands.Cog,
         """Get a random image from Rule34.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}rule34 yuri+group`"""
 
         image = (await self.get_nsfw_image(
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None,
@@ -323,7 +324,7 @@ class NSFW(commands.Cog,
         """Get a random image from Sankaku Complex.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`
+        `{ctx.prefix}sankaku yuri+group`
 
         **Sankaku Complex doesn't allow more than 3 tags.**"""
         image = (await self.get_nsfw_image(
@@ -337,7 +338,7 @@ class NSFW(commands.Cog,
         """Get a random hentai image.
 
         You must put '+' between different tags.
-        `{ctx.prefix}hentaibomb yuri+group`"""
+        `{ctx.prefix}hentai yuri+group`"""
         image = (await self.get_nsfw_image(
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None))[0]
 
@@ -472,4 +473,7 @@ class NSFW(commands.Cog,
 
 
 def setup(bot):
+    # if bot.name == 'midobot':
+    #     return
+
     bot.add_cog(NSFW(bot))

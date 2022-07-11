@@ -332,20 +332,21 @@ class NsfwDAPIs(CachedImageAPI):
         # and Sankaku doesnt support score filtering
         score = 100 if nsfw_type is NsfwDAPIs.DAPI.rule34 else 0
 
-        if nsfw_type is NsfwDAPIs.DAPI.rule34 or nsfw_type is NsfwDAPIs.DAPI.gelbooru:
+        # compare names instead of objects due to importlib.reload bug
+        if nsfw_type.name in (NsfwDAPIs.DAPI.rule34.name, NsfwDAPIs.DAPI.gelbooru.name):
             tags.extend(('rating:explicit', 'sort:random'))
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
-        elif nsfw_type is NsfwDAPIs.DAPI.sankaku_complex:
+        elif nsfw_type.name == NsfwDAPIs.DAPI.sankaku_complex.name:
             # max 5 args
             tags = [*tags[:3], 'rating:explicit', 'order:random']
 
             func = self._get_nsfw_dapi
             args = [nsfw_type, tags, allow_video, limit, score, guild_id]
 
-        elif nsfw_type is NsfwDAPIs.DAPI.danbooru:
+        elif nsfw_type.name == NsfwDAPIs.DAPI.danbooru.name:
             # max 2 args
             tags = [tags[0], 'rating:explicit']
 
@@ -356,21 +357,22 @@ class NsfwDAPIs(CachedImageAPI):
             raise Exception(f"Unknown NSFW type: {nsfw_type}")
 
         try:
-            fetched_imgs = await func(*args)
+            fetched_images = await func(*args)
 
-            if not fetched_imgs:
+            if not fetched_images:
                 raise mido_utils.NotFoundError
         except mido_utils.NotFoundError:  # suspend status.url message
             raise mido_utils.NotFoundError(f"Could not find any content with tags: {tags}")
 
-        # await self.add_to_db(nsfw_type, fetched_imgs, tags=tags)
+        # await self.add_to_db(nsfw_type, fetched_images, tags=tags)
 
         try:
-            return random.sample(fetched_imgs, limit)
+            return random.sample(fetched_images, limit)
         except ValueError:
-            return fetched_imgs
+            return fetched_images
 
-    async def get_bomb(self, tags, limit=3, allow_video: bool = True, guild_id: int = None) -> List[models.NSFWImage]:
+    async def get_bomb(self, tags, limit=3, allow_video: bool = True, guild_id: int = None, return_all: bool = False) -> \
+            List[models.NSFWImage]:
         dapi_links = self.DAPI.get_all()
 
         sample = limit if limit <= len(dapi_links) else len(dapi_links)
@@ -389,6 +391,9 @@ class NsfwDAPIs(CachedImageAPI):
                 images.extend(result)
 
         try:
+            if return_all:
+                raise ValueError
+
             return random.sample(images, limit)
         except ValueError:
             if not images:
@@ -473,7 +478,10 @@ class NsfwDAPIs(CachedImageAPI):
                 raise mido_utils.NotFoundError
 
         if dapi is NsfwDAPIs.DAPI.gelbooru:
-            response_jsond = response_jsond['post']
+            if 'post' in response_jsond:
+                response_jsond = response_jsond['post']
+            else:
+                raise mido_utils.NotFoundError
 
         for data in response_jsond:
             if dapi is NsfwDAPIs.DAPI.gelbooru or dapi is NsfwDAPIs.DAPI.sankaku_complex:
