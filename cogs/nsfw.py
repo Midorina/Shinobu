@@ -404,9 +404,9 @@ class NSFW(commands.Cog,
         Only 1 autohentai service can be active in a server.
         You need Manage Messages permission to use this command.
 
-        `{ctx.prefix}autohentai 3`
-        `{ctx.prefix}autohentai 5 yuri`
-        `{ctx.prefix}autohentai 5 yuri+harem|futanari|blonde`"""
+        `{ctx.prefix}autohentai 5`
+        `{ctx.prefix}autohentai 7 yuri`
+        `{ctx.prefix}autohentai 10 yuri+harem|futanari|blonde`"""
 
         await self.base_auto_nsfw_cmd(ctx, NSFWImage.Type.hentai, interval, tags)
 
