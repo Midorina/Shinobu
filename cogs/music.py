@@ -59,8 +59,10 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         # todo: add_reactions perm check
         if not ctx.guild:
             raise commands.NoPrivateMessage
-        else:
-            return True
+
+        return await mido_utils.is_patron(
+            bot=self.bot, user_id=ctx.author.id, required_level=2, allow_owner=True,
+            raise_exceptions=True)
 
     async def cog_before_invoke(self, ctx: mido_utils.Context):
         if not hasattr(self, 'wavelink'):
