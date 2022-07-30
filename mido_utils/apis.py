@@ -282,7 +282,7 @@ class NsfwDAPIs(CachedImageAPI):
     class DAPI(Enum):
         danbooru = 'https://danbooru.donmai.us/posts.json'
         gelbooru = 'https://gelbooru.com/index.php'
-        # rule34 = 'https://rule34.xxx/index.php'
+        rule34 = 'https://rule34.xxx/index.php'
         sankaku_complex = 'https://capi-v2.sankakucomplex.com/posts'
 
         @property
@@ -291,11 +291,13 @@ class NsfwDAPIs(CachedImageAPI):
 
         @classmethod
         def get_all_as_dict(cls) -> Dict[str, str]:
-            return {_dapi.name: _dapi.value for _dapi in cls}
+            return {_dapi.name: _dapi.value for _dapi in cls if _dapi.name not in NsfwDAPIs.DISABLED}
 
         @classmethod
         def get_all(cls) -> List[NsfwDAPIs.DAPI]:
-            return [_dapi for _dapi in cls]
+            return [_dapi for _dapi in cls if _dapi.name not in NsfwDAPIs.DISABLED]
+
+    DISABLED = [DAPI.rule34.name]
 
     BLACKLISTED_TAGS = [
         'loli',
