@@ -32,12 +32,15 @@ class ShinobuBot(commands.AutoShardedBot):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
+        intents: discord.Intents = discord.Intents.all()
+        intents.presences = False
+
         super().__init__(
             loop=loop,
             command_prefix=self.get_prefix,
             case_insensitive=True,
             chunk_guilds_at_startup=False,
-            intents=discord.Intents.all(),
+            intents=intents,
             owner_ids=set(self.config.owner_ids),
             **cluster_kwargs,
 
@@ -107,7 +110,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
         self.load_or_reload_cogs()
 
-        await self.chunk_active_guilds()
+        # await self.chunk_active_guilds()
 
     @staticmethod
     def get_config(bot_name: str, warn: bool = False) -> models.ConfigFile:
