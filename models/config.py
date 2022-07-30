@@ -47,7 +47,7 @@ class ConfigFile:
     def check_validity(self, warn: bool):
         """
         These checks are done in order for the config base to be idiot-proof.
-        Looks like a lot of duplicate code but it can't be helped much.
+        Looks like a lot of duplicate code, but it can't be helped much.
         """
         self.check_token_validity(warn)
         self.check_db_credentials_validity(warn)
