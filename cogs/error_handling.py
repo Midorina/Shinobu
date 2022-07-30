@@ -23,7 +23,7 @@ class ErrorHandling(commands.Cog):
         self.bot.logger.exception(f"Internal Error: {event}", exc_info=exception)
         error_msg = "\n".join(traceback.format_exception(*exception))
 
-        content = f"***INTERNAL ERROR ALERT*** <@{self.bot.config.owner_ids[0]}>\n" \
+        content = f"***INTERNAL ERROR ALERT***\n" \
                   f"`{event}`"
 
         traceback_embed = discord.Embed(title=f"Traceback",
