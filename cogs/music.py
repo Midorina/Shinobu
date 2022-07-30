@@ -134,7 +134,8 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         elif volume == 0 or volume < 0:
             raise mido_utils.MusicError(f"Just do `{ctx.prefix}pause` rather than setting volume to 0 or below.")
 
-        elif volume > 100 and not await mido_utils.is_patron(bot=ctx.bot, user_id=ctx.author.id, required_level=2):
+        elif volume > 100 and not await mido_utils.is_patron(bot=ctx.bot, user_id=ctx.author.id, required_level=2,
+                                                             raise_exceptions=False):
             raise mido_utils.MusicError('Volume can not be more than 100.\n\n'
                                         f'*You can unlock this limit '
                                         f'by [supporting the project.]({mido_utils.links.patreon})*')

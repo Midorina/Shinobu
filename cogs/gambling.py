@@ -210,7 +210,8 @@ class Gambling(
             raise mido_utils.OnCooldownError(
                 f"You're on cooldown! Try again after **{daily_status.remaining_string}**.")
 
-        if not await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=False):  # patron check
+        if not await mido_utils.is_patron(ctx.bot, ctx.author.id, allow_owner=False,
+                                          raise_exceptions=False):  # patron check
             if not await self.bot.ipc.user_has_voted(ctx.author.id):  # vote check
                 raise mido_utils.DidntVoteError(
                     f"It seems like you haven't voted yet.\n\n"
