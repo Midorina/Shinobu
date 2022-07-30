@@ -24,7 +24,6 @@ class ShinobuBot(commands.AutoShardedBot):
     def __init__(self, **cluster_kwargs):
         self.name = cluster_kwargs.pop('bot_name')
         self.config: models.ConfigFile = self.get_config(self.name, warn=False)
-        self.owner_ids = set(self.config.owner_ids)
 
         self.cluster_id: int = cluster_kwargs.pop('cluster_id')
         self.cluster_count = cluster_kwargs.pop('total_clusters')
@@ -39,6 +38,7 @@ class ShinobuBot(commands.AutoShardedBot):
             case_insensitive=True,
             chunk_guilds_at_startup=False,
             intents=discord.Intents.all(),
+            owner_ids=set(self.config.owner_ids),
             **cluster_kwargs,
 
             # getting ready status
