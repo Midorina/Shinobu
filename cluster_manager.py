@@ -123,6 +123,7 @@ class Launcher:
             if not cluster.is_alive():
                 await cluster.start()
                 cluster_logger.info(f"Started Cluster#{cluster.id}.")
+                await asyncio.sleep(1.0)
 
     async def shutdown(self):
         self.alive = False
