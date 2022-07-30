@@ -49,7 +49,7 @@ def is_patron_decorator(level: int = 1, allow_owner=True):
 
 
 async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True, raise_exceptions=False) -> bool:
-    if allow_owner is True and user_id in bot.owner_ids:
+    if (allow_owner is True and user_id in bot.owner_ids) or (bot.config.patreon_credentials is None):
         return True
 
     patron: models.UserAndPledgerCombined = await bot.ipc.get_patron(user_id)
