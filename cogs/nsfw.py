@@ -204,7 +204,7 @@ class NSFW(commands.Cog,
                 f"for NSFW type {nsfw_type.name} "
                 f"crashed due to the following exception:")
 
-    @tasks.loop(hours=1.0)
+    @tasks.loop(hours=12.0)
     async def fill_the_database(self):
         time = mido_utils.Time()
 
@@ -391,6 +391,7 @@ class NSFW(commands.Cog,
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autohentai')
     @commands.bot_has_permissions(manage_webhooks=True)
+    @mido_utils.is_patron_decorator(level=2)
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have hentai automatically posted!
 
@@ -414,6 +415,7 @@ class NSFW(commands.Cog,
     @commands.has_permissions(manage_messages=True)
     @commands.command(name='autoporn')
     @commands.bot_has_permissions(manage_webhooks=True)
+    @mido_utils.is_patron_decorator(level=2)
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
         """Have porn automatically posted!
 
@@ -473,7 +475,7 @@ class NSFW(commands.Cog,
 
 
 def setup(bot):
-    # if bot.name == 'midobot':
-    #     return
+    if bot.name == 'midobot':
+        return
 
     bot.add_cog(NSFW(bot))
