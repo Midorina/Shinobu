@@ -185,7 +185,7 @@ class ErrorHandling(commands.Cog):
         # TypeError: __repr__ returned non-string (type int)
         ctx.args = list(map(lambda x: str(x), ctx.args))
         content = f"""
-***ERROR ALERT*** <@{ctx.bot.config.owner_ids[0]}>
+***ERROR ALERT***
 
 An error occurred during the execution of a command:
 `{str(error)}` (Cluster **#{self.bot.cluster_id}**)
