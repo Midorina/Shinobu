@@ -282,7 +282,7 @@ class NsfwDAPIs(CachedImageAPI):
     class DAPI(Enum):
         danbooru = 'https://danbooru.donmai.us/posts.json'
         gelbooru = 'https://gelbooru.com/index.php'
-        rule34 = 'https://rule34.xxx/index.php'
+        # rule34 = 'https://rule34.xxx/index.php'
         sankaku_complex = 'https://capi-v2.sankakucomplex.com/posts'
 
         @property

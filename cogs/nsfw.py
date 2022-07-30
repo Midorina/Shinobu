@@ -306,7 +306,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.command(enabled=False)
     async def rule34(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Rule34.
 
