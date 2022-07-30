@@ -24,7 +24,7 @@ class NSFW(commands.Cog,
         self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
         self.fill_the_database.start()
 
-        self._cd = commands.CooldownMapping.from_cooldown(rate=1, per=3, type=commands.BucketType.guild)
+        self._cd = commands.CooldownMapping.from_cooldown(rate=1, per=2, type=commands.BucketType.guild)
 
         self.active_auto_nsfw_services = list()
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
