@@ -35,18 +35,19 @@ logger.handlers = [handler_c1, handler_c2]
 CLIENTS = {}
 
 
-async def serve(ws, path):
+async def serve(ws: websockets.WebSocketServerProtocol):
     cluster_id = (await ws.recv()).decode()
 
     # reconnection
     if cluster_id in CLIENTS:
-        logger.warning(f"! Cluster[{cluster_id}] reconnected.")
         await CLIENTS[cluster_id].close(4029, f"Cluster {cluster_id} reconnected somewhere else.")
+        logger.warning(f"! Cluster[{cluster_id}] reconnected.")
     else:
-        await ws.send(b'{"status":"ok"}')
         logger.info(f'$ Cluster[{cluster_id}] connected successfully.')
 
     CLIENTS[cluster_id] = ws
+    await ws.send(b'{"status":"ok"}')
+
     try:
         async for msg in ws:
             logger.info(f'< Cluster[{cluster_id}]: {msg}')
@@ -54,14 +55,13 @@ async def serve(ws, path):
     except websockets.ConnectionClosed as e:
         logger.error(f'$ Cluster[{cluster_id}]\'s connection has been closed: {e}')
     finally:
-        logger.info(f"$ Cluster[{cluster_id}] disconnected.")
         CLIENTS.pop(cluster_id)
+        logger.info(f"$ Cluster[{cluster_id}] disconnected.")
 
 
 async def dispatch_to_all_clusters(data):
-    for cluster_id, client in CLIENTS.items():
-        await client.send(data)
-        logger.debug(f'> Cluster[{cluster_id}] {data}')
+    websockets.broadcast(CLIENTS.values(), data)
+    logger.debug(f'> Sent message to clusters {",".join(CLIENTS.keys())}: {data}')
 
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
