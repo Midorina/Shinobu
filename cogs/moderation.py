@@ -136,13 +136,14 @@ class Moderation(
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx: mido_utils.Context,
-                   target: mido_utils.MemberConverter(),
+                   target: mido_utils.MemberConverter,
                    *,
                    reason: commands.clean_content = None):
         """Kicks a user.
 
         You need the Kick Members permission to use this command.
         """
+        target: discord.Member | discord.User
 
         await target.kick(reason=reason)
         modlog = await ModLog.add_modlog(bot=ctx.bot,
@@ -162,8 +163,8 @@ class Moderation(
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
                   ctx: mido_utils.Context,
-                  target: mido_utils.UserConverter(),
-                  length: typing.Union[mido_utils.Time, str] = None,
+                  target: mido_utils.UserConverter,
+                  length: typing.Union[mido_utils.Time, str] = None,  # FIXME
                   *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
 
@@ -183,6 +184,7 @@ class Moderation(
 
         You need Ban Members permission to use this command.
         """
+        target: discord.Member | discord.User
 
         # if only reason is passed
         if isinstance(length, str):

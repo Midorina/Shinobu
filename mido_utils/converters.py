@@ -14,7 +14,7 @@ class NotDict(Exception):
     pass
 
 
-# case insensitive object searches
+# case-insensitive object searches
 # and dummy discord object to unban/ban someone we don't see
 class MemberConverter(commands.MemberConverter):
     async def convert(self, ctx: mido_utils.Context, argument) -> discord.Member:
@@ -86,23 +86,27 @@ class Int64(commands.Converter):
         return base_bit_length_check(argument, 64)
 
 
-# todo: add 'k' support
-async def ensure_not_broke_and_parse_bet(ctx: mido_utils.Context, bet_amount: Union[str, int]) -> int:
-    if isinstance(bet_amount, str):
-        if bet_amount == 'all':
-            bet_amount = int(ctx.user_db.cash)
-        elif bet_amount == 'half':
-            bet_amount = int(ctx.user_db.cash / 2)
-        else:
-            raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
+class BetAmountConverter(Int64):
+    async def convert(self, ctx: mido_utils.Context, bet_amount: str) -> int:
+        # TODO: add 'k' support
+        if isinstance(bet_amount, str):
+            if bet_amount == 'all':
+                bet_amount = int(ctx.user_db.cash)
+            elif bet_amount == 'half':
+                bet_amount = int(ctx.user_db.cash / 2)
+            else:
+                raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
-    if bet_amount > ctx.user_db.cash:
-        raise mido_utils.InsufficientCash
-    elif bet_amount <= 0:
-        raise commands.BadArgument("The amount can not be less than or equal to 0!")
-    else:
-        await ctx.user_db.remove_cash(bet_amount, reason=f"Used for {ctx.command.name}.")
-        return bet_amount
+        # make sure it's within 64 bits
+        bet_amount = await super(BetAmountConverter, self).convert(ctx, str(bet_amount))
+
+        if bet_amount > ctx.user_db.cash:
+            raise mido_utils.InsufficientCash
+        elif bet_amount <= 0:
+            raise commands.BadArgument("The amount can not be less than or equal to 0!")
+        else:
+            await ctx.user_db.remove_cash(bet_amount, reason=f"Used for {ctx.command.name}.")
+            return bet_amount
 
 
 def readable_bigint(number: Union[int, float], small_precision=False) -> str:
@@ -291,3 +295,23 @@ def html_to_discord(text: str):
     #         text = text.replace(d*2, d + ' ')
 
     return text
+
+
+class ChannelConverter(commands.TextChannelConverter):
+    async def convert(self, ctx: mido_utils.Context, argument: str) -> discord.abc.Messageable:
+        if argument.casefold() in ['me', 'dm'] or isinstance(ctx.channel, discord.DMChannel):
+            channel = ctx.author
+
+        elif argument.casefold() == 'here':
+            channel = ctx.channel
+
+        else:
+            try:
+                channel = await super().convert(ctx, argument)
+            except commands.ChannelNotFound:
+                channel = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.text_channels)
+
+            if not channel:
+                raise commands.ChannelNotFound(argument)
+
+        return channel

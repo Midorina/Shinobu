@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 from discord.ext import commands
 
@@ -418,13 +418,12 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
     @commands.hybrid_command()
     @commands.guild_only()
-    async def race(self, ctx: mido_utils.Context, bet_amount: Union[mido_utils.Int64, str] = 0):
+    async def race(self, ctx: mido_utils.Context, bet_amount: mido_utils.BetAmountConverter = None):
         """Start or join a race!
 
         You can bet donuts (optional) which will be added to the prize pool. The winner will get everything!
         """
-        if bet_amount:
-            bet_amount = await mido_utils.ensure_not_broke_and_parse_bet(ctx, bet_amount)
+        bet_amount: int | None
 
         race, just_created = self.get_or_create_race(ctx)
 

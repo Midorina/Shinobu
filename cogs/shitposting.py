@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import random
-from typing import Union
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
 
 import mido_utils
-from shinobu import ShinobuBot
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
+    from cogs.searches import Searches
+    from cogs.nsfw import NSFW
 
 
 class Shitposting(
@@ -17,11 +23,13 @@ class Shitposting(
 
     @discord.utils.cached_property
     def random_api(self) -> mido_utils.SomeRandomAPI:
-        return self.bot.get_cog('Searches').some_random_api
+        searches_cog: Searches = self.bot.get_cog('Searches')
+        return searches_cog.some_random_api
 
     @discord.utils.cached_property
     def reddit_api(self) -> mido_utils.RedditAPI:
-        return self.bot.get_cog('NSFW').reddit
+        nsfw_cog: NSFW = self.bot.get_cog('NSFW')
+        return nsfw_cog.reddit
 
     @commands.hybrid_command(name='8ball')
     async def eight_ball(self, ctx: mido_utils.Context, *, question: str):
@@ -45,7 +53,7 @@ class Shitposting(
         await ctx.send(embed=e)
 
     @commands.hybrid_command(aliases=['pp'])
-    async def penis(self, ctx, *, target: Union[mido_utils.MemberConverter, str] = None):
+    async def penis(self, ctx, *, target: mido_utils.MemberConverter = None):
         """Learn the size of penis of someone."""
         user = target or ctx.author
         if isinstance(user, discord.Member):
@@ -59,7 +67,7 @@ class Shitposting(
         await ctx.send(embed=embed)
 
     @commands.hybrid_command()
-    async def howgay(self, ctx: mido_utils.Context, *, target: Union[mido_utils.MemberConverter, str] = None):
+    async def howgay(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Learn how gay someone is."""
         user = target or ctx.author
         if isinstance(user, discord.Member):

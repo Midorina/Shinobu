@@ -1,6 +1,6 @@
 import math
 import random
-from typing import List, Optional, Union
+from typing import List, Union
 
 import discord
 import topgg
@@ -168,8 +168,10 @@ class Gambling(
             await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
 
     @commands.hybrid_command(aliases=['$', 'money'])
-    async def cash(self, ctx: mido_utils.Context, *, user: mido_utils.MemberConverter() = None):
+    async def cash(self, ctx: mido_utils.Context, *, user: mido_utils.MemberConverter = None):
         """Check how many donuts you have or someone else has."""
+        user: discord.Member | discord.User | None
+
         if user:
             user_db = await UserDB.get_or_create(bot=ctx.bot, user_id=user.id)
         else:
@@ -261,12 +263,14 @@ class Gambling(
                                f"**{mido_utils.readable_currency(patron_obj.level_status.monthly_donut_reward)}**!")
 
     @commands.hybrid_command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
-    async def coin_flip(self, ctx: mido_utils.Context, amount: Union[int, str], guessed_side: str):
+    async def coin_flip(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter, guessed_side: str):
         """A coin flip game. You'll earn x1.95 of what you bet if you predict correctly.
 
         Sides and Aliases:
         **Heads**: `heads`, `head`, `h`
         **Tails**: `tails`, `tail`, `t`"""
+        amount: int
+
         actual_guessed_side_name = None
         for side_name, properties in COIN_SIDES.items():
             if guessed_side.lower() in properties['aliases']:
@@ -299,10 +303,12 @@ class Gambling(
         return await ctx.send(embed=e)
 
     @commands.hybrid_command()
-    async def wheel(self, ctx: mido_utils.Context, amount: Union[int, str]):
+    async def wheel(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter):
         """Turn the wheel!
 
         What you bet will be multiplied by what you hit and get back to you."""
+        amount: int
+
         # TODO: use a code block an move "possibilities_and_arrows" to somewhere else
         possibilities_and_arrows = {
             1.5: '↖️',
@@ -337,7 +343,7 @@ class Gambling(
         await ctx.send(embed=e)
 
     @commands.hybrid_command(aliases=['slot'])
-    async def slots(self, ctx: mido_utils.Context, amount: Union[int, str]):
+    async def slots(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter):
         """Play slots!
 
         You get;
@@ -346,6 +352,8 @@ class Gambling(
         - **x4** -> If you get 2 {mido_utils.emotes.currency}
         - **x1** -> If you get 1 {mido_utils.emotes.currency}
         """
+        amount: int
+
         emojis = [mido_utils.emotes.currency, "🦋", "♥", "🐱", "🌙", "🍑"]
 
         slot = [random.choices(emojis, k=3) for _ in range(3)]
@@ -404,7 +412,7 @@ class Gambling(
         await ctx.send(content=content)
 
     @commands.hybrid_command(aliases=['br'])
-    async def betroll(self, ctx: mido_utils.Context, amount: Union[int, str]):
+    async def betroll(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter):
         """Roll a random number between 1 and 100.
 
         You get;
@@ -412,6 +420,8 @@ class Gambling(
         - **x4** -> If you get >90
         - **x2** -> If you get >66
         """
+        amount: int
+
         rolled = random.randint(1, 100)
         win_multip = 0
 
@@ -470,9 +480,12 @@ class Gambling(
 
     @commands.hybrid_command(name="give")
     @commands.guild_only()
-    async def give_cash(self, ctx: mido_utils.Context, amount: Union[int, str], *,
-                        member: mido_utils.MemberConverter()):
+    async def give_cash(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter, *,
+                        member: mido_utils.MemberConverter):
         """Give a specific amount of donut to someone else."""
+        amount: int
+        member: discord.Member | discord.User
+
         if member.id == ctx.author.id:
             raise commands.UserInputError("Why'd you send money to yourself?")
 
@@ -551,24 +564,24 @@ class Gambling(
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
     @commands.hybrid_command(aliases=['eatdonut'])
-    async def eat(self, ctx: mido_utils.Context, amount: Optional[Union[int, str]] = None):
+    async def eat(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter = None):
         """Eat donuts! Do not specify amount if you just want to see how many donuts you have eaten."""
+        amount: int | None
+
         if not amount:
             return await ctx.send_success(f"You have eaten **{ctx.user_db.eaten_cash_str}** donuts in total.")
-        else:
-            await mido_utils.ensure_not_broke_and_parse_bet(ctx, amount)
 
-            await ctx.user_db.eat_cash(amount)
+        await ctx.user_db.eat_cash(amount)
 
-            e = mido_utils.Embed(ctx.bot)
+        e = mido_utils.Embed(ctx.bot)
 
-            plural = "s" if amount > 1 else ""
-            e.description = f"You have just eaten **{mido_utils.readable_currency(amount)}** donut{plural}."
+        plural = "s" if amount > 1 else ""
+        e.description = f"You have just eaten **{mido_utils.readable_currency(amount)}** donut{plural}."
 
-            e.set_footer(text=f"Total Eaten Donuts: {ctx.user_db.eaten_cash_str_without_emoji}"
-                              f" | Rank: #{await ctx.user_db.get_eaten_cash_rank()}")
+        e.set_footer(text=f"Total Eaten Donuts: {ctx.user_db.eaten_cash_str_without_emoji}"
+                          f" | Rank: #{await ctx.user_db.get_eaten_cash_rank()}")
 
-            await ctx.send(embed=e)
+        await ctx.send(embed=e)
 
     @commands.hybrid_command(aliases=['edlb', 'donuteatenlb', 'delb'])
     async def eatendonutlb(self, ctx: mido_utils.Context):
@@ -597,12 +610,9 @@ class Gambling(
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke_and_parse_bet_amount(self, ctx: mido_utils.Context):
-        # for some reason this func is called before the global before_invoke
+        # for some reason this func is called before the global before_invoke,
         # so we have to attach db objects here as well
         await ctx.attach_db_objects()
-
-        ctx.args[2] = await mido_utils.ensure_not_broke_and_parse_bet(ctx, ctx.args[
-            2])  # arg after the context is the amount.
 
 
 async def setup(bot: ShinobuBot):

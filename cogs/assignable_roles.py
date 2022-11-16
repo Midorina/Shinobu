@@ -76,7 +76,6 @@ class AssignableRoles(
                 return await error_handling_cog.on_error(
                     f"Error happened while sending welcome message for guild id `{member.guild.id}`: {e}")
 
-
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         if member.id == self.bot.user.id:
@@ -111,11 +110,13 @@ class AssignableRoles(
     async def add_assignable_role(self,
                                   ctx: mido_utils.Context,
                                   *,
-                                  role: mido_utils.RoleConverter()):
+                                  role: mido_utils.RoleConverter):
         """Add an assignable role.
 
         You need the **Manage Roles** permissions to use this command.
         """
+        role: discord.Role
+
         if role.id in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is already in your assignable role list.")
 
@@ -128,11 +129,13 @@ class AssignableRoles(
     async def remove_assignable_role(self,
                                      ctx: mido_utils.Context,
                                      *,
-                                     role: mido_utils.RoleConverter()):
+                                     role: mido_utils.RoleConverter):
         """Remove a role from the assignable role list.
 
         You need the **Manage Roles** permissions to use this command.
         """
+        role: discord.Role
+
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is not in your assignable role list.")
 
@@ -184,8 +187,10 @@ class AssignableRoles(
     async def join_role(self,
                         ctx: mido_utils.Context,
                         *,
-                        role: mido_utils.RoleConverter()):
+                        role: mido_utils.RoleConverter):
         """Join an assignable role."""
+        role: discord.Role
+
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
 
@@ -211,8 +216,10 @@ class AssignableRoles(
     async def leave_role(self,
                          ctx: mido_utils.Context,
                          *,
-                         role: mido_utils.RoleConverter()):
+                         role: mido_utils.RoleConverter):
         """Leave an assignable role."""
+        role: discord.Role
+
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
 
@@ -228,7 +235,7 @@ class AssignableRoles(
     @commands.hybrid_command(aliases=['greet'])
     async def welcome(self,
                       ctx: mido_utils.Context,
-                      channel: typing.Union[discord.TextChannel, str] = None, *,
+                      channel: mido_utils.ChannelConverter = None, *,
                       message: commands.clean_content = None):
         """Set up a channel to welcome new members with a customized message.
 
@@ -247,6 +254,8 @@ class AssignableRoles(
         `{ctx.prefix}welcome`
         (disables this feature)
         """
+        channel: discord.TextChannel | discord.DMChannel | None
+
         if not channel:
             if not ctx.guild_db.welcome_channel_id:
                 raise commands.BadArgument("Welcome feature has already been disabled.")
@@ -254,12 +263,9 @@ class AssignableRoles(
                 await ctx.guild_db.set_welcome(channel_id=None)
                 return await ctx.send_success("Welcome feature has been successfully disabled.")
         else:
-            if isinstance(channel, str):
-                if channel.lower() == 'dm':
-                    channel_str = 'DMs'
-                    channel_id = 1
-                else:
-                    raise commands.ChannelNotFound("Invalid channel!")
+            if isinstance(channel, discord.DMChannel):
+                channel_str = 'DMs'
+                channel_id = 1
             else:
                 channel_str = channel.mention
                 channel_id = channel.id
@@ -314,11 +320,13 @@ class AssignableRoles(
     async def new_member_role(self,
                               ctx: mido_utils.Context,
                               *,
-                              role: mido_utils.RoleConverter() = None):
+                              role: mido_utils.RoleConverter = None):
         """Set a role to give to new members automatically.
 
         Provide no arguments to disable it. For example: `{ctx.prefix}welcomerole`
         """
+        role: discord.Role
+
         existing_welcome_role = ctx.guild_db.welcome_role_id
 
         if role:

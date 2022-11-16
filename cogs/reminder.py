@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
@@ -29,7 +29,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
     @commands.hybrid_command()
     async def remind(self,
                      ctx: mido_utils.Context,
-                     channel: Union[discord.TextChannel, str],
+                     channel: mido_utils.ChannelConverter,
                      length: mido_utils.Time,
                      *, message: commands.clean_content):
         """Adds a reminder.
@@ -51,22 +51,11 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
             `w` -> weeks
             `mo` -> months
         """
-        if isinstance(channel, discord.TextChannel):
-            channel_id = channel.id
-            channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
-        else:
-            if channel.casefold() == 'me' or isinstance(ctx.channel, discord.DMChannel):
-                channel = ctx.author
-                channel_id = ctx.author.id
-                channel_type = ReminderDB.ChannelType.DM
+        channel: discord.TextChannel | discord.DMChannel
 
-            elif channel.casefold() == 'here':
-                channel = ctx.channel
-                channel_id = ctx.channel.id
-                channel_type = ReminderDB.ChannelType.TEXT_CHANNEL
-
-            else:
-                raise commands.BadArgument("Incorrect channel! Please input either `me` or specify a channel.")
+        channel_id = channel.id
+        channel_type = ReminderDB.ChannelType.DM if isinstance(channel,
+                                                               discord.DMChannel) else ReminderDB.ChannelType.TEXT_CHANNEL
 
         reminder = await ReminderDB.create(bot=ctx.bot, author_id=ctx.author.id,
                                            channel_id=channel_id,
@@ -143,7 +132,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
     @commands.has_permissions(administrator=True)
     async def repeat(self,
                      ctx: mido_utils.Context,
-                     channel: Union[discord.TextChannel, str],
+                     channel: mido_utils.ChannelConverter,
                      interval: mido_utils.Time,
                      *, message: str):
         """Adds a repeater.
@@ -165,11 +154,10 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
             `w` -> weeks
             `mo` -> months
         """
-        if isinstance(channel, str):
-            if channel.casefold() == 'here':
-                channel = ctx.channel
-            else:
-                raise commands.BadArgument("Incorrect channel! Please input either `here` or specify a channel.")
+        channel: discord.TextChannel | discord.DMChannel
+
+        if isinstance(channel, discord.DMChannel):
+            raise commands.UserInputError("You can not create a repeater for your DMs. Sorry.")
 
         # interval check
         if interval.initial_remaining_seconds < 30:

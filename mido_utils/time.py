@@ -2,7 +2,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
-from discord.ext.commands import BadArgument, UserInputError
+from discord.ext.commands import BadArgument, Converter, UserInputError
 
 time_multipliers = {
     's' : 1,
@@ -17,7 +17,7 @@ time_multipliers = {
 # TODO: rewrite this?
 
 
-class Time:
+class Time(Converter):
     def __init__(self,
                  start_date: datetime = None,
                  end_date: datetime = None,
