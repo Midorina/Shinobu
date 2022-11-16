@@ -9,8 +9,9 @@ from discord.ext import commands
 
 import mido_utils
 from models.db import HangmanWord, MemberDB
+from shinobu import ShinobuBot
 
-# TODO: move this to hangman.json and convert to .yml because JSON doesnt support multiline strings
+# TODO: move this to hangman.json and convert to .yml because JSON doesn't support multiline strings
 HANGMAN_STAGES = ["""
  ┏━━━━━━━━┓
  ┃        ╋
@@ -242,7 +243,7 @@ class Race:
 
 
 class Games(commands.Cog, description="Play race with friends (with bets if you want) or Hangman."):
-    def __init__(self, bot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         if not hasattr(self.bot, 'active_races'):
@@ -253,13 +254,15 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
         self.bot.loop.create_task(self.assign_hangman_variable())
 
     async def assign_hangman_variable(self):
+        await self.bot.wait_until_ready()
+
         time = mido_utils.Time()
 
         while not self.hangman_categories_and_word_counts:
             self.hangman_categories_and_word_counts = await HangmanWord.get_categories_and_counts(self.bot)
 
             if sum(x for x in self.hangman_categories_and_word_counts.values()) == 0:
-                # if we dont have any words, it means the table is freshly created
+                # if we don't have any words, it means the table is freshly created
                 # in that case, insert from hangman.json
                 await self._insert_from_json()
                 self.hangman_categories_and_word_counts = None
@@ -289,7 +292,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
         return new_race, True
 
     @commands.max_concurrency(number=1, per=commands.BucketType.channel)
-    @commands.command()
+    @commands.hybrid_command()
     async def hangman(self, ctx: mido_utils.Context, category: str = None):
         """Play a game of hangman!
 
@@ -413,7 +416,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     async def race(self, ctx: mido_utils.Context, bet_amount: Union[mido_utils.Int64, str] = 0):
         """Start or join a race!
@@ -462,7 +465,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     async def raffle(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter() = None):
         """Prints a random online user from the server, or from the online user in the specified role."""
@@ -482,5 +485,5 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
         await ctx.send(embed=e)
 
 
-def setup(bot):
-    bot.add_cog(Games(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Games(bot))

@@ -5,7 +5,7 @@ import collections
 import itertools
 import random
 import time
-from typing import List
+from typing import List, TYPE_CHECKING
 
 import discord
 from async_timeout import timeout
@@ -13,9 +13,12 @@ from wavelink import InvalidIDProvided, Node, Player, Track, TrackPlaylist
 
 import mido_utils
 
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
+
 
 class VoicePlayer(Player):
-    def __init__(self, bot, guild_id: int, node: Node, **kwargs):
+    def __init__(self, bot: ShinobuBot, guild_id: int, node: Node, **kwargs):
         super().__init__(bot, guild_id, node, **kwargs)
 
         self.wavelink = bot.wavelink
@@ -127,6 +130,8 @@ class VoicePlayer(Player):
         return song
 
     async def player_loop(self):
+        await self.bot.wait_until_ready()
+
         while True:
             self.next.clear()
             self.skip_votes.clear()

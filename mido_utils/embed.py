@@ -1,24 +1,29 @@
+from __future__ import annotations
+
 import asyncio
 import math
 from copy import deepcopy
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 import discord
 
 from .exceptions import MessageTooLong
 
+if TYPE_CHECKING:  # only import for type checking purposes to avoid circular import errors
+    from shinobu import ShinobuBot
+
 
 class Embed(discord.Embed):
-    def __init__(self, bot, default_footer=False, image_url=None, **kwargs):
+    def __init__(self, bot: ShinobuBot, use_default_footer: bool = False, image_url: str = None, **kwargs):
         super().__init__(**kwargs)
         self.bot = bot
 
         self.color = self.color or self.bot.color
 
         # if default_footer is True and not hasattr(self, '_footer'):
-        if default_footer is True:
-            self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+        if use_default_footer is True:
+            self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar.url)
 
             self.timestamp = self.timestamp or datetime.utcnow()
 

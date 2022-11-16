@@ -64,11 +64,14 @@ async def dispatch_to_all_clusters(data):
     logger.debug(f'> Sent message to clusters {",".join(CLIENTS.keys())}: {data}')
 
 
-signal.signal(signal.SIGINT, signal.SIG_DFL)
-signal.signal(signal.SIGTERM, signal.SIG_DFL)
+async def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
-logger.info(f"IPC is up with port {args.port}.")
-server = websockets.serve(serve, 'localhost', args.port)
-loop = asyncio.get_event_loop()
-loop.run_until_complete(server)
-loop.run_forever()
+    async with websockets.serve(serve, 'localhost', args.port):
+        logger.info(f"IPC is up with port {args.port}.")
+
+        await asyncio.Future()
+
+
+asyncio.run(main())

@@ -132,7 +132,7 @@ class Moderation(
 
         return muted_role
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx: mido_utils.Context,
@@ -157,7 +157,7 @@ class Moderation(
                                f"by {ctx.author.mention}"
                                f"{self.get_reason_string(reason)}")
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self,
@@ -206,7 +206,7 @@ class Moderation(
                                f"for **{getattr(length, 'initial_remaining_string', 'life')}**"
                                f"{self.get_reason_string(reason)}")
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
@@ -238,7 +238,7 @@ class Moderation(
                                    f"by {ctx.author.mention}"
                                    f"{self.get_reason_string(reason)}")
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
@@ -293,7 +293,7 @@ class Moderation(
                                f"for **{getattr(length, 'initial_remaining_string', 'permanently')}**"
                                f"{self.get_reason_string(reason)}")
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
@@ -325,7 +325,7 @@ class Moderation(
                                f"by {ctx.author.mention}"
                                f"{self.get_reason_string(reason)}")
 
-    @commands.command(name='modlogs')
+    @commands.hybrid_command(name='modlogs')
     @commands.has_permissions(ban_members=True, kick_members=True)
     async def mod_logs(self,
                        ctx: mido_utils.Context,
@@ -341,7 +341,7 @@ class Moderation(
             raise commands.UserInputError(f"No logs have been found for user **{target}**.")
 
         e = mido_utils.Embed(self.bot)
-        e.set_author(icon_url=getattr(target, 'avatar_url', None),
+        e.set_author(icon_url=getattr(target, 'avatar', None),
                      name=f"Logs of {target}")
         e.set_footer(text=f"{len(logs)} Logs")
 
@@ -362,7 +362,7 @@ class Moderation(
 
         await e.paginate(ctx, blocks=log_blocks, extra_sep='\n')
 
-    @commands.command(name='clearmodlogs', aliases=['clearlogs'])
+    @commands.hybrid_command(name='clearmodlogs', aliases=['clearlogs'])
     @commands.has_permissions(administrator=True)
     async def clear_modlogs(self,
                             ctx: mido_utils.Context,
@@ -382,7 +382,7 @@ class Moderation(
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.command(aliases=['changereason'])
+    @commands.hybrid_command(aliases=['changereason'])
     async def reason(self,
                      ctx: mido_utils.Context,
                      case_id: mido_utils.Int32(),
@@ -403,7 +403,7 @@ class Moderation(
 
         await ctx.send_success(f"Reason of `{log.id}` has been successfully updated: `{new_reason}`")
 
-    @commands.command(name='setrole', aliases=['sr', 'giverole', 'gr'])
+    @commands.hybrid_command(name='setrole', aliases=['sr', 'giverole', 'gr'])
     @commands.has_permissions(manage_roles=True)
     async def set_role(self,
                        ctx: mido_utils.Context,
@@ -422,7 +422,7 @@ class Moderation(
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to {member.mention}.")
 
-    @commands.command(name='removerole', aliases=['rr'])
+    @commands.hybrid_command(name='removerole', aliases=['rr'])
     @commands.has_permissions(manage_roles=True)
     async def remove_role(self,
                           ctx: mido_utils.Context,
@@ -442,7 +442,7 @@ class Moderation(
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
-    @commands.command(name='createrole', aliases=['cr'])
+    @commands.hybrid_command(name='createrole', aliases=['cr'])
     @commands.has_permissions(manage_roles=True)
     async def create_role(self,
                           ctx: mido_utils.Context,
@@ -460,7 +460,7 @@ class Moderation(
 
         await ctx.send_success(f"Role {role.mention} has been successfully created!")
 
-    @commands.command(name='deleterole', aliases=['dr'])
+    @commands.hybrid_command(name='deleterole', aliases=['dr'])
     @commands.has_permissions(manage_roles=True)
     async def delete_role(self,
                           ctx: mido_utils.Context,
@@ -475,11 +475,11 @@ class Moderation(
 
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
-    @commands.command(aliases=['av'])
+    @commands.hybrid_command(aliases=['av'])
     async def avatar(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter() = None):
         """See the avatar of someone."""
         user = target or ctx.author
-        e = mido_utils.Embed(bot=self.bot, image_url=user.avatar_url)
+        e = mido_utils.Embed(bot=self.bot, image_url=user.avatar.url)
         await ctx.send(embed=e)
 
     @set_role.before_invoke
@@ -488,7 +488,7 @@ class Moderation(
     async def _ensure_role_hierarchy(self, ctx):
         mido_utils.ensure_role_hierarchy(ctx)
 
-    @commands.command(aliases=['purge', 'clear'])
+    @commands.hybrid_command(aliases=['purge', 'clear'])
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     async def prune(self, ctx: mido_utils.Context, number: int, target_user: mido_utils.MemberConverter() = None):
@@ -518,7 +518,7 @@ class Moderation(
 
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
-    @commands.command(name='inrole')
+    @commands.hybrid_command(name='inrole')
     async def in_role(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter()):
         """See the people in a specific role."""
         ppl = [member for member in ctx.guild.members if role in member.roles]
@@ -532,7 +532,7 @@ class Moderation(
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
-    @commands.command(name="serverinfo", aliases=['sinfo'])
+    @commands.hybrid_command(name="serverinfo", aliases=['sinfo'])
     async def server_info(self, ctx: mido_utils.Context, server_id: mido_utils.Int64() = None):
         """Shows the information of the server."""
         # TODO: get the guild using IPC
@@ -602,7 +602,7 @@ class Moderation(
         await ctx.send(embed=embed)
 
     # TODO: make this available inside guilds
-    @commands.command(name="userinfo", aliases=['uinfo'])
+    @commands.hybrid_command(name="userinfo", aliases=['uinfo'])
     @commands.guild_only()
     async def user_info(self, ctx: mido_utils.Context,
                         *,
@@ -610,13 +610,13 @@ class Moderation(
         """Shows the information of a user."""
         user = user or ctx.author
 
-        # if its a user obj but author is not an owner
+        # if it's a user obj but author is not an owner
         if isinstance(user, discord.User):
             if not await ctx.bot.is_owner(ctx.author):
                 user = ctx.author
 
         embed = mido_utils.Embed(bot=ctx.bot)
-        embed.set_thumbnail(url=user.avatar_url)
+        embed.set_thumbnail(url=user.avatar.url)
 
         # name
         embed.add_field(name='Name', value=str(user))
@@ -662,5 +662,5 @@ class Moderation(
         await ctx.send(embed=embed)
 
 
-def setup(bot):
-    bot.add_cog(Moderation(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Moderation(bot))

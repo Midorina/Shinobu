@@ -65,7 +65,7 @@ class Launcher:
         self.clusters: List[Cluster] = []
         self.cluster_count = 0
 
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or asyncio.new_event_loop()
         self.startup_task = None
         self.rebooter_task = None
 
@@ -149,7 +149,7 @@ class Launcher:
                     cluster.stop()  # ensure stopped
 
                     if cluster.process.exitcode != 0:
-                        cluster_logger.info(f"Restarting cluster#{cluster.id}")
+                        cluster_logger.info(f"Restarting Cluster#{cluster.id}")
                         await cluster.start()
                     else:
                         cluster.dont_restart = True
@@ -199,10 +199,11 @@ class Cluster:
         self.bot = None
         self.process = None
 
-        self.log = logging.getLogger(f"Cluster#{cluster_id}")
-        self.log.info(f"I have been initialized with shards {shard_ids} ({len(shard_ids)}/{max_shards}).")
+        self.logger = logging.getLogger(f"Cluster#{cluster_id}")
+        self.logger.info(f"I have been initialized with shards {shard_ids} ({len(shard_ids)}/{max_shards}).")
 
         self.dont_restart = False
+        self.first_time = True
 
     def wait_close(self):
         return self.process.join()
@@ -213,24 +214,27 @@ class Cluster:
     async def start(self, *, force=False):
         if self.process and self.is_alive():
             if not force:
-                self.log.warning("Start called with already running cluster, pass `force=True` to override")
+                self.logger.warning("Start called with already running cluster, pass `force=True` to override")
                 return
 
-            self.log.info("Terminating existing process")
+            self.logger.info("Terminating existing process")
             self.process.terminate()
             self.process.close()
 
         # reload the bot so that the changes we've made takes effect
-        reload_package(shinobu)
+        if not self.first_time:
+            reload_package(shinobu)
 
         self.process = multiprocessing.Process(name=f'{self.bot_name} #{self.kwargs["cluster_id"]}',
                                                target=shinobu.ShinobuBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
 
-        self.log.info(f"Process started with PID {self.process.pid}")
+        self.logger.info(f"Process started with PID {self.process.pid}")
+
+        self.first_time = False
 
     def stop(self, sign=signal.SIGTERM):
-        self.log.info(f"Shutting down with signal {sign!r}.")
+        self.logger.info(f"Shutting down with signal {sign!r}.")
 
         try:
             os.kill(self.process.pid, sign)

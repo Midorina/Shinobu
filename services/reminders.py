@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING
 
 import discord
 
@@ -6,9 +9,12 @@ import mido_utils
 from models import ReminderDB
 from ._base_service import BaseShinobuService
 
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
+
 
 class ReminderService(BaseShinobuService):
-    def __init__(self, bot):
+    def __init__(self, bot: ShinobuBot):
         super(ReminderService, self).__init__(bot)
 
         self.active_reminders = list()

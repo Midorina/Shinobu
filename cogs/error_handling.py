@@ -78,7 +78,8 @@ class ErrorHandling(commands.Cog):
                 return await ctx.send_error(error, "This is an owner-only command. Sorry.")
 
             elif mido_utils.better_is_instance(error, commands.BotMissingPermissions):
-                missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in error.missing_perms]
+                missing = [perm.replace('_', ' ').replace('guild', 'server').title() for perm in
+                           error.missing_permissions]
                 if len(missing) > 2:
                     fmt = '{}, and {}'.format(", ".join(missing[:-1]), missing[-1])
                 else:
@@ -211,5 +212,5 @@ An error occurred during the execution of a command:
         await ctx.bot.ipc.send_to_log_channel(content=content, embed=traceback_embed)
 
 
-def setup(bot):
-    bot.add_cog(ErrorHandling(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(ErrorHandling(bot))

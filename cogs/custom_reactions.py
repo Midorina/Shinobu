@@ -26,6 +26,8 @@ class CustomReactions(
 
     async def check_cr_db_func(self):
         """PSQL function to escape special characters"""
+        await self.bot.wait_until_ready()
+
         time = mido_utils.Time()
         exists = await self.bot.db.fetchval("SELECT EXISTS(SELECT * FROM pg_proc WHERE proname = 'f_like_escape');")
         if not exists:
@@ -109,7 +111,7 @@ class CustomReactions(
 
         return e
 
-    @commands.command(name='addcustomreaction', aliases=['acr'])
+    @commands.hybrid_command(name='addcustomreaction', aliases=['acr'])
     async def add_custom_reaction(self, ctx: mido_utils.Context, trigger: str, *, response):
         """Add a custom reaction with a trigger and a response.
         Running this command in server requires the Administration permission.
@@ -135,7 +137,7 @@ class CustomReactions(
 
         await ctx.send(embed=e)
 
-    @commands.command(name='listcustomreactions', aliases=['lcr'])
+    @commands.hybrid_command(name='listcustomreactions', aliases=['lcr'])
     async def list_custom_reactions(self, ctx: mido_utils.Context):
         """List all custom reactions of the server.
         If you use this command in DMs, it'll show you the global custom reactions."""
@@ -156,14 +158,14 @@ class CustomReactions(
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=15)
 
-    @commands.command(name='showcustomreaction', aliases=['scr'])
+    @commands.hybrid_command(name='showcustomreaction', aliases=['scr'])
     async def show_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Shows a custom reaction's response on a given ID."""
 
         await ctx.send(embed=self.get_cr_embed(custom_reaction))
 
     @commands.has_permissions(administrator=True)
-    @commands.command(name='clearcustomreactions', aliases=['crclear'])
+    @commands.hybrid_command(name='clearcustomreactions', aliases=['crclear'])
     async def clear_custom_reactions(self, ctx: mido_utils.Context):
         """Deletes all custom reactions on this server."""
 
@@ -179,7 +181,7 @@ class CustomReactions(
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.command(name='deletecustomreaction', aliases=['dcr'])
+    @commands.hybrid_command(name='deletecustomreaction', aliases=['dcr'])
     async def delete_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Delete a custom reaction using it's ID.
         You can see the list of custom reactions using `{ctx.prefix}lcr`
@@ -193,7 +195,7 @@ class CustomReactions(
 
         await ctx.send(embed=e)
 
-    @commands.command(name='customreactioncontainsanywhere', aliases=['crca'])
+    @commands.hybrid_command(name='customreactioncontainsanywhere', aliases=['crca'])
     async def toggle_custom_reaction_contains_anywhere(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the custom reaction will trigger
         if the triggering message contains the keyword (instead of only starting with it)."""
@@ -204,7 +206,7 @@ class CustomReactions(
                               cr=custom_reaction,
                               option_status=custom_reaction.contains_anywhere))
 
-    @commands.command(name='customreactiondm', aliases=['crdm'])
+    @commands.hybrid_command(name='customreactiondm', aliases=['crdm'])
     async def toggle_custom_reaction_dm(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the response message of the custom reaction will be sent as a direct message."""
         await custom_reaction.toggle_dm()
@@ -214,7 +216,7 @@ class CustomReactions(
                               cr=custom_reaction,
                               option_status=custom_reaction.send_in_DM))
 
-    @commands.command(name='customreactionautodelete', aliases=['crad'])
+    @commands.hybrid_command(name='customreactionautodelete', aliases=['crad'])
     async def toggle_custom_reaction_auto_delete(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the message triggering the custom reaction will be automatically deleted."""
         await custom_reaction.toggle_delete_trigger()
@@ -243,5 +245,5 @@ class CustomReactions(
                 raise commands.MissingPermissions(['administrator'])
 
 
-def setup(bot):
-    bot.add_cog(CustomReactions(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(CustomReactions(bot))

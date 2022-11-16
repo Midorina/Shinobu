@@ -1,4 +1,6 @@
-from typing import Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Union
 
 import discord
 from discord.ext import commands
@@ -6,7 +8,9 @@ from discord.ext import commands
 import mido_utils
 import services
 from models.db import ReminderDB, RepeatDB
-from shinobu import ShinobuBot
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 
 # todo: share reminders across clusters so that not all of them send a message
@@ -22,7 +26,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
         self.reminder_service.stop()
         self.repeater_service.stop()
 
-    @commands.command()
+    @commands.hybrid_command()
     async def remind(self,
                      ctx: mido_utils.Context,
                      channel: Union[discord.TextChannel, str],
@@ -81,7 +85,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
 
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def remindlist(self,
                          ctx: mido_utils.Context):
         """See the list of your reminders."""
@@ -91,7 +95,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
             raise commands.UserInputError("You don't have any reminders!")
 
         e = mido_utils.Embed(self.bot)
-        e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar_url)
+        e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar.url)
 
         blocks = []
         for i, reminder in enumerate(reminders, 1):
@@ -109,7 +113,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
 
         await e.paginate(ctx, blocks, extra_sep='\n')
 
-    @commands.command(aliases=['reminddel'])
+    @commands.hybrid_command(aliases=['reminddel'])
     async def reminddelete(self,
                            ctx: mido_utils.Context,
                            reminder_index: int):
@@ -134,7 +138,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
 
         await ctx.send_success(f"Reminder **#{reminder_index}** has been successfully deleted.")
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def repeat(self,
@@ -187,7 +191,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
                                          f"every {interval.initial_remaining_string} in **{channel.mention}**.")
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.hybrid_command()
     @commands.guild_only()
     async def repeatlist(self,
                          ctx: mido_utils.Context):
@@ -212,7 +216,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
 
         await e.paginate(ctx, blocks, extra_sep='\n')
 
-    @commands.command(aliases=['repeatremove', 'repeatdel', 'repeatrm'])
+    @commands.hybrid_command(aliases=['repeatremove', 'repeatdel', 'repeatrm'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def repeatdelete(self,
@@ -240,5 +244,5 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
         await ctx.send_success(f"Repeater **#{repeater_index}** has been successfully deleted.")
 
 
-def setup(bot):
-    bot.add_cog(Reminder(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Reminder(bot))

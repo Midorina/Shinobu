@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing
 
 import discord
@@ -7,9 +9,13 @@ import mido_utils
 from models import GuildDB
 from shinobu import ShinobuBot
 
+if typing.TYPE_CHECKING:
+    from cogs.error_handling import ErrorHandling
+
 
 class AssignableRoles(
-    commands.Cog, name='Assignable Roles',
+    commands.Cog,
+    name='Assignable Roles',
     description='You can use the `{ctx.prefix}welcomerole` command to '
                 'automatically assign a role to new members '
                 'or `{ctx.prefix}aar` to add a self assignable role for all members '
@@ -66,9 +72,10 @@ class AssignableRoles(
             except (discord.Forbidden, discord.HTTPException):
                 pass
             except Exception as e:
-                await self.bot.get_cog('ErrorHandling').on_error(
+                error_handling_cog: ErrorHandling = self.bot.get_cog('ErrorHandling')
+                return await error_handling_cog.on_error(
                     f"Error happened while sending welcome message for guild id `{member.guild.id}`: {e}")
-                return
+
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
@@ -95,11 +102,11 @@ class AssignableRoles(
             except discord.Forbidden:
                 pass
             except Exception as e:
-                await self.bot.get_cog('ErrorHandling').on_error(
+                error_handling_cog: ErrorHandling = self.bot.get_cog('ErrorHandling')
+                return await error_handling_cog.on_error(
                     f"Error happened while sending bye message for guild id `{member.guild.id}`: {e}")
-                return
 
-    @commands.command(name='addassignablerole', aliases=['aar'])
+    @commands.hybrid_command(name='addassignablerole', aliases=['aar'])
     @commands.has_permissions(manage_roles=True)
     async def add_assignable_role(self,
                                   ctx: mido_utils.Context,
@@ -116,7 +123,7 @@ class AssignableRoles(
 
         await ctx.send_success(f"Role {role.mention} has been successfully added to the assignable role list.")
 
-    @commands.command(name='removeassignablerole', aliases=['rar'])
+    @commands.hybrid_command(name='removeassignablerole', aliases=['rar'])
     @commands.has_permissions(manage_roles=True)
     async def remove_assignable_role(self,
                                      ctx: mido_utils.Context,
@@ -133,7 +140,7 @@ class AssignableRoles(
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from the assignable role list.")
 
-    @commands.command(name='exclusiveassignablerole', aliases=['ear'])
+    @commands.hybrid_command(name='exclusiveassignablerole', aliases=['ear'])
     @commands.has_permissions(manage_roles=True)
     async def exclusive_assignable_role(self,
                                         ctx: mido_utils.Context):
@@ -148,14 +155,14 @@ class AssignableRoles(
         else:
             await ctx.send_success("Assignable roles are no longer exclusive.")
 
-    @commands.command(name='listassignableroles', aliases=['lsar', 'lar'])
+    @commands.hybrid_command(name='listassignableroles', aliases=['lsar', 'lar'])
     async def list_assignable_roles(self,
                                     ctx: mido_utils.Context):
         """List all assignable roles available.
 
         You need the **Manage Roles** permissions to use this command.
         """
-        e = mido_utils.Embed(bot=ctx.bot, title="Assignable Roles", default_footer=True)
+        e = mido_utils.Embed(bot=ctx.bot, title="Assignable Roles", use_default_footer=True)
         e.set_footer(text=f"Assignable Roles Are Exclusive: {ctx.guild_db.assignable_roles_are_exclusive}")
 
         if ctx.guild_db.assignable_role_ids:
@@ -173,7 +180,7 @@ class AssignableRoles(
 
         await ctx.send(embed=e)
 
-    @commands.command(name='iam')
+    @commands.hybrid_command(name='iam')
     async def join_role(self,
                         ctx: mido_utils.Context,
                         *,
@@ -200,7 +207,7 @@ class AssignableRoles(
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
 
-    @commands.command(name='iamnot', aliases=['iamn'])
+    @commands.hybrid_command(name='iamnot', aliases=['iamn'])
     async def leave_role(self,
                          ctx: mido_utils.Context,
                          *,
@@ -218,12 +225,12 @@ class AssignableRoles(
         await ctx.send_success(f"Role {role.mention} has been successfully removed from you!")
 
     @commands.has_permissions(administrator=True)
-    @commands.command(aliases=['greet'])
+    @commands.hybrid_command(aliases=['greet'])
     async def welcome(self,
                       ctx: mido_utils.Context,
                       channel: typing.Union[discord.TextChannel, str] = None, *,
                       message: commands.clean_content = None):
-        """Setup a channel to welcome new members with a customized message.
+        """Set up a channel to welcome new members with a customized message.
 
         **To use the default message**, leave the welcome message empty.
         **To disable this feature**, use the command without inputting any arguments.
@@ -265,12 +272,12 @@ class AssignableRoles(
                                    f"`{message}`")
 
     @commands.has_permissions(administrator=True)
-    @commands.command(aliases=['goodbye'])
+    @commands.hybrid_command(aliases=['goodbye'])
     async def bye(self,
                   ctx: mido_utils.Context,
                   channel: discord.TextChannel = None, *,
                   message: commands.clean_content = None):
-        """Setup a channel to say goodbye to members that leave with a customized message.
+        """Set up a channel to say goodbye to members that leave with a customized message.
 
         **To use the default message**, leave the goodbye message empty.
         **To disable this feature**, use the command without inputting any arguments.
@@ -302,7 +309,7 @@ class AssignableRoles(
                                    f"with this mesage:\n"
                                    f"`{message}`")
 
-    @commands.command(name='welcomerole', aliases=['newmemberrole'])
+    @commands.hybrid_command(name='welcomerole', aliases=['newmemberrole'])
     @commands.has_permissions(manage_roles=True)
     async def new_member_role(self,
                               ctx: mido_utils.Context,
@@ -362,5 +369,5 @@ class AssignableRoles(
         mido_utils.ensure_role_hierarchy(ctx)
 
 
-def setup(bot):
-    bot.add_cog(AssignableRoles(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(AssignableRoles(bot))

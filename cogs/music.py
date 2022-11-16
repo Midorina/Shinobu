@@ -30,8 +30,6 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
                 self.bot.wavelink = self.wavelink
 
     async def _initiate_node(self, **kwargs):
-        await self.bot.wait_until_ready()
-
         try:
             node = await self.wavelink.initiate_node(**kwargs)
         except NodeOccupied:
@@ -43,7 +41,9 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
                     "Please make sure you entered proper credentials to the config file.")
 
     async def start_nodes(self):
-        # initiate the each node specified in the cfg file
+        await self.bot.wait_until_ready()
+
+        # initiate each node specified in the cfg file
         for node_credentials in self.bot.config.lavalink_nodes_credentials:
             await self._initiate_node(**node_credentials)
 
@@ -89,7 +89,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
     async def track_end_event(self, node: Node, payload: events.TrackEnd):
         payload.player.next.set()
 
-    @commands.command(name='join', aliases=['connect'])
+    @commands.hybrid_command(name='join', aliases=['connect'])
     async def _join(self, ctx: mido_utils.Context):
         """Make me connect to your voice channel."""
         await self.ensure_can_control(ctx)  # this is cuz ctx.invoke doesn't call pre-invoke hooks
@@ -116,7 +116,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             await ctx.voice_player.set_volume(ctx.guild_db.volume)
             await ctx.message.add_reaction('👍')
 
-    @commands.command(name='leave', aliases=['disconnect', 'destroy', 'd', 'dc', 'stop'])
+    @commands.hybrid_command(name='leave', aliases=['disconnect', 'destroy', 'd', 'dc', 'stop'])
     async def _leave(self, ctx: mido_utils.Context):
         """Make me disconnect from your voice channel."""
         if ctx.voice_player.channel_id:
@@ -127,7 +127,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         else:
             raise mido_utils.MusicError("I'm not currently not in a voice channel!")
 
-    @commands.command(name='volume', aliases=['vol', 'v'])
+    @commands.hybrid_command(name='volume', aliases=['vol', 'v'])
     async def _volume(self, ctx: mido_utils.Context, volume: mido_utils.Int16() = None):
         """Change or see the volume."""
         if volume is None:
@@ -147,7 +147,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send_success(f'Volume is set to **{volume}**%')
 
-    @commands.command(name='earrape')
+    @commands.hybrid_command(name='earrape')
     @mido_utils.is_patron_decorator(level=2)
     async def _earrape(self, ctx: mido_utils.Context):
         """Increase the volume to 400.
@@ -158,12 +158,12 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await ctx.send_success(f'**Earrape mode:** Volume is set to **{400}**%\n'
                                f'(Can be increased further using `{ctx.prefix}volume` but 400% is suggested.)')
 
-    @commands.command(name='nowplaying', aliases=['current', 'playing', 'now', 'np'])
+    @commands.hybrid_command(name='nowplaying', aliases=['current', 'playing', 'now', 'np'])
     async def _now_playing(self, ctx: mido_utils.Context):
         """See what's currently playing."""
         await ctx.send(embed=ctx.voice_player.get_current().create_np_embed())
 
-    @commands.command(name='pause')
+    @commands.hybrid_command(name='pause')
     async def _pause(self, ctx: mido_utils.Context):
         """Pause the song."""
         if ctx.voice_player.is_paused:
@@ -172,7 +172,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await ctx.voice_player.set_pause(pause=True)
         await ctx.message.add_reaction("⏯")
 
-    @commands.command(name='resume')
+    @commands.hybrid_command(name='resume')
     async def _resume(self, ctx: mido_utils.Context):
         """Resume the player."""
         if not ctx.voice_player.is_paused:
@@ -181,7 +181,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await ctx.voice_player.set_pause(pause=False)
         await ctx.message.add_reaction("⏯")
 
-    @commands.command(name='seek')
+    @commands.hybrid_command(name='seek')
     async def _seek(self, ctx: mido_utils.Context, seconds: mido_utils.Int32()):
         """Seek forwards by x seconds. Enter a negative number to seek backwards.
 
@@ -212,7 +212,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send(embed=e)
 
-    @commands.command(name='skipto', aliases=['goto'])
+    @commands.hybrid_command(name='skipto', aliases=['goto'])
     async def _goto(self, ctx: mido_utils.Context, seconds: mido_utils.Int32()):
         """Go to a certain time in the song.
 
@@ -232,7 +232,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send(embed=e)
 
-    @commands.command(name='skip', aliases=['next'])
+    @commands.hybrid_command(name='skip', aliases=['next'])
     async def _skip(self, ctx: mido_utils.Context):
         """Skip the currently playing song."""
         voter = ctx.message.author
@@ -271,7 +271,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await ctx.message.add_reaction('⏭')
 
     # TODO: add a way to toggle vote requirement and enable this
-    # @commands.command(name='forceskip', aliases=['fskip'])
+    # @commands.hybrid_command(name='forceskip', aliases=['fskip'])
     # @commands.has_permissions(manage_guild=True)
     # async def _force_skip(self, ctx: mido_utils.Context):
     #     """Skip the currently playing song without requiring votes if enabled.
@@ -280,7 +280,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
     #     await ctx.voice_player.skip()
     #     await ctx.message.add_reaction('⏭')
 
-    @commands.command(name='queue', aliases=['q', 'songlist'])
+    @commands.hybrid_command(name='queue', aliases=['q', 'songlist'])
     async def _queue(self, ctx: mido_utils.Context):
         """See the current song queue."""
         if len(ctx.voice_player.song_queue) == 0 and not ctx.voice_player.current:
@@ -317,7 +317,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
                  )
         await embed.paginate(ctx, blocks, item_per_page=10, add_page_info_to='author')
 
-    @commands.command(name='shuffle')
+    @commands.hybrid_command(name='shuffle')
     async def _shuffle(self, ctx: mido_utils.Context):
         """Shuffle the song queue."""
         if len(ctx.voice_player.song_queue) == 0:
@@ -326,7 +326,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         ctx.voice_player.song_queue.shuffle()
         await ctx.send_success('Successfully shuffled the song queue.')
 
-    @commands.command(name='remove')
+    @commands.hybrid_command(name='remove')
     async def _remove(self, ctx: mido_utils.Context, index: int):
         """Remove a song from the song queue."""
         if len(ctx.voice_player.song_queue) == 0:
@@ -341,7 +341,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         ctx.voice_player.song_queue.remove(index - 1)
         await ctx.send_success('✅ Removed the song.')
 
-    @commands.command(name='loop', aliases=['repeatqueue'])
+    @commands.hybrid_command(name='loop', aliases=['repeatqueue'])
     @mido_utils.is_patron_decorator(level=2)
     async def _loop(self, ctx: mido_utils.Context):
         """Enable the loop feature to keep playing the current queue."""
@@ -354,7 +354,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             await ctx.send_success("Loop feature has been disabled.")
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command(name='playnext', aliases=['pn'])
+    @commands.hybrid_command(name='playnext', aliases=['pn'])
     async def _play_next(self, ctx: mido_utils.Context, *, query: str):
         """Put a song/songs to the top of your song queue so that it gets played next."""
         task = await self.create_or_handle_vc_task(ctx)
@@ -367,7 +367,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         await self.songs_added_message(ctx, songs)
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command(name='play', aliases=['p'])
+    @commands.hybrid_command(name='play', aliases=['p'])
     async def _play(self, ctx: mido_utils.Context, *, query: str):
         """Queue a song to play! You can use song names or YouTube/**Spotify** playlist/album/single links."""
         task = await self.create_or_handle_vc_task(ctx)
@@ -379,7 +379,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await self.songs_added_message(ctx, songs)
 
-    @commands.command(name='youtube', aliases=['yt'])
+    @commands.hybrid_command(name='youtube', aliases=['yt'])
     async def _find_video(self, ctx: mido_utils.Context, *, query: str):
         """Find a YouTube video with the given query."""
         song = await self.wavelink.get_tracks(query=f'ytsearch:{query}', retry_on_failure=True)
@@ -389,7 +389,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send(content=song[0].uri)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def lyrics(self, ctx: mido_utils.Context, *, song_name: str = None):
         """See the lyrics of the current song or a specific song."""
         if not song_name and not ctx.voice_player.current:
@@ -406,7 +406,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             raise mido_utils.NotFoundError(f"I couldn't find the lyrics of **{song_name}**.\n"
                                            f"Try writing the title in a simpler form.")
 
-        e = mido_utils.Embed(bot=self.bot, title=song_title[:256], default_footer=True)
+        e = mido_utils.Embed(bot=self.bot, title=song_title[:256], use_default_footer=True)
         e.set_thumbnail(url=thumbnail)
 
         await e.paginate(
@@ -495,5 +495,5 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
                 )
 
 
-def setup(bot):
-    bot.add_cog(Music(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Music(bot))

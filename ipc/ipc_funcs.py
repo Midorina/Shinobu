@@ -5,7 +5,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import List, Optional, Tuple, Type
+from typing import List, Optional, TYPE_CHECKING, Tuple, Type
 
 import discord
 import psutil
@@ -17,6 +17,10 @@ from mido_utils import Time
 from models.patreon import UserAndPledgerCombined
 
 __all__ = ['IPCClient', 'SerializedObject']
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
+
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
@@ -124,6 +128,8 @@ class _InternalIPCHandler:
         return uuid.uuid4().hex[:7]
 
     async def _connect_to_ipc(self):
+        await self.bot.wait_until_ready()
+
         while True:
             try:
                 self.ws = await websockets.connect(f'ws://localhost:{self.port}')
@@ -281,10 +287,12 @@ class _InternalIPCHandler:
                 return
 
     async def close(self, reason: str = 'Close called.'):
-        self.ws_task.cancel()
-        self.ws_task = None
+        if self.ws_task is not None:
+            self.ws_task.cancel()
+            self.ws_task = None
 
-        await self.ws.close(code=1000, reason=reason)
+        if self.ws is not None:
+            await self.ws.close(code=1000, reason=reason)
 
     def _websocket_loop_done(self, task):
         try:
@@ -300,7 +308,7 @@ class _InternalIPCHandler:
 class IPCServer:
     """Gives data from the bot"""
 
-    def __init__(self, bot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
         self.process = psutil.Process(os.getpid())
@@ -311,6 +319,8 @@ class IPCServer:
 
     async def update_cpu_usage_cache(self):
         """Calculates the cpu usage in the last second in a non-blocking way"""
+        await self.bot.wait_until_ready()
+
         while True:
             self.process.cpu_percent(interval=0)
             await asyncio.sleep(1.0)
@@ -339,7 +349,7 @@ class IPCServer:
             return {
                 'name'         : user.name,
                 'id'           : user.id,
-                'avatar_url'   : str(user.avatar_url),
+                'avatar'       : {'url': str(user.avatar.url)},
                 'discriminator': user.discriminator,
                 'bot'          : user.bot,
                 'display_name' : user.display_name
@@ -347,7 +357,7 @@ class IPCServer:
 
     async def reload(self, data: IPCMessage):
         target_cog = getattr(data, 'target_cog', None)
-        return self.bot.load_or_reload_cogs(target_cog)
+        return await self.bot.load_or_reload_cogs(target_cog)
 
     async def shutdown(self, data: IPCMessage):
         if data.cluster_id is None or int(data.cluster_id) == self.bot.cluster_id:

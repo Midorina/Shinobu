@@ -167,7 +167,7 @@ class Gambling(
                 and isinstance(ctx.args[2], int):  # if amount is parsed
             await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
 
-    @commands.command(aliases=['$', 'money'])
+    @commands.hybrid_command(aliases=['$', 'money'])
     async def cash(self, ctx: mido_utils.Context, *, user: mido_utils.MemberConverter() = None):
         """Check how many donuts you have or someone else has."""
         if user:
@@ -198,7 +198,7 @@ class Gambling(
 
         return ret
 
-    @commands.command()
+    @commands.hybrid_command()
     async def daily(self, ctx: mido_utils.Context):
         """
         Claim **{bot.configdaily_amount}{mido_utils.emotes.currency}** for free every 12 hours.
@@ -251,7 +251,7 @@ class Gambling(
             await m.clear_reactions()
             await ctx.edit_custom(m, base_msg + f"Alright, you won't be reminded when you can get your daily again.")
 
-    @commands.command(name='claimrewards', aliases=['claimpatreonrewards', 'clparew'])
+    @commands.hybrid_command(name='claimrewards', aliases=['claimpatreonrewards', 'clparew'])
     @mido_utils.is_patron_decorator(allow_owner=False)
     async def claim_patreon_rewards(self, ctx: mido_utils.Context):
         """Claim the donut reward you'll be getting by [supporting this project.]({mido_utils.links.patreon}) ♥"""
@@ -260,7 +260,7 @@ class Gambling(
         await ctx.send_success(f"You've successfully claimed "
                                f"**{mido_utils.readable_currency(patron_obj.level_status.monthly_donut_reward)}**!")
 
-    @commands.command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
+    @commands.hybrid_command(name="flip", aliases=['cf', 'coinflip', 'bf', 'betflip'])
     async def coin_flip(self, ctx: mido_utils.Context, amount: Union[int, str], guessed_side: str):
         """A coin flip game. You'll earn x1.95 of what you bet if you predict correctly.
 
@@ -294,11 +294,11 @@ class Gambling(
             e.description = f"You flipped {random_side_name} and lost **{mido_utils.readable_currency(amount)}**."
             e.colour = mido_utils.Color.fail()
 
-        e.set_footer(icon_url=ctx.author.avatar_url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
+        e.set_footer(icon_url=ctx.author.avatar.url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
 
         return await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def wheel(self, ctx: mido_utils.Context, amount: Union[int, str]):
         """Turn the wheel!
 
@@ -336,7 +336,7 @@ class Gambling(
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['slot'])
+    @commands.hybrid_command(aliases=['slot'])
     async def slots(self, ctx: mido_utils.Context, amount: Union[int, str]):
         """Play slots!
 
@@ -403,7 +403,7 @@ class Gambling(
 
         await ctx.send(content=content)
 
-    @commands.command(aliases=['br'])
+    @commands.hybrid_command(aliases=['br'])
     async def betroll(self, ctx: mido_utils.Context, amount: Union[int, str]):
         """Roll a random number between 1 and 100.
 
@@ -443,11 +443,11 @@ class Gambling(
 
         e.description += '\n\n' + msg
 
-        e.set_footer(icon_url=ctx.author.avatar_url, text=str(ctx.author))
+        e.set_footer(icon_url=ctx.author.avatar.url, text=str(ctx.author))
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['lb'])
+    @commands.hybrid_command(aliases=['lb'])
     async def leaderboard(self, ctx: mido_utils.Context):
         """See the global donut leaderboard!"""
         rich_people = await UserDB.get_rich_people(bot=ctx.bot, limit=100)
@@ -457,18 +457,18 @@ class Gambling(
 
         blocks = []
         for i, user in enumerate(rich_people, 1):
-            # if its the #1 user
+            # if it's the #1 user
             if i == 1:
                 user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
-                    e.set_thumbnail(url=user_obj.avatar_url)
+                    e.set_thumbnail(url=user_obj.avatar.url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
                           f"{user.cash_str}")
 
         await e.paginate(ctx, blocks, item_per_page=10, extra_sep='\n')
 
-    @commands.command(name="give")
+    @commands.hybrid_command(name="give")
     @commands.guild_only()
     async def give_cash(self, ctx: mido_utils.Context, amount: Union[int, str], *,
                         member: mido_utils.MemberConverter()):
@@ -524,7 +524,7 @@ class Gambling(
                                         reward=reward)
         self.active_donut_events.append(event)
 
-    @commands.command(aliases=['curtrs'])
+    @commands.hybrid_command(aliases=['curtrs'])
     async def transactions(self, ctx: mido_utils.Context, *, target: mido_utils.UserConverter() = None):
         """See your transaction log!"""
         if target and not await ctx.bot.is_owner(ctx.author):
@@ -533,7 +533,7 @@ class Gambling(
         user = target or ctx.author
 
         e = mido_utils.Embed(bot=ctx.bot)
-        e.set_author(icon_url=user.avatar_url, name=f"Transaction History of {user}:")
+        e.set_author(icon_url=user.avatar.url, name=f"Transaction History of {user}:")
 
         blocks = []
         for transaction in await TransactionLog.get_users_logs(bot=ctx.bot, user_id=user.id):
@@ -550,7 +550,7 @@ class Gambling(
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
-    @commands.command(aliases=['eatdonut'])
+    @commands.hybrid_command(aliases=['eatdonut'])
     async def eat(self, ctx: mido_utils.Context, amount: Optional[Union[int, str]] = None):
         """Eat donuts! Do not specify amount if you just want to see how many donuts you have eaten."""
         if not amount:
@@ -570,7 +570,7 @@ class Gambling(
 
             await ctx.send(embed=e)
 
-    @commands.command(aliases=['edlb', 'donuteatenlb', 'delb'])
+    @commands.hybrid_command(aliases=['edlb', 'donuteatenlb', 'delb'])
     async def eatendonutlb(self, ctx: mido_utils.Context):
         """See the global donut eaten leaderboard!"""
         crazy_people = await UserDB.get_top_cash_eaten_people(bot=ctx.bot, limit=100)
@@ -584,7 +584,7 @@ class Gambling(
             if i == 1:
                 user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
-                    e.set_thumbnail(url=user_obj.avatar_url)
+                    e.set_thumbnail(url=user_obj.avatar.url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
                           f"{user.eaten_cash_str}")
@@ -605,5 +605,5 @@ class Gambling(
             2])  # arg after the context is the amount.
 
 
-def setup(bot):
-    bot.add_cog(Gambling(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Gambling(bot))

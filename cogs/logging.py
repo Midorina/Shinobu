@@ -96,7 +96,7 @@ class Logging(
 
     def get_member_event_embed(self, member: discord.Member) -> mido_utils.Embed:
         e = mido_utils.Embed(bot=self.bot)
-        e.set_author(icon_url=member.avatar_url, name=str(member))
+        e.set_author(icon_url=member.avatar.url, name=str(member))
         e.set_footer(text=f"User ID: {member.id}")
         e.timestamp = datetime.utcnow()
 
@@ -361,7 +361,7 @@ class Logging(
                                     after: Optional[discord.VoiceState]):
         await self.base_logging_func(LoggedEvents.VOICE_STATE_UPDATE, member, before, after)
 
-    @commands.command(aliases=['log'])
+    @commands.hybrid_command(aliases=['log'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(manage_webhooks=True)
@@ -380,7 +380,7 @@ class Logging(
 
         self.guild_config_cache[ctx.guild.id] = guild_settings
 
-    @commands.command(aliases=['logmode'])
+    @commands.hybrid_command(aliases=['logmode'])
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def loggingmode(self, ctx: mido_utils.Context):
@@ -396,5 +396,5 @@ class Logging(
         self.guild_config_cache[ctx.guild.id] = guild_settings
 
 
-def setup(bot):
-    bot.add_cog(Logging(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Logging(bot))

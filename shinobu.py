@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import os
 import re
+from functools import cached_property
 from typing import Dict, Optional, Union
 
 import aiohttp
@@ -12,7 +13,7 @@ import setproctitle
 from discord.ext import commands
 
 # anything not imported here will not be reloaded once the cluster is shut down.
-# so its important to import everything but cogs here
+# so it's important to import everything but cogs here
 import ipc
 import mido_utils
 import models
@@ -32,15 +33,12 @@ class ShinobuBot(commands.AutoShardedBot):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        intents: discord.Intents = discord.Intents.all()
-        intents.presences = False
-
         super().__init__(
             loop=loop,
             command_prefix=self.get_prefix,
             case_insensitive=True,
             chunk_guilds_at_startup=False,
-            intents=intents,
+            intents=self.allowed_intents,
             owner_ids=set(self.config.owner_ids),
             **cluster_kwargs,
 
@@ -58,7 +56,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
         # set process title so that we can find it like in htop
         setproctitle.setproctitle(str(self))
-        self.logger = logging.getLogger(f'{self}\t')
+        self.logger = logging.getLogger(f'{self}')
 
         self.message_counter = 0
         self.command_counter = 0
@@ -75,42 +73,11 @@ class ShinobuBot(commands.AutoShardedBot):
 
         self.run()
 
-    async def prepare_bot(self):
-        self.uptime = mido_utils.Time()
-
-        # connect to IPC
-        self.ipc = ipc.IPCClient(self)
-
-        # TODO: have a custom class and do this in db.py
-        while not self.db:
-            try:
-                self.db = await asyncpg.create_pool(**self.config.db_credentials,
-                                                    max_inactive_connection_lifetime=60, min_size=5, max_size=10)
-            except asyncpg.InvalidCatalogNameError:
-                self.logger.warning(
-                    f"Looks like a database with name '{self.config.db_credentials['database']}' does not exist. "
-                    f"I will create it for you.")
-
-                temp_conn = await asyncpg.connect(**dict(self.config.db_credentials, database='template1'))
-                # https://stackoverflow.com/questions/59336747/asyncpg-syntax-error-at-or-near-1-error
-                await temp_conn.execute(
-                    f'CREATE DATABASE "{self.config.db_credentials["database"]}" '
-                    f'OWNER "{self.config.db_credentials["user"]}";')
-                await temp_conn.close()
-
-            except Exception:
-                self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
-                await asyncio.sleep(5.0)
-
-            else:
-                await run_create_table_funcs(self)
-                break
-
-        self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
-
-        self.load_or_reload_cogs()
-
-        # await self.chunk_active_guilds()
+    @cached_property
+    def allowed_intents(self) -> discord.Intents:
+        intents = discord.Intents.all()
+        intents.presences = False
+        return intents
 
     @staticmethod
     def get_config(bot_name: str, warn: bool = False) -> models.ConfigFile:
@@ -129,7 +96,7 @@ class ShinobuBot(commands.AutoShardedBot):
         except AttributeError:  # if not in guild
             prefixes = commands.when_mentioned_or(default)(self, message)
 
-        # case insensitive prefix search
+        # case-insensitive prefix search
         for prefix in prefixes:
             escaped_prefix = re.escape(prefix)
             m = re.compile(f'^({escaped_prefix}).*', flags=re.I).match(message.content)
@@ -139,28 +106,35 @@ class ShinobuBot(commands.AutoShardedBot):
         # if there is not a match, return a random string
         return os.urandom(4).hex()
 
-    def load_or_reload_cogs(self, cog_name: str = None) -> int:
+    async def load_or_reload_cogs(self, cog_name: str = None) -> int:
         """Loads or reloads all cogs or a specified one. Returns the number of loaded/reloaded cogs."""
         cog_counter = 0
+
         for file in os.listdir("cogs"):
-            if file.endswith(".py"):
-                name = file[:-3]
+            if not file.endswith(".py"):
+                continue
 
-                # if a cog name is provided, and its not the cog we want, skip
-                if cog_name and name != cog_name:
-                    continue
+            name = file[:-3]  # strip '.py'
 
-                try:
-                    self.reload_extension(f"cogs.{name}")
-                    self.logger.info(f"Reloaded cogs.{name}")
-                except discord.ext.commands.ExtensionNotLoaded:
-                    self.load_extension(f"cogs.{name}")
-                    self.logger.info(f"Loaded cogs.{name}")
-                except Exception as e:
-                    self.logger.error(f"Failed to load cog {name}")
-                    self.logger.exception(e)
-                else:
-                    cog_counter += 1
+            # if a cog name is provided, and it's not the cog we want, skip
+            if cog_name and name != cog_name:
+                continue
+
+            self.logger.debug(f"Loading or reloading cog: cogs.{name}")
+
+            try:
+                await self.reload_extension(f"cogs.{name}")
+                self.logger.info(f"Reloaded cogs.{name}")
+            except discord.ext.commands.ExtensionNotLoaded:
+                await self.load_extension(f"cogs.{name}")
+                self.logger.info(f"Loaded cogs.{name}")
+            except Exception as e:
+                print("error")
+                print(e)
+                self.logger.error(f"Failed to load cog {name}")
+                self.logger.exception(e)
+            else:
+                cog_counter += 1
 
         return cog_counter
 
@@ -181,21 +155,6 @@ class ShinobuBot(commands.AutoShardedBot):
 
     async def on_ready(self):
         self.logger.info(f'Ready called.')
-
-        if not self.updated_status:
-            # change the getting ready status
-            self.status = discord.Status.online
-            self.activity = discord.Game(name=self.config.playing)
-
-            while True:  # todo: do this in somewhere else
-                try:
-                    await self.change_presence(status=self.status, activity=self.activity)
-                except ConnectionResetError:
-                    await asyncio.sleep(3.0)
-                else:
-                    break
-
-            self.updated_status = True
 
     def should_listen_to_msg(self, msg: discord.Message, guild_only=False) -> bool:
         return self.is_ready() and not msg.author.bot and (not guild_only or msg.guild)
@@ -314,7 +273,7 @@ class ShinobuBot(commands.AutoShardedBot):
                 except StopIteration:
                     webhook = self.webhook_cache[channel.id] = await channel.create_webhook(name=self.user.display_name)
 
-            await webhook.send(*args, **kwargs, username=self.user.display_name, avatar_url=self.user.avatar_url)
+            await webhook.send(*args, **kwargs, username=self.user.display_name, avatar_url=self.user.avatar.url)
 
         except discord.Forbidden as e:
             # probably no manage webhooks permission
@@ -332,9 +291,10 @@ class ShinobuBot(commands.AutoShardedBot):
                 aiohttp.ServerDisconnectedError,
                 aiohttp.ClientOSError,
                 asyncio.TimeoutError,
-                discord.HTTPException) as e:
+                discord.HTTPException
+                ) as e:
             if mido_utils.better_is_instance(e, discord.HTTPException) and e.status < 500:
-                # if its not a server error and something wrong from our side, raise again
+                # if it's not a server error and something wrong from our side, raise again
                 raise e
 
             # probably discord servers dying
@@ -373,15 +333,66 @@ class ShinobuBot(commands.AutoShardedBot):
 
     def run(self):
         self.logger.info(f'Preparing the cluster to launch with Shard IDs: {self.shard_ids} ({self.shard_count})')
-        self.loop.create_task(self.prepare_bot())
 
         try:
-            super().run(self.config.token)
+            super().run(self.config.token, log_handler=None)
         except discord.PrivilegedIntentsRequired:
             self.logger.error(
-                "Apparently you did not enable both the Presence and Server Members intents "
+                "Apparently you did not enable the Server Members intents "
                 "in the developer portal (https://discord.com/developers/applications/). "
                 "Please enable them and restart the bot.")
+
+    async def setup_hook(self) -> None:
+        self.uptime = mido_utils.Time()
+
+        # connect to IPC
+        self.ipc = ipc.IPCClient(self)
+
+        while not self.db:
+            try:
+                self.db = await asyncpg.create_pool(**self.config.db_credentials,
+                                                    max_inactive_connection_lifetime=60, min_size=5, max_size=10)
+
+            except asyncpg.InvalidCatalogNameError:
+                self.logger.warning(
+                    f"Looks like a database with name '{self.config.db_credentials['database']}' does not exist. "
+                    f"I will create it for you.")
+
+                temp_conn = await asyncpg.connect(**dict(self.config.db_credentials, database='template1'))
+                # https://stackoverflow.com/questions/59336747/asyncpg-syntax-error-at-or-near-1-error
+                await temp_conn.execute(
+                    f'CREATE DATABASE "{self.config.db_credentials["database"]}" '
+                    f'OWNER "{self.config.db_credentials["user"]}";')
+                await temp_conn.close()
+
+            except Exception:
+                self.logger.exception('Error while getting a db connection. Retrying in 5 seconds...')
+                await asyncio.sleep(5.0)
+
+            else:
+                self.logger.debug("Got DB. Running 'create_table_funcs'")
+                await run_create_table_funcs(self)
+                break
+
+        self.prefix_cache = dict(await self.db.fetch("""SELECT id, prefix FROM guilds;"""))
+
+        await self.load_or_reload_cogs()
+
+        await self.update_status()
+        # await self.chunk_active_guilds()
+
+    async def update_status(self):
+        # change the getting ready status
+        self.status = discord.Status.online
+        self.activity = discord.Game(name=self.config.playing)
+
+        while True:
+            try:
+                await self.change_presence(status=self.status, activity=self.activity)
+            except ConnectionResetError:
+                await asyncio.sleep(3.0)
+            else:
+                break
 
     async def close(self):
         # close the bot

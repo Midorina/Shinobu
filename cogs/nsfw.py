@@ -105,6 +105,8 @@ class NSFW(commands.Cog,
         return ret
 
     async def start_checking_urls_in_db(self):
+        await self.bot.wait_until_ready()
+
         while True:
             images = await CachedImage.get_oldest_checked_images(self.bot, limit=100)
             for image in images:
@@ -245,42 +247,42 @@ class NSFW(commands.Cog,
 
         self.active_auto_nsfw_services = list()
 
-    @commands.command()
+    @commands.hybrid_command()
     async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
         """Get a random porn content. A tag can be provided."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str=tag, limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(aliases=['boob'])
+    @commands.hybrid_command(aliases=['boob'])
     async def boobs(self, ctx: mido_utils.Context):
         """Get a random boob picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='boobs', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(aliases=['butt', 'ass'])
+    @commands.hybrid_command(aliases=['butt', 'ass'])
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='butts', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='pussy', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def asian(self, ctx: mido_utils.Context):
         """Get a random asian porn content."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='asian', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Danbooru.
 
@@ -294,7 +296,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def gelbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Gelbooru.
 
@@ -306,7 +308,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(enabled=False)
+    @commands.hybrid_command(enabled=False)
     async def rule34(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Rule34.
 
@@ -319,7 +321,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(aliases=['sankakucomplex'])
+    @commands.hybrid_command(aliases=['sankakucomplex'])
     async def sankaku(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Sankaku Complex.
 
@@ -333,7 +335,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def hentai(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random hentai image.
 
@@ -344,7 +346,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.command(name='hentaibomb')
+    @commands.hybrid_command(name='hentaibomb')
     async def hentai_bomb(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get multiple hentai images.
 
@@ -389,7 +391,7 @@ class NSFW(commands.Cog,
                                       f"with these tags: `{tags if tags else 'random'}`")
 
     @commands.has_permissions(manage_messages=True)
-    @commands.command(name='autohentai')
+    @commands.hybrid_command(name='autohentai')
     @commands.bot_has_permissions(manage_webhooks=True)
     @mido_utils.is_patron_decorator(level=2)
     async def auto_hentai(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
@@ -413,7 +415,7 @@ class NSFW(commands.Cog,
         await self.base_auto_nsfw_cmd(ctx, NSFWImage.Type.hentai, interval, tags)
 
     @commands.has_permissions(manage_messages=True)
-    @commands.command(name='autoporn')
+    @commands.hybrid_command(name='autoporn')
     @commands.bot_has_permissions(manage_webhooks=True)
     @mido_utils.is_patron_decorator(level=2)
     async def auto_porn(self, ctx: mido_utils.Context, interval: mido_utils.Int32() = None, *, tags: str = None):
@@ -434,7 +436,7 @@ class NSFW(commands.Cog,
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
-    @commands.command(name="tagblacklist")
+    @commands.hybrid_command(name="tagblacklist")
     async def blacklist_tag(self, ctx: mido_utils.Context, *, tag: str = None):
         """See the blacklisted tags or blacklist a tag. Provide a tag to blacklist it.
         Any image with a blacklisted tag will not be posted."""
@@ -459,7 +461,7 @@ class NSFW(commands.Cog,
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
-    @commands.command(name="tagwhitelist")
+    @commands.hybrid_command(name="tagwhitelist")
     async def whitelist_tag(self, ctx: mido_utils.Context, *, tag: str):
         """Whitelist/remove a blacklisted tag."""
         nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)
@@ -474,8 +476,8 @@ class NSFW(commands.Cog,
         await ctx.send_success(f"Tag `{tag}` has been successfully removed from the blacklist.")
 
 
-def setup(bot):
-    if bot.name == 'midobot':
-        return
+async def setup(bot: ShinobuBot):
+    # if bot.name == 'midobot':
+    #     return
 
-    bot.add_cog(NSFW(bot))
+    await bot.add_cog(NSFW(bot))

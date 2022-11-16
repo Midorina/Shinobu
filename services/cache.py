@@ -3,10 +3,13 @@ from __future__ import annotations
 import functools
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
 import aioredis
 from aioredis import ConnectionPool, Redis
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 REDIS_NOT_WORKING = False
 
@@ -90,7 +93,7 @@ def redis_falls_back_to_local(func):
 
 
 class RedisCache(LocalCache):
-    def __init__(self, bot):
+    def __init__(self, bot: ShinobuBot):
         super(RedisCache, self).__init__(bot)
 
         self._pool: ConnectionPool = aioredis.ConnectionPool.from_url(

@@ -2,12 +2,13 @@ from discord.ext import commands
 
 import mido_utils
 from models.db import BlacklistDB
+from shinobu import ShinobuBot
 
 
 # TODO: use ipc to find guild and fix blacklist commands
 
 class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
-    def __init__(self, bot):
+    def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
     async def bot_check(self, ctx: mido_utils.Context):
@@ -106,5 +107,5 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
             await ctx.send_success(f"Successfully unblacklisted the server `{_id}`.")
 
 
-def setup(bot):
-    bot.add_cog(Blacklist(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Blacklist(bot))

@@ -23,13 +23,13 @@ class Shitposting(
     def reddit_api(self) -> mido_utils.RedditAPI:
         return self.bot.get_cog('NSFW').reddit
 
-    @commands.command(name='8ball')
+    @commands.hybrid_command(name='8ball')
     async def eight_ball(self, ctx: mido_utils.Context, *, question: str):
         """Ask a question to 8ball."""
         answer_index = random.randint(0, 19)
 
         e = mido_utils.Embed(bot=self.bot)
-        e.set_author(icon_url=ctx.author.avatar_url, name=ctx.author)
+        e.set_author(icon_url=ctx.author.avatar.url, name=ctx.author)
 
         e.add_field(name='❓ Question', value=question, inline=False)
         e.add_field(name='🎱 8ball', value=mido_utils.strings.eight_ball_responses[answer_index],
@@ -44,7 +44,7 @@ class Shitposting(
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['pp'])
+    @commands.hybrid_command(aliases=['pp'])
     async def penis(self, ctx, *, target: Union[mido_utils.MemberConverter, str] = None):
         """Learn the size of penis of someone."""
         user = target or ctx.author
@@ -58,7 +58,7 @@ class Shitposting(
 
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def howgay(self, ctx: mido_utils.Context, *, target: Union[mido_utils.MemberConverter, str] = None):
         """Learn how gay someone is."""
         user = target or ctx.author
@@ -71,53 +71,53 @@ class Shitposting(
 
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def gay(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Place a pride flag on someone's avatar."""
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar_url_as(static_format='png')),
+            avatar_url=str(user.avatar.replace(static_format='png')),
             _type="gay")
 
         await ctx.send_simple_image(url)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def wasted(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Place a wasted screen on someone's avatar."""
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar_url_as(static_format='png')),
+            avatar_url=str(user.avatar.replace(static_format='png')),
             _type="wasted")
 
         await ctx.send_simple_image(url)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def triggered(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """See triggered version of someone's avatar."""
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar_url_as(static_format='png')),
+            avatar_url=str(user.avatar.replace(static_format='png')),
             _type="triggered")
 
         await ctx.send_simple_image(url)
 
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
-    @commands.command()
+    @commands.hybrid_command()
     async def dadjoke(self, ctx: mido_utils.Context):
         """Get a random dad joke."""
         await ctx.send_success(await self.random_api.get_joke())
 
-    @commands.command()
+    @commands.hybrid_command()
     async def meme(self, ctx: mido_utils.Context):
         """Get a random meme."""
         image = (await self.reddit_api.get_reddit_post_from_db(ctx.bot, category='meme'))[0]
         await ctx.send_simple_image(image.url)
 
     @commands.guild_only()
-    @commands.command(aliases=['youtubecomment'])
+    @commands.hybrid_command(aliases=['youtubecomment'])
     async def ytcomment(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter = None, *, comment: str = ''):
         """Generate a YouTube comment."""
         if not target and not comment:
@@ -132,17 +132,17 @@ class Shitposting(
 
         await ctx.send_simple_image(
             url=await self.random_api.youtube_comment(
-                avatar_url=str(user.avatar_url_as(static_format='png')),
+                avatar_url=str(user.avatar.replace(static_format='png')),
                 username=user.display_name,
                 comment=comment)
         )
 
-    @commands.command()
+    @commands.hybrid_command()
     async def say(self, ctx: mido_utils.Context, *, message: str):
         """Make me say something."""
         # commands.clean_content is not used, because the message will be shown in an embed.
         await ctx.send_success(message)
 
 
-def setup(bot):
-    bot.add_cog(Shitposting(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Shitposting(bot))

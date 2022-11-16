@@ -7,7 +7,7 @@ import logging
 import random
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, TYPE_CHECKING, Tuple, Union
 
 import aiohttp
 import asyncpraw
@@ -22,6 +22,9 @@ import models
 __all__ = ['MidoBotAPI', 'NekosLifeAPI', 'RedditAPI', 'NsfwDAPIs', 'SomeRandomAPI', 'Google', 'SpotifyAPI',
            'BlizzardAPI',
            'ExchangeAPI', 'PatreonAPI']
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 
 class MidoBotAPI:
@@ -287,7 +290,7 @@ class NsfwDAPIs(CachedImageAPI):
 
         @property
         def url(self) -> str:
-            return self.value
+            return str(self.value)
 
         @classmethod
         def get_all_as_dict(cls) -> Dict[str, str]:
@@ -907,12 +910,12 @@ class SpotifyAPI(OAuthAPI):
         url_type = url.split('/')[3]
         _id = url.split('/')[-1]
 
-        # remove the 'si' tag if its an artist
+        # remove the 'si' tag if it's an artist
         # because spotify api gives no tracks if si exists
         if url_type == 'artist':
             _id = _id.split('?')[0]
 
-        # provide a market if 'si' param does not exist in the id or its an artist
+        # provide a market if 'si' param does not exist in the id or it's an artist
         params = {'market': 'DE'} if '?si=' not in _id else None
 
         if url_type in ('track', 'playlist', 'album', 'artist'):
@@ -988,7 +991,7 @@ class BlizzardAPI(OAuthAPI):
 
 
 class PatreonAPI(OAuthAPI):
-    def __init__(self, bot, credentials: dict):
+    def __init__(self, bot: ShinobuBot, credentials: dict):
         super().__init__(bot.http_session, credentials)
 
         self.bot = bot
@@ -1043,6 +1046,8 @@ class PatreonAPI(OAuthAPI):
         return "https://www.patreon.com/oauth2/authorize"
 
     async def refresh_patron_cache_loop(self):
+        await self.bot.wait_until_ready()
+
         while True:
             await self.refresh_patron_cache()
             await asyncio.sleep(60 * 30)  # sleep 30 minutes

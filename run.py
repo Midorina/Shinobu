@@ -4,6 +4,8 @@ import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
 
+from discord.utils import _ColourFormatter
+
 from cluster_manager import Launcher
 
 
@@ -13,27 +15,29 @@ def main():
     parser.add_argument("name", help="The name of the bot you want to launch.")
     bot_name = parser.parse_args().name
 
-    # logging stuff
+    # logger setup
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
-    # TODO: colored logging
-    _format = logging.Formatter(fmt='[{asctime}.{msecs:.0f}] [{levelname:<7}] {name}: {message}',
-                                datefmt='%Y-%m-%d %H:%M:%S',
-                                style='{')
+    # use discord.py's colored formatter
+    _format = _ColourFormatter()
 
+    # file handler
     if not os.path.exists('logs'):
         os.makedirs('logs')
-    handler_f = TimedRotatingFileHandler(filename=f"logs/{bot_name}.log",
-                                         when="d",
-                                         interval=1,
-                                         backupCount=5,
-                                         encoding="utf-8")
-    # stdout handler
+    handler_f = TimedRotatingFileHandler(
+        filename=f"logs/{bot_name}.log",
+        when="d",
+        interval=1,
+        backupCount=5,
+        encoding="utf-8")
+
+    # stdout handler (that only shows INFO and DEBUG)
     handler_c1 = logging.StreamHandler(stream=sys.stdout)
     handler_c1.setLevel(logging.DEBUG)
     handler_c1.addFilter(lambda msg: msg.levelno <= logging.INFO)
-    # stderr handler
+
+    # stderr handler (that only shows warnings and above)
     handler_c2 = logging.StreamHandler(stream=sys.stderr)
     handler_c2.setLevel(logging.WARNING)
 
@@ -41,8 +45,10 @@ def main():
     handler_c1.setFormatter(_format)
     handler_c2.setFormatter(_format)
 
-    logger.handlers = [handler_f, handler_c1, handler_c2]
-    # FIXME: merge loggers
+    logger.handlers = [handler_c1, handler_c2, handler_f]
+
+    # multiprocessing_logging.install_mp_handler()
+
     Launcher(bot_name).start()
 
 

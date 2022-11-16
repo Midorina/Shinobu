@@ -6,7 +6,7 @@ import random
 import re
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, TYPE_CHECKING, Tuple, Union
 
 import aiohttp
 import asyncpg
@@ -25,6 +25,9 @@ __all__ = ['XpAnnouncement', 'NSFWImage',  # these 2 are not actual tables
            'LoggedMessage', 'ReminderDB', 'CustomReaction',
            'CachedImage', 'DonutEvent', 'TransactionLog',
            'BlacklistDB', 'XpRoleReward', 'HangmanWord', 'RepeatDB']
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 
 async def run_create_table_funcs(db):
@@ -845,10 +848,14 @@ class LoggedMessage(BaseDBModel):
 """
 
     class UnknownUser:
+        class Avatar:
+            def __init__(self, url: str):
+                self.url = url
+
         def __init__(self):
             self.id = 0
             self.mention = '__UNKNOWN__'
-            self.avatar_url = 'https://cdn.discordapp.com/embed/avatars/0.png'
+            self.avatar = self.Avatar('https://cdn.discordapp.com/embed/avatars/0.png')
 
         def __str__(self):
             return '**UNKNOWN**'
@@ -947,7 +954,9 @@ class LoggedMessage(BaseDBModel):
         await GuildDB.update_active_guilds(bot, guild_id_list)
 
     @classmethod
-    async def delete_old_messages(cls, bot):
+    async def delete_old_messages(cls, bot: ShinobuBot):
+        await bot.wait_until_ready()
+
         # delete messages that are older than 7 days
         await bot.db.execute("DELETE FROM message_log WHERE created_at < (NOW() - INTERVAL '7 days')")
 

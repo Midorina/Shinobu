@@ -57,7 +57,7 @@ class Leveling(
                           f"**Global Rank**: #{await db.get_xp_rank()}"
                     )
 
-        e.set_thumbnail(url=user_or_member.avatar_url)
+        e.set_thumbnail(url=user_or_member.avatar.url)
         e.timestamp = datetime.utcnow()
 
         return e
@@ -72,7 +72,7 @@ class Leveling(
             if i == 1:
                 user_discord = await self.bot.get_user_using_ipc(user.id)
                 if user_discord:
-                    e.set_thumbnail(url=user_discord.avatar_url)
+                    e.set_thumbnail(url=user_discord.avatar.url)
 
             level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
@@ -169,7 +169,7 @@ class Leveling(
         await self.base_xp_on_message(message)
         self.bot.logger.debug('Checking XP took:\t\t\t' + time.passed_seconds_in_float_formatted)
 
-    @commands.command(name="xp", aliases=['level', 'rank'])
+    @commands.hybrid_command(name="xp", aliases=['level', 'rank'])
     async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):
         """See your or someone else's XP rank."""
         if member:
@@ -188,7 +188,7 @@ class Leveling(
 
         await ctx.send(embed=e)
 
-    @commands.command(name='xpleaderboard', aliases=['xplb'])
+    @commands.hybrid_command(name='xpleaderboard', aliases=['xplb'])
     @commands.guild_only()
     async def show_leaderboard(self, ctx: mido_utils.Context):
         """See the XP leaderboard of the server."""
@@ -196,14 +196,14 @@ class Leveling(
 
         await self.send_leaderboard_embed(ctx, top, title=f'XP Leaderboard of {ctx.guild}')
 
-    @commands.command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
+    @commands.hybrid_command(name='xpgleaderboard', aliases=['xpgloballeaderboard', 'xpglb'])
     async def show_global_leaderboard(self, ctx: mido_utils.Context):
         """See the global XP leaderboard."""
         top = await ctx.user_db.get_top_xp_people(ctx.bot, limit=100)
 
         await self.send_leaderboard_embed(ctx, top, title='Global XP Leaderboard')
 
-    @commands.command(name='xpnotifs')
+    @commands.hybrid_command(name='xpnotifs')
     async def change_level_up_notifications(self, ctx: mido_utils.Context, new_preference: str):
         """Configure your level up notifications. It's DM by default.
 
@@ -223,7 +223,7 @@ class Leveling(
         await ctx.user_db.change_level_up_preference(new_preference)
         await ctx.send(f"You've successfully changed your level up preference: `{new_preference.name.title()}`")
 
-    @commands.command(name='xprolereward', aliases=['xprr'])
+    @commands.hybrid_command(name='xprolereward', aliases=['xprr'])
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
     async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32(),
@@ -275,7 +275,7 @@ class Leveling(
 
             await self.check_guild_xp_role_rewards(guild_id=ctx.guild.id)
 
-    @commands.command(name='xprolerewards', aliases=['xprewards', 'xprrs'])
+    @commands.hybrid_command(name='xprolerewards', aliases=['xprewards', 'xprrs'])
     @commands.guild_only()
     async def list_xp_role_rewards(self, ctx: mido_utils.Context):
         """See a list of XP role rewards of this server."""
@@ -302,7 +302,7 @@ class Leveling(
                          blocks=blocks,
                          item_per_page=10)
 
-    @commands.command(name="xpsilenceservernotifs")
+    @commands.hybrid_command(name="xpsilenceservernotifs")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def silence_level_up_notifs_for_guild(self, ctx: mido_utils.Context):
@@ -320,7 +320,7 @@ class Leveling(
 
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.command(name="xpchannelexclude", aliases=['xpex'])
+    @commands.hybrid_command(name="xpchannelexclude", aliases=['xpex'])
     async def add_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
         """Exclude a channel to prevent people from gaining XP in that channel."""
         if channel.id in ctx.guild_db.xp_excluded_channels:
@@ -331,7 +331,7 @@ class Leveling(
 
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.command(name="xpchannelinclude", aliases=['xpin'])
+    @commands.hybrid_command(name="xpchannelinclude", aliases=['xpin'])
     async def remove_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
         """Remove an XP excluded channel to no longer prevent people from gaining XP in that channel."""
         if channel.id not in ctx.guild_db.xp_excluded_channels:
@@ -342,7 +342,7 @@ class Leveling(
             f"Channel {channel.mention} has been successfully removed from the XP excluded channels.")
 
     @commands.guild_only()
-    @commands.command(name="xpexcludedchannels", aliases=['xpexs'])
+    @commands.hybrid_command(name="xpexcludedchannels", aliases=['xpexs'])
     async def show_excluded_channels(self, ctx: mido_utils.Context):
         """See excluded channels where people can not gain XP."""
         if not ctx.guild_db.xp_excluded_channels:
@@ -391,5 +391,5 @@ class Leveling(
         await ctx.send_success("Success!")
 
 
-def setup(bot):
-    bot.add_cog(Leveling(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Leveling(bot))

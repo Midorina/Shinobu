@@ -22,8 +22,6 @@ class Context(commands.Context):
         self.member_db: models.MemberDB = None
         self.user_db: models.UserDB = None
 
-        self.voice_player: mido_utils.VoicePlayer = None
-
         self.time_created: mido_utils.Time = mido_utils.Time()
 
     async def attach_db_objects(self):

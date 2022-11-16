@@ -15,7 +15,7 @@ from shinobu import ShinobuBot
 class MidoHelp(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
-            'cooldown': commands.Cooldown(rate=1, per=1.0, type=commands.BucketType.member),
+            'cooldown': commands.CooldownMapping.from_cooldown(rate=1, per=1.0, type=commands.BucketType.member),
             'help'    : 'Shows help about the bot or a command.',
             'aliases' : ['h']
         })
@@ -51,7 +51,7 @@ class MidoHelp(commands.HelpCommand):
                         f'\n'
                         f'Feel free to join the [support server]({mido_utils.links.support_server}) '
                         f'if you need additional help.',
-            default_footer=True
+            use_default_footer=True
         )
 
         cogs = filter(lambda y: y is not None, sorted(cogs_and_commands.keys(), key=lambda x: str(x)))
@@ -67,7 +67,7 @@ class MidoHelp(commands.HelpCommand):
                 e.add_field(name=f'__{cog.qualified_name}__', value=f'{cmd_counter_cog} Commands')
 
         e.set_footer(text=f"{cmd_counter} Commands",
-                     icon_url=self.context.bot.user.avatar_url)
+                     icon_url=self.context.bot.user.avatar.url)
         e.timestamp = datetime.utcnow()
 
         await self.context.send(embed=e)
@@ -89,7 +89,7 @@ class MidoHelp(commands.HelpCommand):
                              f'{description}\n\n'
                              f'You can type `{self.context.prefix}help <command>` '
                              f'to see additional info about a command.',
-                             default_footer=True)
+                             use_default_footer=True)
 
         for i, chunk in enumerate(chunks(_commands, 5), 1):
             e.add_field(name=f"Command List {i}",
@@ -97,7 +97,7 @@ class MidoHelp(commands.HelpCommand):
                         inline=True)
 
         e.set_footer(text=f"{len(_commands)} Commands",
-                     icon_url=self.context.bot.user.avatar_url)
+                     icon_url=self.context.bot.user.avatar.url)
         e.timestamp = datetime.utcnow()
 
         await self.context.send(embed=e)
@@ -113,7 +113,7 @@ class MidoHelp(commands.HelpCommand):
             else:
                 embed.description = command.help.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
-        embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.avatar_url)
+        embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.avatar.url)
         embed.timestamp = datetime.utcnow()
 
     async def send_command_help(self, command, content=''):
@@ -194,7 +194,7 @@ class Meta(commands.Cog,
 
     @commands.command(hidden=True)
     @mido_utils.is_owner()
-    async def eval(self, ctx, *, cmd):
+    async def eval(self, ctx: mido_utils.Context, *, cmd):
         """A developer command that evaluates code.
 
         Globals:
@@ -206,7 +206,7 @@ class Meta(commands.Cog,
         """
         await ctx.send(await self._eval(cmd, ctx))
 
-    @commands.command()
+    @commands.hybrid_command()
     async def ping(self, ctx: mido_utils.Context):
         """Ping me to check the latency!"""
         color = ctx.guild.me.top_role.color if ctx.guild else self.bot.color
@@ -217,7 +217,7 @@ class Meta(commands.Cog,
                                      title='Ping!',
                                      description='',
                                      color=color,
-                                     default_footer=True)
+                                     use_default_footer=True)
 
         for cluster in cluster_stats:
             # this is to avoid overflow
@@ -250,7 +250,7 @@ class Meta(commands.Cog,
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
-    @commands.command(name="deletecommands", aliases=["delcmds"])
+    @commands.hybrid_command(name="deletecommands", aliases=["delcmds"], enabled=False)
     async def delete_commands(self, ctx: mido_utils.Context):
         """Enable or disable the deletion of commands after completion.
 
@@ -264,7 +264,7 @@ class Meta(commands.Cog,
         else:
             await ctx.send(f"The successful commands will not be deleted from now on.")
 
-    @commands.command(aliases=['info', 'about', 'botinfo'])
+    @commands.hybrid_command(aliases=['info', 'about', 'botinfo'])
     async def stats(self, ctx: mido_utils.Context):
         """See some info and stats about me!"""
         mido = await self.bot.get_user_using_ipc(90076279646212096)
@@ -284,7 +284,7 @@ class Meta(commands.Cog,
                             f"I am open sourced. Check out my code -> {mido_utils.resources.links.github}"
 
         embed.set_author(name=f"{self.bot.user}",
-                         icon_url=self.bot.user.avatar_url,
+                         icon_url=self.bot.user.avatar.url,
                          url=mido_utils.links.website)
 
         embed.add_field(name="Uptime",
@@ -322,14 +322,14 @@ class Meta(commands.Cog,
                         inline=True)
 
         if mido:  # intents disabled
-            embed.set_footer(icon_url=mido.avatar_url,
-                             text=f"Made by {mido.display_name} with ♥")
+            embed.set_footer(icon_url=mido.avatar.url,
+                             text=f"Made by {mido} with ♥")
 
         await ctx.send(embed=embed)
 
     @commands.command(hidden=True)
     @mido_utils.is_owner()
-    async def reload(self, ctx, cog_name: str = None):
+    async def reload(self, ctx: mido_utils.Context, cog_name: str = None):
         # TODO: reload config inside ipc function so that all clusters reload the config
         self.bot.config = self.bot.get_config(self.bot.name, warn=False)
 
@@ -342,8 +342,14 @@ class Meta(commands.Cog,
         await ctx.send(embed=e)
 
     @commands.command(hidden=True)
+    @commands.is_owner()
+    async def sync(self, ctx: mido_utils.Context):
+        await self.bot.tree.sync()
+        await ctx.send_success("Synced all global slash commands.")
+
+    @commands.command(hidden=True)
     @mido_utils.is_owner()
-    async def shutdown(self, ctx, *, cluster_id: int = None):
+    async def shutdown(self, ctx: mido_utils.Context, *, cluster_id: int = None):
         if cluster_id is not None:
             await ctx.send(f"Shutting down cluster **{cluster_id}**...")
         else:
@@ -353,7 +359,7 @@ class Meta(commands.Cog,
 
     @mido_utils.is_owner()
     @commands.command(name='setavatar', hidden=True)
-    async def set_avatar(self, ctx, new_av: str = None):
+    async def set_avatar(self, ctx: mido_utils.Context, new_av: str = None):
         if new_av:
             av_link = new_av
 
@@ -372,7 +378,7 @@ class Meta(commands.Cog,
         await self.bot.user.edit(avatar=img_bytes)
         await ctx.send("Avatar has been successfully updated.")
 
-    @commands.command()
+    @commands.hybrid_command()
     async def invite(self, ctx: mido_utils.Context):
         # TODO: add manage webhooks permission to invite links
 
@@ -386,11 +392,11 @@ class Meta(commands.Cog,
                         f"({mido_utils.links.invite_selectable.format(self.bot.user.id)})\n" \
                         f"[With No Permission]" \
                         f"({mido_utils.links.invite_none.format(self.bot.user.id)})"
-        e.set_thumbnail(url=self.bot.user.avatar_url)
+        e.set_thumbnail(url=self.bot.user.avatar.url)
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['erasedata'])
+    @commands.hybrid_command(aliases=['erasedata'])
     async def deletedata(self, ctx: mido_utils.Context):
         """Delete all of your data from me."""
         e = mido_utils.Embed(bot=self.bot,
@@ -407,7 +413,7 @@ class Meta(commands.Cog,
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.command(aliases=['policy', 'privacypolicy'])
+    @commands.hybrid_command(aliases=['policy', 'privacypolicy'])
     async def privacy(self, ctx: mido_utils.Context):
 
         e = mido_utils.Embed(self.bot)
@@ -420,5 +426,5 @@ class Meta(commands.Cog,
         await ctx.send(embed=e)
 
 
-def setup(bot):
-    bot.add_cog(Meta(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Meta(bot))

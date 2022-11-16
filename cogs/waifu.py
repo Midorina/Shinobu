@@ -20,7 +20,7 @@ class Waifu(
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-    @commands.command(aliases=['waifulb'])
+    @commands.hybrid_command(aliases=['waifulb'])
     async def waifuleaderboard(self, ctx: mido_utils.Context):
         """See the global top 5 waifu list."""
         top_5 = await UserDB.get_top_expensive_waifus(limit=5, bot=ctx.bot)
@@ -38,9 +38,9 @@ class Waifu(
             claimer_name = (await UserDB.get_or_create(ctx.bot, user_db.waifu.claimer_id)).discord_name \
                 if user_db.waifu.claimer_id else "no one."
 
-            # if its the #1 user
+            # if it's the #1 user
             if i == 1 and user:
-                e.set_thumbnail(url=user.avatar_url)
+                e.set_thumbnail(url=user.avatar.url)
 
             e.description += f"`#{i}` **{user_db.waifu.price_readable}** " \
                              f"**{user_name}** claimed by **{claimer_name}**\n"
@@ -62,7 +62,7 @@ class Waifu(
 
         await ctx.send(embed=e)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def waifureset(self, ctx: mido_utils.Context):
         """
         Reset your waifu stats by spending some money.
@@ -86,7 +86,7 @@ class Waifu(
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.command(aliases=['waifugift'])
+    @commands.hybrid_command(aliases=['waifugift'])
     async def gift(self, ctx: mido_utils.Context, item_name: str = None, target: mido_utils.MemberConverter() = None):
         """
         Use this command without any parameters to see the item shop.
@@ -121,7 +121,7 @@ class Waifu(
             await ctx.send_success(f"{ctx.author.mention} has just gifted "
                                    f"**{item_obj.name_n_emote}** to {target.mention}!")
 
-    @commands.command(aliases=['waifuinfo'])
+    @commands.hybrid_command(aliases=['waifuinfo'])
     async def waifustats(self, ctx: mido_utils.Context, target: mido_utils.MemberConverter() = None):
         """
         See the waifu stats of yourself or any other waifu.
@@ -138,7 +138,7 @@ class Waifu(
             if target_db.waifu.affinity_id else 'Nobody'
 
         e = mido_utils.Embed(ctx.bot)
-        e.set_author(icon_url=target.avatar_url, name=f"Waifu {target}")
+        e.set_author(icon_url=target.avatar.url, name=f"Waifu {target}")
 
         e.add_field(name="Price", value=f'{mido_utils.readable_currency(target_db.waifu.price)} ', inline=True)
         e.add_field(name="Claimed by",
@@ -181,7 +181,7 @@ class Waifu(
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=1800, type=BucketType.user)  # 30 minutes
-    @commands.command()
+    @commands.hybrid_command()
     async def affinity(self, ctx: mido_utils.Context, target: mido_utils.UserConverter() = None):
         """
         Sets your affinity towards someone you want to be claimed by.
@@ -216,7 +216,7 @@ class Waifu(
                                    f"\n\n"
                                    f"*Sometimes you just can't oppose your heart.*")
 
-    @commands.command(name='claim', aliases=['claimwaifu'])
+    @commands.hybrid_command(name='claim', aliases=['claimwaifu'])
     @commands.guild_only()
     async def claim_waifu(self, ctx: mido_utils.Context, price: mido_utils.Int64(),
                           target: mido_utils.MemberConverter()):
@@ -255,7 +255,7 @@ class Waifu(
         else:
             await ctx.send_success(base_msg)
 
-    @commands.command(rate=1, per=21600, type=BucketType.user)  # 6 hours
+    @commands.hybrid_command(rate=1, per=21600, type=BucketType.user)  # 6 hours
     async def divorce(self, ctx: mido_utils.Context, target: mido_utils.UserConverter()):
         """
         Divorce a waifu.
@@ -292,7 +292,7 @@ class Waifu(
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
                                    f"and got **{mido_utils.readable_currency(amount)}** in return.")
 
-    @commands.command()
+    @commands.hybrid_command()
     async def waifutransfer(self, ctx: mido_utils.Context, ex_waifu: mido_utils.MemberConverter(),
                             new_owner: mido_utils.MemberConverter()):
         """
@@ -317,5 +317,5 @@ class Waifu(
                                f'using **{mido_utils.readable_currency(cost)}**.')
 
 
-def setup(bot):
-    bot.add_cog(Waifu(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Waifu(bot))

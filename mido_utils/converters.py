@@ -145,7 +145,7 @@ async def parse_text_with_context(text: str, bot,
             "%bot.time%"    : datetime.utcnow().strftime('%Y-%m-%d, %H:%M:%S UTC'),
             "%bot.discrim%" : str(bot_member).split('#')[-1],
             "%bot.id%"      : bot_member.id,
-            "%bot.avatar%"  : bot_member.avatar_url
+            "%bot.avatar%": bot_member.avatar.url
         }
     )
 
@@ -188,7 +188,7 @@ async def parse_text_with_context(text: str, bot,
                 "%user.fullname%"    : str(author),
                 "%user.name%"        : author.display_name,
                 "%user.discrim%"     : str(author).split('#')[-1],
-                "%user.avatar%"      : author.avatar_url,
+                "%user.avatar%"      : author.avatar.url,
                 "%user.id%"          : author.id,
                 "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
                 "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),

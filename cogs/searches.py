@@ -27,7 +27,7 @@ class Searches(
         if self.bot.cluster_id == 0:
             self.exchange_api = mido_utils.ExchangeAPI(self.bot.http_session, self.bot.config.currency_api_key)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def color(self, ctx: mido_utils.Context, *, color: str):
         """Get a color image from specified hex."""
         color_str = color.replace('#', '')
@@ -43,7 +43,7 @@ class Searches(
 
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['exchange'])
+    @commands.hybrid_command(aliases=['exchange'])
     async def convert(self, ctx: mido_utils.Context,
                       amount: Union[float, str], base_currency: str, target_currency: str = None):
         """Convert a specified amount of currency to another one using the latest exchange rates.
@@ -75,7 +75,7 @@ class Searches(
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    @commands.command(aliases=['g'], enabled=False)
+    @commands.hybrid_command(aliases=['g'], enabled=False)
     async def google(self, ctx: mido_utils.Context, *, search: str):
         """Makes a Google search."""
         results = await self.google.search(query=search)
@@ -93,7 +93,7 @@ class Searches(
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.guild)
-    @commands.command(aliases=['u', 'urbandictionary', 'ud'])
+    @commands.hybrid_command(aliases=['u', 'urbandictionary', 'ud'])
     async def urban(self, ctx: mido_utils.Context, *, search: str):
         """Searches the definition of a word on UrbanDictionary."""
 
@@ -118,36 +118,36 @@ class Searches(
         await e.paginate(ctx, blocks=blocks, item_per_page=1)
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command(aliases=['dog', 'woof'])
+    @commands.hybrid_command(aliases=['dog', 'woof'])
     async def doggo(self, ctx: mido_utils.Context):
         """Get a random doggo picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("dog"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command(aliases=['cat', 'meow'])
+    @commands.hybrid_command(aliases=['cat', 'meow'])
     async def catto(self, ctx: mido_utils.Context):
         """Get a random catto picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("cat"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command()
+    @commands.hybrid_command()
     async def panda(self, ctx: mido_utils.Context):
         """Get a random panda picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("panda"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command()
+    @commands.hybrid_command()
     async def fox(self, ctx: mido_utils.Context):
         """Get a random fox picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("fox"))
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.command(aliases=['birb'])
+    @commands.hybrid_command(aliases=['birb'])
     async def bird(self, ctx: mido_utils.Context):
         """Get a random bird picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
-    @commands.command(aliases=['hs'])
+    @commands.hybrid_command(aliases=['hs'])
     async def hearthstone(self, ctx: mido_utils.Context, *, keyword: str = None):
         """Search or get a random Hearthstone card!"""
         if not hasattr(self, 'blizzard_api'):
@@ -177,5 +177,5 @@ class Searches(
         await ctx.send(embed=e)
 
 
-def setup(bot):
-    bot.add_cog(Searches(bot))
+async def setup(bot: ShinobuBot):
+    await bot.add_cog(Searches(bot))
