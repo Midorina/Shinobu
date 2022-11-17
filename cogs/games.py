@@ -293,8 +293,8 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
         return new_race, True
 
-    @commands.max_concurrency(number=1, per=commands.BucketType.channel)
-    @commands.hybrid_command()
+    # @commands.max_concurrency(number=1, per=commands.BucketType.channel)
+    # @commands.hybrid_command()
     async def hangman(self, ctx: mido_utils.Context, category: str = None):
         """Play a game of hangman!
 
@@ -418,8 +418,8 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
                     extra_msg = f"{user_input.author.mention}, letter `{user_guess}` does not exist. Try again."
 
-    @commands.hybrid_command()
-    @commands.guild_only()
+    # @commands.hybrid_command()
+    # @commands.guild_only()
     async def race(self, ctx: mido_utils.Context, bet_amount: mido_utils.BetAmountConverter = None):
         """Start or join a race!
 

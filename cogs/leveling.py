@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import List, Tuple, Union
+from typing import List, TYPE_CHECKING, Tuple, Union
 
 import discord
 from discord.ext import commands
 
 import mido_utils
 from models.db import MemberDB, UserDB, XpAnnouncement, XpRoleReward
-from shinobu import ShinobuBot
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 
 def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
@@ -170,8 +174,10 @@ class Leveling(
         self.bot.logger.debug('Checking XP took:\t\t\t' + time.passed_seconds_in_float_formatted)
 
     @commands.hybrid_command(name="xp", aliases=['level', 'rank'])
-    async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter() = None):
+    async def show_rank(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter = None):
         """See your or someone else's XP rank."""
+        member: discord.Member
+
         if member:
             user = member
             user_db = await MemberDB.get_or_create(bot=ctx.bot,
@@ -226,13 +232,16 @@ class Leveling(
     @commands.hybrid_command(name='xprolereward', aliases=['xprr'])
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
-    async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32(),
-                                 *, role: mido_utils.RoleConverter() = None):
+    async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32,
+                                 *, role: mido_utils.RoleConverter = None):
         """Set a role reward for a specified level.
 
         Provide no role name in order to remove the role reward for that level.
 
         You need Manage Roles permission to use this command."""
+        level: int
+        role: discord.Role | None
+
         already_existing_reward = await XpRoleReward.get_level_reward(bot=ctx.bot,
                                                                       guild_id=ctx.guild.id,
                                                                       level=level)
@@ -286,7 +295,7 @@ class Leveling(
                                           f"`{ctx.prefix}xprolereward <level> <role_reward>`")
 
         e = mido_utils.Embed(bot=ctx.bot)
-        e.set_author(icon_url=ctx.guild.icon_url, name=f"XP Role Rewards of {ctx.guild}")
+        e.set_author(icon_url=ctx.guild.icon.url, name=f"XP Role Rewards of {ctx.guild}")
 
         blocks = []
         for reward in rewards:
@@ -349,7 +358,7 @@ class Leveling(
             return await ctx.send_success(f"**{ctx.guild}** does not have any XP excluded channels.")
 
         e = mido_utils.Embed(bot=ctx.bot)
-        e.set_author(icon_url=ctx.guild.icon_url, name=f"XP Excluded Channels of {ctx.guild.name}")
+        e.set_author(icon_url=ctx.guild.icon.url, name=f"XP Excluded Channels of {ctx.guild.name}")
         blocks = []
         for channel_id in ctx.guild_db.xp_excluded_channels:
             channel = ctx.guild.get_channel(channel_id)
@@ -362,32 +371,46 @@ class Leveling(
 
     @commands.command(name="addxp", hidden=True)
     @mido_utils.is_owner()
-    async def add_xp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
+    async def add_xp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter, amount: mido_utils.Int64):
+        member: discord.Member
+        amount: int
+
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.add_xp(amount, owner=True)
+
         await ctx.send_success("Success!")
 
     @commands.command(name="addgxp", hidden=True)
     @mido_utils.is_owner()
-    async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
+    async def add_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter, amount: mido_utils.Int64):
+        member: discord.Member
+        amount: int
+
         user_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await user_db.add_xp(amount, owner=True)
+
         await ctx.send_success("Success!")
 
     @commands.command(name="removexp", aliases=['remxp'], hidden=True)
     @mido_utils.is_owner()
-    async def remove_xp(self, ctx: mido_utils.Context,
-                        member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
+    async def remove_xp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter, amount: mido_utils.Int64):
+        member: discord.Member
+        amount: int
+
         member_db = await MemberDB.get_or_create(bot=ctx.bot, guild_id=ctx.guild.id, member_id=member.id)
         await member_db.remove_xp(amount)
+
         await ctx.send_success("Success!")
 
     @commands.command(name="removegxp", aliases=['remgxp'], hidden=True)
     @mido_utils.is_owner()
-    async def remove_gxp(self, ctx: mido_utils.Context,
-                         member: mido_utils.MemberConverter(), amount: mido_utils.Int64()):
+    async def remove_gxp(self, ctx: mido_utils.Context, member: mido_utils.MemberConverter, amount: mido_utils.Int64):
+        member: discord.Member
+        amount: int
+
         member_db = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
         await member_db.remove_xp(amount)
+
         await ctx.send_success("Success!")
 
 

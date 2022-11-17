@@ -406,17 +406,27 @@ class ShinobuBot(commands.AutoShardedBot):
                 break
 
     async def close(self):
-        # close the bot
-        await super().close()
+        await super().close()  # close the bot
 
-        # close ipc connection
-        await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
+        if self.ipc:  # close ipc connection
+            await self.ipc.close_ipc(f"Cluster {self.cluster_id} has shut down.")
 
-        # close the db connection and the http session
-        await self.db.close()
-        await self.http_session.close()
+        if self.db:  # close the db connection
+            await self.db.close()
+
+        if self.http_session:  # close the http session
+            await self.http_session.close()
 
         exit(self.exit_code)
 
     def __str__(self) -> str:
         return f'{self.name.title()} Cluster#{self.cluster_id}'
+
+
+if __name__ == "__main__":
+    ShinobuBot(**{
+        'bot_name'      : "midoboto",
+        'cluster_id'    : 0,
+        'total_clusters': 1,
+        'pipe'          : None
+    })
