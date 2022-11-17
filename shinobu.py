@@ -131,13 +131,14 @@ class ShinobuBot(commands.AutoShardedBot):
             self.logger.debug(f"Loading or reloading cog: cogs.{name}")
 
             try:
-                await self.reload_extension(f"cogs.{name}")
-                self.logger.info(f"Reloaded cogs.{name}")
-            except discord.ext.commands.ExtensionNotLoaded:
-                await self.load_extension(f"cogs.{name}")
-                self.logger.info(f"Loaded cogs.{name}")
+                try:
+                    await self.reload_extension(f"cogs.{name}")
+                    self.logger.info(f"Reloaded cogs.{name}")
+                except discord.ext.commands.ExtensionNotLoaded:
+                    await self.load_extension(f"cogs.{name}")
+                    self.logger.info(f"Loaded cogs.{name}")
             except Exception as e:
-                self.logger.error(f"Failed to load cog {name}")
+                self.logger.error(f"Failed to load cogs.{name}")
                 self.logger.exception(e)
             else:
                 cog_counter += 1
