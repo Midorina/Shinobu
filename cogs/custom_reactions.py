@@ -158,14 +158,14 @@ class CustomReactions(
 
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=15)
 
-    @commands.hybrid_command(name='showcustomreaction', aliases=['scr'])
+    @commands.command(name='showcustomreaction', aliases=['scr'])  # not hybrid because of slash command limit
     async def show_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Shows a custom reaction's response on a given ID."""
 
         await ctx.send(embed=self.get_cr_embed(custom_reaction))
 
     @commands.has_permissions(administrator=True)
-    @commands.hybrid_command(name='clearcustomreactions', aliases=['crclear'])
+    @commands.command(name='clearcustomreactions', aliases=['crclear'])  # not hybrid because of slash command limit
     async def clear_custom_reactions(self, ctx: mido_utils.Context):
         """Deletes all custom reactions on this server."""
 
@@ -181,9 +181,9 @@ class CustomReactions(
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.hybrid_command(name='deletecustomreaction', aliases=['dcr'])
+    @commands.command(name='deletecustomreaction', aliases=['dcr'])  # not hybrid because of slash command limit
     async def delete_custom_reaction(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
-        """Delete a custom reaction using it's ID.
+        """Delete a custom reaction using its ID.
         You can see the list of custom reactions using `{ctx.prefix}lcr`
 
         You need Administrator permission to use this command."""
@@ -195,7 +195,8 @@ class CustomReactions(
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command(name='customreactioncontainsanywhere', aliases=['crca'])
+    @commands.command(name='customreactioncontainsanywhere',
+                      aliases=['crca'])  # not hybrid because of slash command limit
     async def toggle_custom_reaction_contains_anywhere(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the custom reaction will trigger
         if the triggering message contains the keyword (instead of only starting with it)."""
@@ -206,7 +207,7 @@ class CustomReactions(
                               cr=custom_reaction,
                               option_status=custom_reaction.contains_anywhere))
 
-    @commands.hybrid_command(name='customreactiondm', aliases=['crdm'])
+    @commands.command(name='customreactiondm', aliases=['crdm'])  # not hybrid because of slash command limit
     async def toggle_custom_reaction_dm(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the response message of the custom reaction will be sent as a direct message."""
         await custom_reaction.toggle_dm()
@@ -216,7 +217,7 @@ class CustomReactions(
                               cr=custom_reaction,
                               option_status=custom_reaction.send_in_DM))
 
-    @commands.hybrid_command(name='customreactionautodelete', aliases=['crad'])
+    @commands.command(name='customreactionautodelete', aliases=['crad'])  # not hybrid because of slash command limit
     async def toggle_custom_reaction_auto_delete(self, ctx: mido_utils.Context, custom_reaction: CustomReaction):
         """Toggles whether the message triggering the custom reaction will be automatically deleted."""
         await custom_reaction.toggle_delete_trigger()

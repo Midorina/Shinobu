@@ -89,9 +89,9 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
     async def track_end_event(self, node: Node, payload: events.TrackEnd):
         payload.player.next.set()
 
-    @commands.hybrid_command(name='join', aliases=['connect'])
+    @commands.command(name='join', aliases=['connect'])  # not hybrid because of slash command limit
     async def _join(self, ctx: mido_utils.Context):
-        """Make me connect to your voice channel."""
+        """Connects bot to the voice channel."""
         await self.ensure_can_control(ctx)  # this is cuz ctx.invoke doesn't call pre-invoke hooks
 
         if ctx.voice_client and ctx.voice_client.channel.id == ctx.voice_player.channel_id:
@@ -147,38 +147,15 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send_success(f'Volume is set to **{volume}**%')
 
-    @commands.hybrid_command(name='earrape')
-    @mido_utils.is_patron_decorator(level=2)
-    async def _earrape(self, ctx: mido_utils.Context):
-        """Increase the volume to 400.
-        You can increase the volume to higher levels using the `{ctx.prefix}volume` command but 400 is suggested."""
-        await ctx.voice_player.set_volume(400)
-        await ctx.guild_db.change_volume(400)
-
-        await ctx.send_success(f'**Earrape mode:** Volume is set to **{400}**%\n'
-                               f'(Can be increased further using `{ctx.prefix}volume` but 400% is suggested.)')
-
     @commands.hybrid_command(name='nowplaying', aliases=['current', 'playing', 'now', 'np'])
     async def _now_playing(self, ctx: mido_utils.Context):
         """See what's currently playing."""
         await ctx.send(embed=ctx.voice_player.get_current().create_np_embed())
 
     @commands.hybrid_command(name='pause')
-    async def _pause(self, ctx: mido_utils.Context):
-        """Pause the song."""
-        if ctx.voice_player.is_paused:
-            raise mido_utils.MusicError(f"It's already paused! Use `{ctx.prefix}resume` to resume.")
-
-        await ctx.voice_player.set_pause(pause=True)
-        await ctx.message.add_reaction("⏯")
-
-    @commands.hybrid_command(name='resume')
-    async def _resume(self, ctx: mido_utils.Context):
-        """Resume the player."""
-        if not ctx.voice_player.is_paused:
-            raise mido_utils.MusicError(f"It's not paused! Use `{ctx.prefix}pause` to pause.")
-
-        await ctx.voice_player.set_pause(pause=False)
+    async def _pause_or_resume(self, ctx: mido_utils.Context):
+        """Pause or resume the song."""
+        await ctx.voice_player.set_pause(pause=not ctx.voice_player.is_paused)
         await ctx.message.add_reaction("⏯")
 
     @commands.hybrid_command(name='seek')
@@ -212,7 +189,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command(name='skipto', aliases=['goto'])
+    @commands.command(name='skipto', aliases=['goto'])  # not hybrid because of slash command limit
     async def _goto(self, ctx: mido_utils.Context, seconds: mido_utils.Int32()):
         """Go to a certain time in the song.
 
@@ -246,7 +223,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
         else:
             required_votes = math.floor(people_in_vc * 0.8)
 
-        if (voter == ctx.voice_player.get_current().requester  # if its the requester
+        if (voter == ctx.voice_player.get_current().requester  # if it's the requester
                 or len(ctx.voice_player.skip_votes) >= required_votes  # if it reached the required vote amount
                 or self.forcekip_by_default):  # if force-skip is enabled
             await ctx.voice_player.skip()
@@ -354,7 +331,7 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             await ctx.send_success("Loop feature has been disabled.")
 
     @commands.cooldown(rate=1, per=0.5, type=commands.BucketType.guild)
-    @commands.hybrid_command(name='playnext', aliases=['pn'])
+    @commands.command(name='playnext', aliases=['pn'])  # not hybrid because of slash command limit
     async def _play_next(self, ctx: mido_utils.Context, *, query: str):
         """Put a song/songs to the top of your song queue so that it gets played next."""
         task = await self.create_or_handle_vc_task(ctx)
@@ -416,10 +393,8 @@ class Music(commands.Cog, WavelinkMixin, description='Play music using `{ctx.pre
             extra_sep='\n')
 
     @_volume.before_invoke
-    @_earrape.before_invoke
     @_now_playing.before_invoke
-    @_pause.before_invoke
-    @_resume.before_invoke
+    @_pause_or_resume.before_invoke
     @_skip.before_invoke
     # @_force_skip.before_invoke
     @_loop.before_invoke

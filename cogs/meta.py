@@ -250,7 +250,8 @@ class Meta(commands.Cog,
 
     @commands.has_permissions(administrator=True)
     @commands.guild_only()
-    @commands.hybrid_command(name="deletecommands", aliases=["delcmds"], enabled=False)
+    @commands.command(name="deletecommands", aliases=["delcmds"],
+                      enabled=False)  # not hybrid because of slash command limit
     async def delete_commands(self, ctx: mido_utils.Context):
         """Enable or disable the deletion of commands after completion.
 
@@ -396,7 +397,7 @@ class Meta(commands.Cog,
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command(aliases=['erasedata'])
+    @commands.command(aliases=['erasedata'])  # not hybrid because of slash command limit
     async def deletedata(self, ctx: mido_utils.Context):
         """Delete all of your data from me."""
         e = mido_utils.Embed(bot=self.bot,
@@ -413,7 +414,7 @@ class Meta(commands.Cog,
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.hybrid_command(aliases=['policy', 'privacypolicy'])
+    @commands.command(aliases=['policy', 'privacypolicy'])  # not hybrid because of slash command limit
     async def privacy(self, ctx: mido_utils.Context):
 
         e = mido_utils.Embed(self.bot)

@@ -209,7 +209,7 @@ class Leveling(
 
         await self.send_leaderboard_embed(ctx, top, title='Global XP Leaderboard')
 
-    @commands.hybrid_command(name='xpnotifs')
+    @commands.command(name='xpnotifs')  # not hybrid because of slash command limit
     async def change_level_up_notifications(self, ctx: mido_utils.Context, new_preference: str):
         """Configure your level up notifications. It's DM by default.
 
@@ -329,7 +329,7 @@ class Leveling(
 
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.hybrid_command(name="xpchannelexclude", aliases=['xpex'])
+    @commands.command(name="xpchannelexclude", aliases=['xpex'])  # not hybrid because of slash command limit
     async def add_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
         """Exclude a channel to prevent people from gaining XP in that channel."""
         if channel.id in ctx.guild_db.xp_excluded_channels:
@@ -340,7 +340,7 @@ class Leveling(
 
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.hybrid_command(name="xpchannelinclude", aliases=['xpin'])
+    @commands.command(name="xpchannelinclude", aliases=['xpin'])  # not hybrid because of slash command limit
     async def remove_xp_excluded_channel(self, ctx: mido_utils.Context, *, channel: discord.TextChannel):
         """Remove an XP excluded channel to no longer prevent people from gaining XP in that channel."""
         if channel.id not in ctx.guild_db.xp_excluded_channels:
@@ -351,7 +351,7 @@ class Leveling(
             f"Channel {channel.mention} has been successfully removed from the XP excluded channels.")
 
     @commands.guild_only()
-    @commands.hybrid_command(name="xpexcludedchannels", aliases=['xpexs'])
+    @commands.command(name="xpexcludedchannels", aliases=['xpexs'])  # not hybrid because of slash command limit
     async def show_excluded_channels(self, ctx: mido_utils.Context):
         """See excluded channels where people can not gain XP."""
         if not ctx.guild_db.xp_excluded_channels:

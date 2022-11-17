@@ -66,7 +66,7 @@ class Searches(
         await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    @commands.hybrid_command(aliases=['g'], enabled=False)
+    @commands.command(aliases=['g'], enabled=False)
     async def google(self, ctx: mido_utils.Context, *, search: str):
         """Makes a Google search."""
         results = await self.google.search(query=search)
@@ -138,7 +138,7 @@ class Searches(
         """Get a random bird picture."""
         await ctx.send_simple_image(await self.some_random_api.get_animal("bird"))
 
-    @commands.hybrid_command(aliases=['hs'])
+    @commands.command(aliases=['hs'])  # not hybrid because of slash command limit
     async def hearthstone(self, ctx: mido_utils.Context, *, keyword: str = None):
         """Search or get a random Hearthstone card!"""
         if not hasattr(self, 'blizzard_api'):

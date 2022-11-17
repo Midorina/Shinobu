@@ -62,7 +62,7 @@ class Waifu(
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command()
+    @commands.command()  # not hybrid because of slash command limit
     async def waifureset(self, ctx: mido_utils.Context):
         """
         Reset your waifu stats by spending some money.
@@ -292,7 +292,7 @@ class Waifu(
             await ctx.send_success(f"{ctx.author.mention} has just divorced {target.mention} "
                                    f"and got **{mido_utils.readable_currency(amount)}** in return.")
 
-    @commands.hybrid_command()
+    @commands.command()  # not hybrid because of slash command limit
     async def waifutransfer(self, ctx: mido_utils.Context, ex_waifu: mido_utils.MemberConverter(),
                             new_owner: mido_utils.MemberConverter()):
         """

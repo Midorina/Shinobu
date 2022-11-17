@@ -17,7 +17,7 @@ def main():
 
     # logger setup
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # use discord.py's colored formatter
     _format = _ColourFormatter()

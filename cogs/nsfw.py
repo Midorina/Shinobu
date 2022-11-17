@@ -247,28 +247,21 @@ class NSFW(commands.Cog,
 
         self.active_auto_nsfw_services = list()
 
-    @commands.hybrid_command()
-    async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
-        """Get a random porn content. A tag can be provided."""
-        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str=tag, limit=1,
-                                           guild_id=ctx.guild.id if ctx.guild else None))[0]
-        await ctx.send(**image.get_send_kwargs(self.bot))
-
-    @commands.hybrid_command(aliases=['boob'])
+    @commands.command(aliases=['boob'])  # not hybrid because of slash command limit
     async def boobs(self, ctx: mido_utils.Context):
         """Get a random boob picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='boobs', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command(aliases=['butt', 'ass'])
+    @commands.command(aliases=['butt', 'ass'])  # not hybrid because of slash command limit
     async def butts(self, ctx: mido_utils.Context):
         """Get a random butt picture."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='butts', limit=1,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command()
+    @commands.command()  # not hybrid because of slash command limit
     async def pussy(self, ctx: mido_utils.Context):
         """Get a random pussy image."""
         image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str='pussy', limit=1,
@@ -282,7 +275,7 @@ class NSFW(commands.Cog,
                                            guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command()
+    @commands.command()  # not hybrid because of slash command limit
     async def danbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Danbooru.
 
@@ -296,7 +289,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command()
+    @commands.command()  # not hybrid because of slash command limit
     async def gelbooru(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Gelbooru.
 
@@ -308,7 +301,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command(enabled=False)
+    @commands.command(enabled=False)  # not hybrid because of slash command limit
     async def rule34(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Rule34.
 
@@ -321,7 +314,7 @@ class NSFW(commands.Cog,
 
         await ctx.send(**image.get_send_kwargs(self.bot))
 
-    @commands.hybrid_command(aliases=['sankakucomplex'])
+    @commands.command(aliases=['sankakucomplex'])  # not hybrid because of slash command limit
     async def sankaku(self, ctx: mido_utils.Context, *, tags: str = None):
         """Get a random image from Sankaku Complex.
 
@@ -333,6 +326,13 @@ class NSFW(commands.Cog,
             nsfw_type=NSFWImage.Type.hentai, tags_str=tags, limit=1, guild_id=ctx.guild.id if ctx.guild else None,
             nsfw_source=NsfwDAPIs.DAPI.sankaku_complex))[0]
 
+        await ctx.send(**image.get_send_kwargs(self.bot))
+
+    @commands.hybrid_command()
+    async def porn(self, ctx: mido_utils.Context, *, tag: str = None):
+        """Get a random porn content. A tag can be provided."""
+        image = (await self.get_nsfw_image(nsfw_type=NSFWImage.Type.porn, tags_str=tag, limit=1,
+                                           guild_id=ctx.guild.id if ctx.guild else None))[0]
         await ctx.send(**image.get_send_kwargs(self.bot))
 
     @commands.hybrid_command()
@@ -436,7 +436,7 @@ class NSFW(commands.Cog,
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
-    @commands.hybrid_command(name="tagblacklist")
+    @commands.command(name="tagblacklist")  # not hybrid because of slash command limit
     async def blacklist_tag(self, ctx: mido_utils.Context, *, tag: str = None):
         """See the blacklisted tags or blacklist a tag. Provide a tag to blacklist it.
         Any image with a blacklisted tag will not be posted."""
@@ -461,7 +461,7 @@ class NSFW(commands.Cog,
 
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
-    @commands.hybrid_command(name="tagwhitelist")
+    @commands.command(name="tagwhitelist")  # not hybrid because of slash command limit
     async def whitelist_tag(self, ctx: mido_utils.Context, *, tag: str):
         """Whitelist/remove a blacklisted tag."""
         nsfw_db = await GuildNSFWDB.get_or_create(ctx.bot, ctx.guild.id)

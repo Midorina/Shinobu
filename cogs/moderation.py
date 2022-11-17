@@ -360,7 +360,7 @@ class Moderation(
 
         await e.paginate(ctx, blocks=log_blocks, extra_sep='\n')
 
-    @commands.hybrid_command(name='clearmodlogs', aliases=['clearlogs'])
+    @commands.command(name='clearmodlogs', aliases=['clearlogs'])  # not hybrid because of slash command limit
     @commands.has_permissions(administrator=True)
     async def clear_modlogs(self,
                             ctx: mido_utils.Context,
@@ -382,7 +382,7 @@ class Moderation(
         else:
             await ctx.edit_custom(msg, "Request declined.")
 
-    @commands.hybrid_command(aliases=['changereason'])
+    @commands.command(aliases=['changereason'])  # not hybrid because of slash command limit
     async def reason(self,
                      ctx: mido_utils.Context,
                      case_id: mido_utils.Int32,
@@ -449,7 +449,7 @@ class Moderation(
 
         await ctx.send_success(f"Role {role.mention} has been successfully removed from {member.mention}.")
 
-    @commands.hybrid_command(name='createrole', aliases=['cr'])
+    @commands.command(name='createrole', aliases=['cr'])  # not hybrid because of slash command limit
     @commands.has_permissions(manage_roles=True)
     async def create_role(self,
                           ctx: mido_utils.Context,
@@ -467,7 +467,7 @@ class Moderation(
 
         await ctx.send_success(f"Role {role.mention} has been successfully created!")
 
-    @commands.hybrid_command(name='deleterole', aliases=['dr'])
+    @commands.command(name='deleterole', aliases=['dr'])  # not hybrid because of slash command limit
     @commands.has_permissions(manage_roles=True)
     async def delete_role(self,
                           ctx: mido_utils.Context,

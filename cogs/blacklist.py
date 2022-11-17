@@ -18,7 +18,7 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
         guild_is_blacklisted = False
 
         if user_is_blacklisted and ctx.guild:
-            # if the guild owner is blacklisted but the guild is not blacklisted
+            # if the guild owner is blacklisted but the guild is not blacklisted,
             # blacklist their guild too, fuck'em
             guild_is_blacklisted = await BlacklistDB.get(bot=ctx.bot, user_or_guild_id=ctx.guild.id,
                                                          bl_type=BlacklistDB.BlacklistType.guild)

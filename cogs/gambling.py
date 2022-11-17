@@ -537,7 +537,7 @@ class Gambling(
                                         reward=reward)
         self.active_donut_events.append(event)
 
-    @commands.hybrid_command(aliases=['curtrs'])
+    @commands.command(aliases=['curtrs'])  # not hybrid because of slash command limit
     async def transactions(self, ctx: mido_utils.Context, *, target: mido_utils.UserConverter() = None):
         """See your transaction log!"""
         if target and not await ctx.bot.is_owner(ctx.author):
@@ -593,7 +593,7 @@ class Gambling(
 
         blocks = []
         for i, user in enumerate(crazy_people, 1):
-            # if its the #1 user
+            # if it's the #1 user
             if i == 1:
                 user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
