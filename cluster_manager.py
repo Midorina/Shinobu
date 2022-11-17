@@ -83,7 +83,7 @@ class Launcher:
             self.loop.close()
 
     def get_shard_count(self):
-        cluster_logger.info(f"Getting required shard count from DiscordAPI...")
+        cluster_logger.debug(f"Getting required shard count from DiscordAPI...")
 
         data = requests.get('https://discord.com/api/v7/gateway/bot', headers={
             "Authorization": "Bot " + self.bot_token,
@@ -229,7 +229,7 @@ class Cluster:
                                                target=shinobu.ShinobuBot, kwargs=self.kwargs, daemon=True)
         self.process.start()
 
-        self.logger.info(f"Process started with PID {self.process.pid}")
+        self.logger.debug(f"Process started with PID {self.process.pid}")
 
         self.first_time = False
 

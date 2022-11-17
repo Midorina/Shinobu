@@ -144,7 +144,7 @@ class _InternalIPCHandler:
             else:
                 await self.ws.send(self.identity.encode('utf-8'))
                 await self.ws.recv()
-                self.bot.logger.info("Websocket connection succeeded.")
+                self.bot.logger.debug("Websocket connection succeeded.")
                 break
 
         self.assign_ws_task()
@@ -158,7 +158,7 @@ class _InternalIPCHandler:
             self.ws_task.add_done_callback(self._websocket_loop_done)
 
     async def _websocket_loop(self):
-        self.bot.logger.info("Websocket loop has successfully started.")
+        self.bot.logger.info("IPC websocket loop has started.")
         while True:
             try:
                 data = IPCMessage.get_from_raw(await self.ws.recv())
