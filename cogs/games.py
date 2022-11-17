@@ -3,13 +3,16 @@ from __future__ import annotations
 import asyncio
 import json
 import random
-from typing import Optional, Tuple
+from typing import Optional, TYPE_CHECKING, Tuple
 
+import discord
 from discord.ext import commands
 
 import mido_utils
 from models.db import HangmanWord, MemberDB
-from shinobu import ShinobuBot
+
+if TYPE_CHECKING:
+    from shinobu import ShinobuBot
 
 # TODO: move this to hangman.json and convert to .yml because JSON doesn't support multiline strings
 HANGMAN_STAGES = ["""
@@ -124,6 +127,8 @@ class Race:
                 participant.bet_amount = 0
 
     async def race_loop(self):
+        await self.ctx.bot.wait_until_ready()
+
         await asyncio.sleep(self.STARTS_IN)
 
         if len(self.participants) < 2:
@@ -246,9 +251,6 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-        if not hasattr(self.bot, 'active_races'):
-            self.bot.active_races = list()
-
         self.hangman_categories_and_word_counts = None
 
         self.bot.loop.create_task(self.assign_hangman_variable())
@@ -318,11 +320,11 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
             return await ctx.send(embed=e)
 
         category = category.lower()
-        if category not in self.hangman_categories_and_word_counts.keys() and category != 'random':
-            raise commands.BadArgument("Invalid Hangman category!")
-
         if category == 'random':
             category = random.choice(list(self.hangman_categories_and_word_counts.keys()))
+        else:
+            if category not in self.hangman_categories_and_word_counts.keys():
+                raise commands.BadArgument("Invalid Hangman category!")
 
         word: str = (await HangmanWord.get_random_word(bot=ctx.bot, category=category)).word
 
@@ -466,8 +468,10 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
     @commands.hybrid_command()
     @commands.guild_only()
-    async def raffle(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter() = None):
+    async def raffle(self, ctx: mido_utils.Context, role: mido_utils.RoleConverter = None):
         """Prints a random online user from the server, or from the online user in the specified role."""
+        role: discord.Role | None
+
         role = role or ctx.guild.default_role
         role_mention = role.mention if role != ctx.guild.default_role else '@everyone'  # discord.py bug
 

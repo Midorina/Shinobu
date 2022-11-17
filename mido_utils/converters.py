@@ -44,13 +44,15 @@ class RoleConverter(commands.RoleConverter):
 
 class UserConverter(commands.UserConverter):
     async def convert(self, ctx: mido_utils.Context, argument) -> Union[discord.User, discord.Object]:
+        user = None
+
         try:
             user = await super().convert(ctx, argument)
         except commands.UserNotFound:
             if argument.isdigit():
                 user = discord.Object(id=int(argument))
-            else:
-                user = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
+            # else:
+            #     user = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.members)
 
         if not user:
             raise commands.UserNotFound(argument)
@@ -71,17 +73,17 @@ def base_bit_length_check(argument, max_bit_length: int):
         return arg
 
 
-class Int16(commands.Converter):
+class Int16(commands.Converter[int]):
     async def convert(self, ctx: mido_utils.Context, argument) -> int:
         return base_bit_length_check(argument, 16)
 
 
-class Int32(commands.Converter):
+class Int32(commands.Converter[int]):
     async def convert(self, ctx: mido_utils.Context, argument) -> int:
         return base_bit_length_check(argument, 32)
 
 
-class Int64(commands.Converter):
+class Int64(commands.Converter[int]):
     async def convert(self, ctx: mido_utils.Context, argument) -> int:
         return base_bit_length_check(argument, 64)
 
@@ -124,7 +126,7 @@ async def parse_text_with_context(text: str, bot,
                                   guild: discord.Guild,
                                   channel: discord.TextChannel,
                                   author: discord.Member = None,
-                                  message_obj: discord.Message = None) -> Tuple[str, Optional[discord.Embed]]:
+                                  message_obj: discord.Message = None) -> Tuple[Optional[str], Optional[discord.Embed]]:
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff
@@ -265,11 +267,11 @@ async def parse_text_with_context(text: str, bot,
                 embed[field] = {'url': embed[field]}
 
         try:
-            embed = discord.Embed.from_dict(embed)
+            embed: discord.Embed = discord.Embed.from_dict(embed)
         except ValueError:
             # probably wrong timestamp
             embed.pop('timestamp')
-            embed = discord.Embed.from_dict(embed)
+            embed: discord.Embed = discord.Embed.from_dict(embed)
 
         return content, embed
 

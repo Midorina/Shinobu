@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import multiprocessing
 import os
 import re
 from functools import cached_property
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, TYPE_CHECKING, Union
 
 import aiohttp
 import asyncpg
@@ -18,6 +20,9 @@ import ipc
 import mido_utils
 import models
 from models.db import run_create_table_funcs
+
+if TYPE_CHECKING:
+    from cogs.games import Race
 
 
 class ShinobuBot(commands.AutoShardedBot):
@@ -70,6 +75,9 @@ class ShinobuBot(commands.AutoShardedBot):
 
         self.exit_code: int = 1  # 1 == restart me
         self.updated_status: bool = False
+
+        # cog related stuff that should be kept even if cogs restart
+        self.active_races: list[Race] = []
 
         self.run()
 
@@ -129,12 +137,12 @@ class ShinobuBot(commands.AutoShardedBot):
                 await self.load_extension(f"cogs.{name}")
                 self.logger.info(f"Loaded cogs.{name}")
             except Exception as e:
-                print("error")
-                print(e)
                 self.logger.error(f"Failed to load cog {name}")
                 self.logger.exception(e)
             else:
                 cog_counter += 1
+
+        self.logger.info(f"Loaded {cog_counter} cogs.")
 
         return cog_counter
 
@@ -379,6 +387,8 @@ class ShinobuBot(commands.AutoShardedBot):
         await self.load_or_reload_cogs()
 
         await self.update_status()
+
+        self.logger.info("Setup hook complete.")
         # await self.chunk_active_guilds()
 
     async def update_status(self):
@@ -392,6 +402,7 @@ class ShinobuBot(commands.AutoShardedBot):
             except ConnectionResetError:
                 await asyncio.sleep(3.0)
             else:
+                self.logger.debug("Updated Discord presence to online.")
                 break
 
     async def close(self):

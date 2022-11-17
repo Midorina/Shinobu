@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import math
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
 from discord.ext.commands import BadArgument, Converter, UserInputError
 
-time_multipliers = {
+TIME_MULTIPLIERS = {
     's' : 1,
     'm' : 60,
     'h' : 60 * 60,
@@ -105,7 +107,7 @@ class Time(Converter):
         return self.parse_seconds_to_str(self.initial_remaining_seconds)
 
     @classmethod
-    def add_to_current_date_and_get(cls, seconds: int):
+    def add_to_current_date_and_get(cls, seconds: int) -> Time:
         now = datetime.now(timezone.utc)
 
         try:
@@ -182,7 +184,7 @@ class Time(Converter):
         return sep.join(str_blocks)
 
     @classmethod
-    async def convert(cls, ctx, argument: str):  # ctx arg is passed no matter what
+    async def convert(cls, ctx, argument: str) -> Time | None:  # ctx arg is passed no matter what
         """Converts a time length argument into MidoTime object."""
         length_in_seconds = 0
 
@@ -193,35 +195,34 @@ class Time(Converter):
             index = 0
             while argument:
                 if argument[index].isdigit():
-                    if argument[index] == argument[-1]:  # if its the last index
+                    if argument[index] == argument[-1]:  # if it's the last index
                         raise BadArgument("Invalid time format!")
                     index += 1
                     continue
 
-                elif argument[index] in time_multipliers.keys():
+                elif argument[index] in TIME_MULTIPLIERS.keys():
                     if index == 0:
                         raise BadArgument("Invalid time format!")
 
-                    # if its a month
+                    # TODO explain this algo
+                    period = int(argument[:index])
+
+                    # if it's a month
                     if argument[index: index + 2] == 'mo':
-                        multiplier = time_multipliers['mo']
-                    else:
-                        multiplier = time_multipliers[argument[index]]
-
-                    length_in_seconds += int(argument[:index]) * multiplier
-
-                    # if its a month
-                    if multiplier == time_multipliers['mo']:
+                        multiplier = TIME_MULTIPLIERS['mo']
                         argument = argument[index + 2:]
                     else:
+                        multiplier = TIME_MULTIPLIERS[argument[index]]
                         argument = argument[index + 1:]
+
+                    length_in_seconds += period * multiplier
 
                     index = 0
 
                 else:
                     raise BadArgument("Invalid time format!")
 
-        return cls.add_to_current_date_and_get(length_in_seconds)
+        return None if length_in_seconds == 0 else cls.add_to_current_date_and_get(length_in_seconds)
 
     def __str__(self):
         return self.remaining_string

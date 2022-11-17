@@ -164,13 +164,13 @@ class Moderation(
     async def ban(self,
                   ctx: mido_utils.Context,
                   target: mido_utils.UserConverter,
-                  length: typing.Union[mido_utils.Time, str] = None,  # FIXME
+                  length: mido_utils.Time = None,
                   *, reason: commands.clean_content = None):
         """Bans a user for a specified period of time or indefinitely.
 
         **Examples:**
-            `{ctx.prefix}ban @Mido` (bans permanently)
-            `{ctx.prefix}ban @Mido toxic` (bans permanently with a reason)
+            `{ctx.prefix}ban @Mido 0` (bans permanently)
+            `{ctx.prefix}ban @Mido 0 toxic` (bans permanently with a reason)
             `{ctx.prefix}ban @Mido 30m` (bans for 30 minutes)
             `{ctx.prefix}ban @Mido 3d toxic` (bans for 3 days with reason)
 
@@ -185,11 +185,7 @@ class Moderation(
         You need Ban Members permission to use this command.
         """
         target: discord.Member | discord.User
-
-        # if only reason is passed
-        if isinstance(length, str):
-            reason = length + (f" {reason}" if reason else '')
-            length = None
+        length: int | None
 
         await ctx.guild.ban(user=target, reason=reason, delete_message_days=1)
 
@@ -213,12 +209,13 @@ class Moderation(
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self,
                     ctx: mido_utils.Context,
-                    target: mido_utils.UserConverter(),
+                    target: mido_utils.UserConverter,
                     *, reason: commands.clean_content = None):
         """Unbans a banned user.
 
         You need Ban Members permission to use this command.
         """
+        target: discord.Member | discord.User
 
         user_is_banned = await ctx.guild.fetch_ban(target)
         if not user_is_banned:
@@ -245,14 +242,14 @@ class Moderation(
     @commands.bot_has_permissions(manage_roles=True, manage_channels=True)
     async def mute(self,
                    ctx: mido_utils.Context,
-                   target: mido_utils.MemberConverter(),
-                   length: typing.Union[mido_utils.Time, str] = None,
+                   target: mido_utils.MemberConverter,
+                   length: mido_utils.Time = None,
                    *, reason: commands.clean_content = None):
         """Mutes a user for a specified period of time or indefinitely.
 
         **Examples:**
             `{ctx.prefix}mute @Mido` (mutes permanently)
-            `{ctx.prefix}mute @Mido shitposting` (mutes permanently with a reason)
+            `{ctx.prefix}mute @Mido 0 shitposting` (mutes permanently with a reason)
             `{ctx.prefix}mute @Mido 30m` (mutes for 30 minutes)
             `{ctx.prefix}mute @Mido 3d shitposting` (mutes for 3 days with reason)
 
@@ -266,11 +263,8 @@ class Moderation(
 
         You need Manage Roles permission to use this command.
         """
-
-        # if only reason is passed
-        if isinstance(length, str):
-            reason = length + (f" {reason}" if reason else '')
-            length = None
+        target: discord.Member
+        length: int | None
 
         mute_role = await self.get_or_create_muted_role(ctx)
 
@@ -300,12 +294,13 @@ class Moderation(
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self,
                      ctx: mido_utils.Context,
-                     target: mido_utils.MemberConverter(),
+                     target: mido_utils.MemberConverter,
                      *, reason: commands.clean_content = None):
         """Unmutes a muted user.
 
         You need Manage Roles permission to use this command.
         """
+        target: discord.Member
 
         mute_role = await self.get_or_create_muted_role(ctx)
 
@@ -332,11 +327,12 @@ class Moderation(
     async def mod_logs(self,
                        ctx: mido_utils.Context,
                        *,
-                       target: mido_utils.MemberConverter()):
+                       target: mido_utils.MemberConverter):
         """See the logs of a user.
 
         You need Kick Members and Ban Members permissions to use this command.
         """
+        target: discord.Member
 
         logs = await ModLog.get_guild_logs(bot=ctx.bot, guild_id=ctx.guild.id, user_id=target.id)
         if not logs:
@@ -369,11 +365,13 @@ class Moderation(
     async def clear_modlogs(self,
                             ctx: mido_utils.Context,
                             *,
-                            target: mido_utils.MemberConverter()):
+                            target: mido_utils.MemberConverter):
         """Clears the logs of a user.
 
         You need to have the Administrator permission to use this command.
         """
+        target: discord.Member
+
         msg = await ctx.send_success(f"Are you sure you'd like to reset the logs of **{target}**?")
         yes = await mido_utils.Embed.yes_no(self.bot, ctx.author.id, msg)
 
@@ -387,12 +385,14 @@ class Moderation(
     @commands.hybrid_command(aliases=['changereason'])
     async def reason(self,
                      ctx: mido_utils.Context,
-                     case_id: mido_utils.Int32(),
+                     case_id: mido_utils.Int32,
                      *, new_reason: commands.clean_content = None):
         """Update the reason of a case using its ID.
 
         You either need to be the executor of the case or have Administrator permission to use this command.
         """
+        case_id: int
+
         log = await ModLog.get_by_id(bot=ctx.bot, log_id=case_id, guild_id=ctx.guild.id)
         if not log:
             raise commands.UserInputError("No logs have been found with that case ID.")
@@ -409,13 +409,16 @@ class Moderation(
     @commands.has_permissions(manage_roles=True)
     async def set_role(self,
                        ctx: mido_utils.Context,
-                       member: mido_utils.MemberConverter(),
+                       member: mido_utils.MemberConverter,
                        *,
-                       role: mido_utils.RoleConverter()):
+                       role: mido_utils.RoleConverter):
         """Give a role to a member.
 
         You need the **Manage Roles** permissions to use this command.
         """
+        member: discord.Member
+        role: discord.Role
+
         # already has that role check
         if role in member.roles:
             raise commands.UserInputError(f"Member {member.mention} already has the {role.mention} role.")
@@ -428,15 +431,17 @@ class Moderation(
     @commands.has_permissions(manage_roles=True)
     async def remove_role(self,
                           ctx: mido_utils.Context,
-                          member: mido_utils.MemberConverter(),
+                          member: mido_utils.MemberConverter,
                           *,
-                          role: mido_utils.RoleConverter()):
+                          role: mido_utils.RoleConverter):
         """Remove a role from a member.
 
         You need the **Manage Roles** permissions to use this command.
         """
+        member: discord.Member
+        role: discord.Role
 
-        # if they dont have the role
+        # if they don't have the role
         if role not in member.roles:
             raise commands.UserInputError(f"Member {member.mention} don't have the {role.mention} role.")
 
@@ -467,19 +472,22 @@ class Moderation(
     async def delete_role(self,
                           ctx: mido_utils.Context,
                           *,
-                          role: mido_utils.RoleConverter()):
+                          role: mido_utils.RoleConverter):
         """Delete a role from the server.
 
         You need the **Manage Roles** permissions to use this command.
         """
+        role: discord.Role
 
         await role.delete(reason=f'Deleted by {ctx.author}.')
 
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
 
     @commands.hybrid_command(aliases=['av'])
-    async def avatar(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter() = None):
+    async def avatar(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """See the avatar of someone."""
+        target: discord.Member | None
+
         user = target or ctx.author
         e = mido_utils.Embed(bot=self.bot, image_url=user.avatar.url)
         await ctx.send(embed=e)
@@ -493,13 +501,14 @@ class Moderation(
     @commands.hybrid_command(aliases=['purge', 'clear'])
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def prune(self, ctx: mido_utils.Context, number: int, target_user: mido_utils.MemberConverter() = None):
+    async def prune(self, ctx: mido_utils.Context, number: int, target_user: mido_utils.MemberConverter = None):
         """Delete a number of messages in a channel.
         **Maximum amount is 100.**
         You can specify a target user to delete only their messages.
 
         You need to have Manage Messages permission to use this command.
         """
+        target: discord.Member | None
 
         def prune_check(m):
             if not target_user:
@@ -521,8 +530,10 @@ class Moderation(
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
     @commands.hybrid_command(name='inrole')
-    async def in_role(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter()):
+    async def in_role(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter):
         """See the people in a specific role."""
+        role: discord.Role
+
         ppl = [member for member in ctx.guild.members if role in member.roles]
 
         e = mido_utils.Embed(bot=ctx.bot, title=f"List of people in the role: {role}")
@@ -535,9 +546,10 @@ class Moderation(
         await e.paginate(ctx=ctx, blocks=blocks, item_per_page=20)
 
     @commands.hybrid_command(name="serverinfo", aliases=['sinfo'])
-    async def server_info(self, ctx: mido_utils.Context, server_id: mido_utils.Int64() = None):
+    async def server_info(self, ctx: mido_utils.Context, server_id: mido_utils.Int64 = None):
         """Shows the information of the server."""
         # TODO: get the guild using IPC
+        server_id: int | None
 
         # if user is not the owner or server id isn't specified
         if server_id is not None:
@@ -565,8 +577,8 @@ class Moderation(
                 humans += 1
 
         embed = mido_utils.Embed(bot=ctx.bot)
-        embed.set_author(icon_url=server.icon_url, name=server.name)
-        embed.set_thumbnail(url=server.icon_url)
+        embed.set_author(icon_url=server.icon.url, name=server.name)
+        embed.set_thumbnail(url=server.icon.url)
 
         embed.add_field(name="Owner",
                         value=f"{server.owner}\n"
@@ -608,8 +620,10 @@ class Moderation(
     @commands.guild_only()
     async def user_info(self, ctx: mido_utils.Context,
                         *,
-                        user: typing.Union[mido_utils.MemberConverter, mido_utils.UserConverter] = None):
+                        user: mido_utils.UserConverter = None):
         """Shows the information of a user."""
+        user: discord.User | None
+
         user = user or ctx.author
 
         # if it's a user obj but author is not an owner
