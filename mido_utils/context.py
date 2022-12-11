@@ -24,6 +24,9 @@ class Context(commands.Context):
 
         self.time_created: mido_utils.Time = mido_utils.Time()
 
+        # set during runtime in the music cog
+        self.voice_player: mido_utils.VoicePlayer = None
+
     async def attach_db_objects(self):
         time = mido_utils.Time()
         try:

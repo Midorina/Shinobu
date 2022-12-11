@@ -37,18 +37,28 @@ class AssignableRoles(
         if guild_db.welcome_role_id:
             role = member.guild.get_role(guild_db.welcome_role_id)
             if not role:
-                await member.guild.owner.send(f"The welcome role of guild **{member.guild}** seems to be deleted, "
-                                              f"so I'm resetting my welcome role configuration.")
-                return await guild_db.set_welcome_role(None)
+                try:
+                    await member.guild.owner.send(f"The welcome role of guild **{member.guild}** seems to be deleted, "
+                                                  f"so I'm resetting my welcome role configuration.")
+                except discord.Forbidden:
+                    self.bot.logger.warning(f"I was not able to find the welcome role in guild {member.guild.id} and "
+                                            f"tried to notify the owner but could not send message to them neither."
+                                            f"Disabling welcome role feature either way.")
+
+                await guild_db.set_welcome_role(None)
 
             try:
                 await member.add_roles(role, reason="Welcome role.")
             except discord.Forbidden:
-                await member.guild.owner.send(f"I've tried to add the {role.mention} role "
-                                              f"to the new member {member.mention} "
-                                              f"but I'm missing permissions. Please make sure "
-                                              f"my role is higher than {role.mention} in the role hierarchy "
-                                              f"and my role has Manage Roles permission.")
+                try:
+                    await member.guild.owner.send(f"I've tried to add the {role.mention} role "
+                                                  f"to the new member {member.mention} "
+                                                  f"but I'm missing permissions. Please make sure "
+                                                  f"my role is higher than {role.mention} in the role hierarchy "
+                                                  f"and my role has Manage Roles permission.")
+                except discord.Forbidden:
+                    self.bot.logger.warning(f"I was not able to add the welcome role in guild {member.guild.id} and "
+                                            f"tried to notify the owner but could not send message to them neither.")
 
         # welcome message
         if guild_db.welcome_channel_id:
@@ -65,12 +75,14 @@ class AssignableRoles(
                 guild=member.guild,
                 author=member,
                 channel=channel)
+
             try:
                 await channel.send(content=content,
                                    embed=embed,
                                    delete_after=guild_db.welcome_delete_after)
             except (discord.Forbidden, discord.HTTPException):
-                pass
+                self.bot.logger.debug(f"Sending welcome message in guild ID {member.guild.id} failed "
+                                      f"due to insufficient permissions. Ignoring.")
             except Exception as e:
                 error_handling_cog: ErrorHandling = self.bot.get_cog('ErrorHandling')
                 return await error_handling_cog.on_error(
@@ -94,12 +106,14 @@ class AssignableRoles(
                 guild=member.guild,
                 author=member,
                 channel=channel)
+
             try:
                 await channel.send(content=content,
                                    embed=embed,
-                                   delete_after=guild_db.welcome_delete_after)
-            except discord.Forbidden:
-                pass
+                                   delete_after=guild_db.bye_delete_after)
+            except (discord.Forbidden, discord.HTTPException):
+                self.bot.logger.debug(f"Sending bye message in guild ID {member.guild.id} failed "
+                                      f"due to insufficient permissions. Ignoring.")
             except Exception as e:
                 error_handling_cog: ErrorHandling = self.bot.get_cog('ErrorHandling')
                 return await error_handling_cog.on_error(
@@ -110,13 +124,11 @@ class AssignableRoles(
     async def add_assignable_role(self,
                                   ctx: mido_utils.Context,
                                   *,
-                                  role: mido_utils.RoleConverter):
+                                  role: discord.Role):
         """Add an assignable role.
 
         You need the **Manage Roles** permissions to use this command.
         """
-        role: discord.Role
-
         if role.id in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is already in your assignable role list.")
 
@@ -129,13 +141,11 @@ class AssignableRoles(
     async def remove_assignable_role(self,
                                      ctx: mido_utils.Context,
                                      *,
-                                     role: mido_utils.RoleConverter):
+                                     role: discord.Role):
         """Remove a role from the assignable role list.
 
         You need the **Manage Roles** permissions to use this command.
         """
-        role: discord.Role
-
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError(f"Role {role.mention} is not in your assignable role list.")
 
@@ -183,14 +193,12 @@ class AssignableRoles(
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command(name='iam')
+    @commands.hybrid_command(name='join', aliases=['iam'])
     async def join_role(self,
                         ctx: mido_utils.Context,
                         *,
-                        role: mido_utils.RoleConverter):
+                        role: discord.Role):
         """Join an assignable role."""
-        role: discord.Role
-
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
 
@@ -212,14 +220,12 @@ class AssignableRoles(
 
         await ctx.send_success(f"Role {role.mention} has been successfully given to you!")
 
-    @commands.hybrid_command(name='iamnot', aliases=['iamn'])
+    @commands.hybrid_command(name='leave', aliases=['iamnot', 'iamn'])
     async def leave_role(self,
                          ctx: mido_utils.Context,
                          *,
-                         role: mido_utils.RoleConverter):
+                         role: discord.Role):
         """Leave an assignable role."""
-        role: discord.Role
-
         if role.id not in ctx.guild_db.assignable_role_ids:
             raise commands.UserInputError("That role is not assignable.")
 
@@ -233,10 +239,12 @@ class AssignableRoles(
 
     @commands.has_permissions(administrator=True)
     @commands.hybrid_command(aliases=['greet'])
-    async def welcome(self,
-                      ctx: mido_utils.Context,
-                      channel: mido_utils.ChannelConverter = None, *,
-                      message: commands.clean_content = None):
+    async def welcome(
+            self,
+            ctx: mido_utils.Context,
+            channel: discord.TextChannel = None, *,
+            message: commands.clean_content = None,
+    ):
         """Set up a channel to welcome new members with a customized message.
 
         **To use the default message**, leave the welcome message empty.
@@ -245,7 +253,7 @@ class AssignableRoles(
         Available placeholders: https://nadekobot.readthedocs.io/en/latest/placeholders/
 
         Examples:
-        `{ctx.prefix}welcome dm`
+        `{ctx.prefix}welcome`
         (welcomes new members in DMs using the default message)
         `{ctx.prefix}welcome #welcome`
         (welcomes new members in #welcome using the default message)
@@ -254,28 +262,26 @@ class AssignableRoles(
         `{ctx.prefix}welcome`
         (disables this feature)
         """
-        channel: discord.TextChannel | discord.DMChannel | None
-
-        if not channel:
+        if not channel and not message:
             if not ctx.guild_db.welcome_channel_id:
                 raise commands.BadArgument("Welcome feature has already been disabled.")
             else:
                 await ctx.guild_db.set_welcome(channel_id=None)
                 return await ctx.send_success("Welcome feature has been successfully disabled.")
+
+        if not channel:
+            channel_str = 'DMs'
+            channel_id = 1
         else:
-            if isinstance(channel, discord.DMChannel):
-                channel_str = 'DMs'
-                channel_id = 1
-            else:
-                channel_str = channel.mention
-                channel_id = channel.id
+            channel_str = channel.mention
+            channel_id = channel.id
 
-            if not message:
-                message = 'Welcome to the %server.name%, %user.mention%!'
+        if not message:
+            message = 'Welcome to the %server.name%, %user.mention%!'
 
-            await ctx.guild_db.set_welcome(channel_id=channel_id, msg=message)
-            await ctx.send_success(f"Success! New members will be welcomed in {channel_str} with this mesage:\n"
-                                   f"`{message}`")
+        await ctx.guild_db.set_welcome(channel_id=channel_id, msg=message)
+        await ctx.send_success(f"Success! New members will be welcomed in {channel_str} with this message:\n"
+                               f"`{message}`")
 
     @commands.has_permissions(administrator=True)
     @commands.hybrid_command(aliases=['goodbye'])
@@ -298,35 +304,31 @@ class AssignableRoles(
         `{ctx.prefix}bye`
         (disables this feature)
         """
-        if not channel:
+        if not channel and not message:
             if not ctx.guild_db.bye_channel_id:
                 raise commands.BadArgument("Goodbye feature has already been disabled.")
             else:
                 await ctx.guild_db.set_bye(channel_id=None)
                 return await ctx.send_success("Goodbye feature has been successfully disabled.")
 
-        else:
-            if not message:
-                message = '%user.mention% just left the server...'
+        if not message:
+            message = '%user.mention% just left the server...'
 
-            await ctx.guild_db.set_bye(channel_id=channel.id, msg=message)
-            await ctx.send_success(f"Success! "
-                                   f"I'll now say goodbye in {channel.mention} to members that leave "
-                                   f"with this mesage:\n"
-                                   f"`{message}`")
+        await ctx.guild_db.set_bye(channel_id=channel.id, msg=message)
+        await ctx.send_success(
+            f"Success! I'll now say goodbye in {channel.mention} to members that leave with this message:\n"
+            f"`{message}`")
 
     @commands.hybrid_command(name='welcomerole', aliases=['newmemberrole'])
     @commands.has_permissions(manage_roles=True)
     async def new_member_role(self,
                               ctx: mido_utils.Context,
                               *,
-                              role: mido_utils.RoleConverter = None):
+                              role: discord.Role = None):
         """Set a role to give to new members automatically.
 
         Provide no arguments to disable it. For example: `{ctx.prefix}welcomerole`
         """
-        role: discord.Role
-
         existing_welcome_role = ctx.guild_db.welcome_role_id
 
         if role:

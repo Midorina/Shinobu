@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import re
 from functools import cached_property
-from typing import Dict, Optional, TYPE_CHECKING, Union
+from typing import Dict, Optional, TYPE_CHECKING, Type, Union
 
 import aiohttp
 import asyncpg
@@ -176,6 +176,13 @@ class ShinobuBot(commands.AutoShardedBot):
 
         await self.process_commands(message)
 
+    async def get_context(self, origin: Union[discord.Message, discord.Interaction],
+                          cls: Type[commands.Context] = None) -> mido_utils.Context:
+        """
+        This function overwrites the libraries get_context() function to always use the custom Context class we have.
+        """
+        return await super(ShinobuBot, self).get_context(origin, cls=mido_utils.Context)
+
     async def process_commands(self, message: discord.Message):
         ctx: mido_utils.Context = await self.get_context(message, cls=mido_utils.Context)
 
@@ -236,7 +243,7 @@ class ShinobuBot(commands.AutoShardedBot):
         log_msg += f"{tab}Server\t: {server}\n" \
                    f"{tab}Channel\t: {channel}\n" \
                    f"{tab}User\t: {str(ctx.author)} ({ctx.author.id})\n" \
-                   f"{tab}Command\t: {ctx.message.content}"
+                   f"{tab}Command\t: {ctx.message.content or '/' + ctx.command.name}"
         if error:
             error_msg = str(error).split('\n')[0] or error.__class__.__name__
             log_msg += f"\n{tab}Error\t: {error_msg}"

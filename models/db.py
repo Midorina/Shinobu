@@ -715,16 +715,23 @@ class GuildDB(BaseDBModel):
 
     async def set_welcome_role(self, role_id: int = None):
         self.welcome_role_id = role_id
+
         await self.db.execute(
             """UPDATE guilds SET welcome_role_id=$1 WHERE id=$2;""",
             role_id, self.id)
 
     async def set_welcome(self, channel_id: int = None, msg: str = None):
+        self.welcome_channel_id = channel_id
+        self.welcome_message = msg
+
         await self.db.execute(
             """UPDATE guilds SET welcome_channel_id=$1, welcome_message=$2 WHERE id=$3;""",
             channel_id, msg, self.id)
 
     async def set_bye(self, channel_id: int = None, msg: str = None):
+        self.bye_channel_id = channel_id
+        self.bye_message = msg
+
         await self.db.execute(
             """UPDATE guilds SET bye_channel_id=$1, bye_message=$2 WHERE id=$3;""",
             channel_id, msg, self.id)

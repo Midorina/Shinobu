@@ -411,13 +411,12 @@ class Moderation(
                        ctx: mido_utils.Context,
                        member: mido_utils.MemberConverter,
                        *,
-                       role: mido_utils.RoleConverter):
+                       role: discord.Role):
         """Give a role to a member.
 
         You need the **Manage Roles** permissions to use this command.
         """
         member: discord.Member
-        role: discord.Role
 
         # already has that role check
         if role in member.roles:
@@ -433,13 +432,12 @@ class Moderation(
                           ctx: mido_utils.Context,
                           member: mido_utils.MemberConverter,
                           *,
-                          role: mido_utils.RoleConverter):
+                          role: discord.Role):
         """Remove a role from a member.
 
         You need the **Manage Roles** permissions to use this command.
         """
         member: discord.Member
-        role: discord.Role
 
         # if they don't have the role
         if role not in member.roles:
@@ -472,13 +470,11 @@ class Moderation(
     async def delete_role(self,
                           ctx: mido_utils.Context,
                           *,
-                          role: mido_utils.RoleConverter):
+                          role: discord.Role):
         """Delete a role from the server.
 
         You need the **Manage Roles** permissions to use this command.
         """
-        role: discord.Role
-
         await role.delete(reason=f'Deleted by {ctx.author}.')
 
         await ctx.send_success(f"Role `{role}` has been successfully deleted.")
@@ -530,10 +526,8 @@ class Moderation(
         await ctx.send_success(f"Successfully deleted **{len(deleted)}** messages.", delete_after=3.0)
 
     @commands.hybrid_command(name='inrole')
-    async def in_role(self, ctx: mido_utils.Context, *, role: mido_utils.RoleConverter):
+    async def in_role(self, ctx: mido_utils.Context, *, role: discord.Role):
         """See the people in a specific role."""
-        role: discord.Role
-
         ppl = [member for member in ctx.guild.members if role in member.roles]
 
         e = mido_utils.Embed(bot=ctx.bot, title=f"List of people in the role: {role}")

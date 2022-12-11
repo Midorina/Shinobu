@@ -379,7 +379,7 @@ class IPCServer:
             "memory"       : self.process.memory_info().rss / 10 ** 6,
             "threads"      : self.process.num_threads(),
             "cpu_usage"    : self.cpu_usage_cache,
-            "music_players": len(self.bot.wavelink.players) if hasattr(self.bot, 'wavelink') else 0
+            "music_players": len(self.bot.music_client.players) if self.bot.music_client else 0
         }
 
     async def get_patron(self, data: IPCMessage):

@@ -28,20 +28,6 @@ class MemberConverter(commands.MemberConverter):
 
         return member
 
-
-class RoleConverter(commands.RoleConverter):
-    async def convert(self, ctx: mido_utils.Context, argument) -> discord.Role:
-        try:
-            role = await super().convert(ctx, argument)
-        except commands.RoleNotFound:
-            role = discord.utils.find(lambda m: m.name.lower() == argument.lower(), ctx.guild.roles)
-
-        if not role:
-            raise commands.RoleNotFound(argument)
-
-        return role
-
-
 class UserConverter(commands.UserConverter):
     async def convert(self, ctx: mido_utils.Context, argument) -> Union[discord.User, discord.Object]:
         user = None
@@ -227,7 +213,7 @@ async def parse_text_with_context(text: str, bot,
     )
 
     try:
-        voice_player: mido_utils.VoicePlayer = bot.wavelink.get_player(guild.id, cls=mido_utils.VoicePlayer)
+        voice_player = bot.music_client.get_player(guild.id)
         if voice_player.is_playing:
             base_dict.update(
                 {

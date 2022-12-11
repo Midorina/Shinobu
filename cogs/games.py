@@ -468,10 +468,8 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
     @commands.hybrid_command()
     @commands.guild_only()
-    async def raffle(self, ctx: mido_utils.Context, role: mido_utils.RoleConverter = None):
+    async def raffle(self, ctx: mido_utils.Context, role: discord.Role = None):
         """Prints a random online user from the server, or from the online user in the specified role."""
-        role: discord.Role | None
-
         role = role or ctx.guild.default_role
         role_mention = role.mention if role != ctx.guild.default_role else '@everyone'  # discord.py bug
 

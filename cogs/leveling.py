@@ -233,14 +233,13 @@ class Leveling(
     @commands.has_permissions(manage_roles=True)
     @commands.guild_only()
     async def set_xp_role_reward(self, ctx: mido_utils.Context, level: mido_utils.Int32,
-                                 *, role: mido_utils.RoleConverter = None):
+                                 *, role: discord.Role = None):
         """Set a role reward for a specified level.
 
         Provide no role name in order to remove the role reward for that level.
 
         You need Manage Roles permission to use this command."""
         level: int
-        role: discord.Role | None
 
         already_existing_reward = await XpRoleReward.get_level_reward(bot=ctx.bot,
                                                                       guild_id=ctx.guild.id,

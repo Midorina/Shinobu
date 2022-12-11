@@ -40,8 +40,10 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
 
     @mido_utils.is_owner()
     @commands.command(aliases=["bl"])
-    async def blacklist(self, ctx: mido_utils.Context, bl_type: str, _id: mido_utils.Int64(), *, reason: str = None):
+    async def blacklist(self, ctx: mido_utils.Context, bl_type: str, _id: mido_utils.Int64, *, reason: str = None):
         """Blacklists a guild or a user (and every server they own)."""
+        _id: int
+
         # todo: parse type in a better way
         if bl_type not in ('user', 'guild'):
             raise commands.UserInputError("Invalid blacklist type. Please use `user` or `guild`.")
@@ -76,8 +78,10 @@ class Blacklist(commands.Cog, command_attrs=dict(hidden=True)):
 
     @mido_utils.is_owner()
     @commands.command(aliases=["ubl"])
-    async def unblacklist(self, ctx: mido_utils.Context, bl_type: str, _id: mido_utils.Int64()):
+    async def unblacklist(self, ctx: mido_utils.Context, bl_type: str, _id: mido_utils.Int64):
         """Removes a blacklisted guild or a user (and every server they own)."""
+        _id: int
+
         if bl_type not in ('user', 'guild'):
             raise commands.UserInputError("Invalid blacklist type. Please use `user` or `guild`.")
 
