@@ -66,7 +66,7 @@ class Leveling(
 
         return e
 
-    async def send_leaderboard_embed(self, ctx, top: List[Union[UserDB, MemberDB]], title: str):
+    async def send_leaderboard_embed(self, ctx: mido_utils.Context, top: List[Union[UserDB, MemberDB]], title: str):
         e = mido_utils.Embed(bot=self.bot, title=title)
 
         e.timestamp = datetime.utcnow()

@@ -12,6 +12,7 @@ from .exceptions import MessageTooLong
 
 if TYPE_CHECKING:  # only import for type checking purposes to avoid circular import errors
     from shinobu import ShinobuBot
+    from .context import Context
 
 
 class Embed(discord.Embed):
@@ -43,7 +44,7 @@ class Embed(discord.Embed):
         return filtered_blocks
 
     async def paginate(self,
-                       ctx,
+                       ctx: Context,
                        blocks: List[str],
                        item_per_page: int = 6,
                        add_page_info_to: str = 'footer',
@@ -230,7 +231,7 @@ class Embed(discord.Embed):
 
     @staticmethod
     async def get_msg(bot,
-                      ctx,
+                      ctx: Context,
                       author_id: int = None,
                       message_to_send: str = None,
                       must_be_int=False,

@@ -1077,7 +1077,7 @@ class CustomReaction(BaseDBModel):
         return True
 
     @classmethod
-    async def convert(cls, ctx, cr_id: int):  # ctx arg is passed no matter what
+    async def convert(cls, ctx: mido_utils.Context, cr_id: int):  # ctx arg is passed no matter what
         """Converts a Custom Reaction ID argument into local object."""
         try:
             return await CustomReaction.get(bot=ctx.bot, _id=int(cr_id))

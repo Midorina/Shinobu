@@ -1,11 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import discord
 from discord.ext import commands
 
 import mido_utils
 import models
 
+if TYPE_CHECKING:
+    from .context import Context
 
-def ensure_role_hierarchy(ctx, role: discord.Role = None):
+
+def ensure_role_hierarchy(ctx: Context, role: discord.Role = None):
     command_args = ctx.args + list(ctx.kwargs.values())
 
     try:

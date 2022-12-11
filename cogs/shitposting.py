@@ -53,7 +53,7 @@ class Shitposting(
         await ctx.send(embed=e)
 
     @commands.hybrid_command(aliases=['pp'])
-    async def penis(self, ctx, *, target: mido_utils.MemberConverter = None):
+    async def penis(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Learn the size of penis of someone."""
         user = target or ctx.author
         if isinstance(user, discord.Member):

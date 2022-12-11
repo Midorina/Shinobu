@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional, Tuple, Union
 
 import discord
-import wavelink
 from discord import ShardInfo
 from discord.ext import commands
 
@@ -27,6 +26,7 @@ class MemberConverter(commands.MemberConverter):
                 raise commands.MemberNotFound(argument)
 
         return member
+
 
 class UserConverter(commands.UserConverter):
     async def convert(self, ctx: mido_utils.Context, argument) -> Union[discord.User, discord.Object]:
@@ -211,18 +211,6 @@ async def parse_text_with_context(text: str, bot,
             "%shard.id"          : shard.id
         }
     )
-
-    try:
-        voice_player = bot.music_client.get_player(guild.id)
-        if voice_player.is_playing:
-            base_dict.update(
-                {
-                    "%music.queued%" : len(voice_player.song_queue),
-                    "%music.playing%": voice_player.current.title,
-                }
-            )
-    except (wavelink.ZeroConnectedNodes, AttributeError):
-        pass
 
     # Miscellaneous placeholders
     if message_obj:

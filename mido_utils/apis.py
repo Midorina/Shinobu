@@ -41,7 +41,7 @@ class MidoBotAPI:
         self.session = session
 
     @classmethod
-    def get_aiohttp_session(cls):
+    async def get_aiohttp_session(cls) -> ClientSession:
         return ClientSession(headers=cls.DEFAULT_HEADERS,
                              connector=aiohttp.TCPConnector(limit=0),
                              timeout=aiohttp.ClientTimeout(total=15))
@@ -174,7 +174,7 @@ class RedditAPI(CachedImageAPI):
                         word_list = sorted(word_list, key=lambda x: len(x), reverse=True)
                         for word in word_list:
                             if word in _id:
-                                # check if its replacing an already replaced word
+                                # check if it's replacing an already replaced word
                                 if already_replaced(word, replaced_words):
                                     continue
                                 # make the first letter capital
@@ -334,7 +334,7 @@ class NsfwDAPIs(CachedImageAPI):
         tags = await self._parse_tags(tags, guild_id)
 
         # disabled score filtering for gelbooru due to rate limits
-        # and Sankaku doesnt support score filtering
+        # and Sankaku doesn't support score filtering
         score = 100 if nsfw_type is NsfwDAPIs.DAPI.rule34 else 0
 
         # compare names instead of objects due to importlib.reload bug
@@ -713,7 +713,7 @@ class Google(MidoBotAPI):
             if simple[-1] == '/':
                 simple = simple[:-1]
 
-            # if its too long, cut it and add 3 dots to the end
+            # if it's too long, cut it and add 3 dots to the end
             if len(simple) > 63:
                 simple = simple[:60] + '...'
 
@@ -903,7 +903,7 @@ class SpotifyAPI(OAuthAPI):
                 yield next_page_content
                 next_page_url = next_page_content['next']
 
-    async def get_songs(self, ctx, url: str) -> List[mido_utils.BaseSong]:
+    async def get_songs(self, ctx: mido_utils.Context, url: str) -> List[mido_utils.BaseSong]:
         def track_or_item(item):
             return item['track'] if 'track' in item else item
 
@@ -915,7 +915,7 @@ class SpotifyAPI(OAuthAPI):
         if url_type == 'artist':
             _id = _id.split('?')[0]
 
-        # provide a market if 'si' param does not exist in the id or it's an artist
+        # provide a market if 'si' param does not exist in the id, or it's an artist
         params = {'market': 'DE'} if '?si=' not in _id else None
 
         if url_type in ('track', 'playlist', 'album', 'artist'):

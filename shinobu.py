@@ -66,7 +66,7 @@ class ShinobuBot(commands.AutoShardedBot):
         self.message_counter = 0
         self.command_counter = 0
 
-        self.http_session = mido_utils.MidoBotAPI.get_aiohttp_session()
+        self.http_session: aiohttp.ClientSession | None = None
 
         self.before_invoke(self.attach_db_objects_to_ctx)
 
@@ -360,6 +360,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
     async def setup_hook(self) -> None:
         self.uptime = mido_utils.Time()
+        self.http_session = await mido_utils.MidoBotAPI.get_aiohttp_session()
 
         # connect to IPC
         self.ipc = ipc.IPCClient(self)

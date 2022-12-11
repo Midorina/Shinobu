@@ -3,8 +3,12 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from discord.ext.commands import BadArgument, Converter, UserInputError
+
+if TYPE_CHECKING:
+    from .context import Context
 
 TIME_MULTIPLIERS = {
     's' : 1,
@@ -174,17 +178,17 @@ class Time(Converter):
 
         else:
             if days > 0:
-                str_blocks.append(f'{days:02d}')
+                str_blocks.append(f'{int(days):02d}')
             if hours > 0:
-                str_blocks.append(f'{hours:02d}')
+                str_blocks.append(f'{int(hours):02d}')
 
-            str_blocks.append(f'{minutes:02d}')
-            str_blocks.append(f'{seconds:02d}')
+            str_blocks.append(f'{int(minutes):02d}')
+            str_blocks.append(f'{int(seconds):02d}')
 
         return sep.join(str_blocks)
 
     @classmethod
-    async def convert(cls, ctx, argument: str) -> Time | None:  # ctx arg is passed no matter what
+    async def convert(cls, ctx: Context, argument: str) -> Time | None:  # ctx arg is passed no matter what
         """Converts a time length argument into MidoTime object."""
         length_in_seconds = 0
 
