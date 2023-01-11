@@ -342,8 +342,8 @@ class Gambling(
 
         await ctx.send(embed=e)
 
-    @commands.hybrid_command(aliases=['slot'])
-    async def slots(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter):
+    @commands.hybrid_command(aliases=['slots'])
+    async def slot(self, ctx: mido_utils.Context, amount: mido_utils.BetAmountConverter):
         """Play slots!
 
         You get;

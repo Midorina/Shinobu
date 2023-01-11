@@ -76,6 +76,9 @@ class Int64(commands.Converter[int]):
 
 class BetAmountConverter(Int64):
     async def convert(self, ctx: mido_utils.Context, bet_amount: str) -> int:
+        # make sure db objects are attached
+        await ctx.attach_db_objects()
+
         # TODO: add 'k' support
         if isinstance(bet_amount, str):
             if bet_amount == 'all':
