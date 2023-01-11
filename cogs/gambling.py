@@ -606,7 +606,7 @@ class Gambling(
 
     @wheel.before_invoke
     @betroll.before_invoke
-    @slots.before_invoke
+    @slot.before_invoke
     @coin_flip.before_invoke
     @give_cash.before_invoke
     async def ensure_not_broke_and_parse_bet_amount(self, ctx: mido_utils.Context):
