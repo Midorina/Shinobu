@@ -59,6 +59,9 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
         if not ctx.guild:
             raise commands.NoPrivateMessage
 
+        if ctx.command.name == "youtube":
+            return True
+
         return await mido_utils.is_patron(
             bot=self.bot, user_id=ctx.author.id, required_level=2, allow_owner=True,
             raise_exceptions=True)
@@ -363,8 +366,8 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
     @commands.hybrid_command(name='youtube', aliases=['yt'])
     async def _find_video(self, ctx: mido_utils.Context, *, query: str):
         """Find a YouTube video with the given query."""
-        song: list[mido_utils.Song] = await wavelink.NodePool.get_node().get_tracks(query=f'ytsearch:{query}',
-                                                                                    cls=mido_utils.Song)
+        song: list[wavelink.Track] = await wavelink.NodePool.get_node().get_tracks(query=f'ytsearch:{query}',
+                                                                                   cls=wavelink.Track)
         if not song:
             raise mido_utils.NotFoundError(f"Couldn't find anything that matches the query:\n"
                                            f"`{query}`.")
