@@ -114,14 +114,14 @@ class _InternalIPCHandler:
         self.port = self.bot.config.ipc_port
         self.identity = f'{self.bot.name}#{self.bot.cluster_id}'
 
-        self.ws: websockets.WebSocketClientProtocol = None
-        self.ws_task: asyncio.Task = None
+        self.ws: websockets.WebSocketClientProtocol | None = None
+        self.ws_task: asyncio.Task | None = None
 
         self.responses = asyncio.Queue()  # or LifoQueue() ?
         self.key_queue = []
 
         self.bot.loop.create_task(self._connect_to_ipc())
-        self.attempting_reconnect = False
+        self.attempting_reconnect = True
 
     @staticmethod
     def get_key() -> str:
@@ -145,6 +145,7 @@ class _InternalIPCHandler:
                 await self.ws.send(self.identity.encode('utf-8'))
                 await self.ws.recv()
                 self.bot.logger.debug("Websocket connection succeeded.")
+                self.attempting_reconnect = False
                 break
 
         self.assign_ws_task()
