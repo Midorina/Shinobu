@@ -104,7 +104,7 @@ class Logging(
 
     def get_guild_event_embed(self, guild: discord.Guild) -> mido_utils.Embed:
         e = mido_utils.Embed(bot=self.bot)
-        e.set_author(icon_url=guild.icon_url, name=str(guild))
+        e.set_author(icon_url=guild.icon.url, name=str(guild))
         e.timestamp = datetime.utcnow()
 
         return e
@@ -299,7 +299,7 @@ class Logging(
             await self.bot.send_as_webhook(guild_settings.logging_channel,
                                            content=content,
                                            embed=e,
-                                           file=file,
+                                           file=file or discord.utils.MISSING,
                                            allowed_mentions=discord.AllowedMentions.none())
         except discord.Forbidden:
             try:

@@ -518,7 +518,10 @@ class Moderation(
             number = 100
 
         # first delete the command msg
-        await ctx.message.delete()
+        try:
+            await ctx.message.delete()
+        except discord.NotFound:
+            pass
 
         # then delete the rest
         deleted = await ctx.channel.purge(limit=number, check=prune_check, bulk=True)
