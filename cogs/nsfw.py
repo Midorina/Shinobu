@@ -24,7 +24,8 @@ class NSFW(commands.Cog,
         self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
         self.fill_the_database.start()
 
-        self._cd = commands.CooldownMapping.from_cooldown(rate=1, per=2, type=commands.BucketType.guild)
+        self._cd: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(rate=1, per=2,
+                                                                                    type=commands.BucketType.guild)
 
         self.active_auto_nsfw_services = list()
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
@@ -228,7 +229,7 @@ class NSFW(commands.Cog,
         bucket = self._cd.get_bucket(ctx.message)
         retry_after = bucket.update_rate_limit()
         if retry_after:  # if on cooldown
-            raise commands.CommandOnCooldown(bucket, retry_after)
+            raise commands.CommandOnCooldown(bucket, retry_after, type=self._cd.type)
 
         if not isinstance(ctx.channel, discord.DMChannel) and not ctx.channel.is_nsfw():
             raise commands.NSFWChannelRequired(ctx.channel)
