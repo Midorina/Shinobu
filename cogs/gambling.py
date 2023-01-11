@@ -164,7 +164,7 @@ class Gambling(
         if isinstance(error, (commands.UserInputError, commands.BadArgument)) \
                 and not isinstance(error, commands.MissingRequiredArgument) \
                 and ctx.command in cmds \
-                and isinstance(ctx.args[2], int):  # if amount is parsed
+                and len(ctx.args) > 2 and isinstance(ctx.args[2], int):  # if amount is parsed
             await ctx.user_db.add_cash(ctx.args[2], reason=f"Command '{ctx.command.name}' errored.")
 
     @commands.hybrid_command(aliases=['$', 'money'])

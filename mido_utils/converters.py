@@ -80,7 +80,7 @@ class BetAmountConverter(Int64):
         await ctx.attach_db_objects()
 
         # TODO: add 'k' support
-        if isinstance(bet_amount, str):
+        if isinstance(bet_amount, str) and not bet_amount.isdigit():
             if bet_amount == 'all':
                 bet_amount = int(ctx.user_db.cash)
             elif bet_amount == 'half':
