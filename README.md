@@ -32,7 +32,12 @@ to contribute, that'd be appreciated :)
   10. Blizzard API (Searching Hearthstone Cards)
   11. Patreon API (Supporter Features)
 
-## Installation
+### Requirements
+
+- Git
+- Python 3.10
+
+### Installation
 
 1. Install the repo and change your directory to the script's location:
 
