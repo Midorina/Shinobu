@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import aioredis
 from aioredis import ConnectionPool, Redis
@@ -46,7 +46,7 @@ class LocalCache(BaseCache):
     def __init__(self, bot):
         super(LocalCache, self).__init__(bot)
 
-        self.cache: Dict[str, set] = dict()
+        self.cache: dict[str, set] = dict()
 
     async def get_keys(self):
         return self.cache.keys()

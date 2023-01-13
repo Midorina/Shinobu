@@ -4,7 +4,7 @@ import asyncio
 import math
 from copy import deepcopy
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import discord
 
@@ -24,7 +24,7 @@ class Embed(discord.Embed):
 
         # if default_footer is True and not hasattr(self, '_footer'):
         if use_default_footer is True:
-            self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar.url)
+            self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.display_avatar.url)
 
             self.timestamp = self.timestamp or datetime.utcnow()
 
@@ -32,7 +32,7 @@ class Embed(discord.Embed):
             self.set_image(url=image_url)
 
     @staticmethod
-    def filter_blocks(blocks: List[str]) -> List[str]:
+    def filter_blocks(blocks: list[str]) -> list[str]:
         filtered_blocks = list()
 
         for block in blocks:
@@ -45,7 +45,7 @@ class Embed(discord.Embed):
 
     async def paginate(self,
                        ctx: Context,
-                       blocks: List[str],
+                       blocks: list[str],
                        item_per_page: int = 6,
                        add_page_info_to: str = 'footer',
                        reactions: bool = True,
@@ -237,7 +237,7 @@ class Embed(discord.Embed):
                       must_be_int=False,
                       must_be_letter=False,
                       delete_response_after=False,
-                      timeout: float = 120) -> Optional[discord.Message]:
+                      timeout: float = 120) -> discord.Message | None:
         def message_check(m: discord.Message):
             if not author_id or m.author.id == author_id:
                 if m.channel == ctx.channel:
@@ -267,7 +267,7 @@ class Embed(discord.Embed):
     @staticmethod
     async def wait_for_reaction(bot: discord.AutoShardedClient,
                                 message: discord.Message,
-                                emotes_to_wait: List[str],
+                                emotes_to_wait: list[str],
                                 author_id: int = None,
                                 clear_reactions_after: bool = True,
                                 wait_for: float = 60.0) -> discord.Reaction:

@@ -37,7 +37,7 @@ class Shitposting(
         answer_index = random.randint(0, 19)
 
         e = mido_utils.Embed(bot=self.bot)
-        e.set_author(icon_url=ctx.author.avatar.url, name=ctx.author)
+        e.set_author(icon_url=ctx.author.display_avatar.url, name=ctx.author)
 
         e.add_field(name='❓ Question', value=question, inline=False)
         e.add_field(name='🎱 8ball', value=mido_utils.strings.eight_ball_responses[answer_index],
@@ -85,7 +85,7 @@ class Shitposting(
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar.replace(static_format='png')),
+            avatar_url=str(user.display_avatar.replace(static_format='png')),
             _type="gay")
 
         await ctx.send_simple_image(url)
@@ -96,7 +96,7 @@ class Shitposting(
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar.replace(static_format='png')),
+            avatar_url=str(user.display_avatar.replace(static_format='png')),
             _type="wasted")
 
         await ctx.send_simple_image(url)
@@ -107,7 +107,7 @@ class Shitposting(
         user = target or ctx.author
 
         url = await self.random_api.wasted_gay_or_triggered(
-            avatar_url=str(user.avatar.replace(static_format='png')),
+            avatar_url=str(user.display_avatar.replace(static_format='png')),
             _type="triggered")
 
         await ctx.send_simple_image(url)
@@ -140,7 +140,7 @@ class Shitposting(
 
         await ctx.send_simple_image(
             url=await self.random_api.youtube_comment(
-                avatar_url=str(user.avatar.replace(static_format='png')),
+                avatar_url=str(user.display_avatar.replace(static_format='png')),
                 username=user.display_name,
                 comment=comment)
         )

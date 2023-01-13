@@ -1,6 +1,5 @@
 import asyncio
 import random
-from typing import List
 
 import discord
 from discord.ext import commands, tasks
@@ -36,7 +35,7 @@ class NSFW(commands.Cog,
         self.cache: RedisCache = RedisCache(self.bot)
 
     async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags_str: str, limit=1, allow_video=True,
-                             guild_id: int = None, nsfw_source: NsfwDAPIs.DAPI = None) -> List[NSFWImage]:
+                             guild_id: int = None, nsfw_source: NsfwDAPIs.DAPI = None) -> list[NSFWImage]:
         tag_list = tags_str.replace(' ', '_').lower().split('+') if tags_str else []
 
         blacklisted_tags = await self._api.get_blacklisted_tags(guild_id)

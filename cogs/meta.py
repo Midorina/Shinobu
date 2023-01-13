@@ -67,7 +67,7 @@ class MidoHelp(commands.HelpCommand):
                 e.add_field(name=f'__{cog.qualified_name}__', value=f'{cmd_counter_cog} Commands')
 
         e.set_footer(text=f"{cmd_counter} Commands",
-                     icon_url=self.context.bot.user.avatar.url)
+                     icon_url=self.context.bot.user.display_avatar.url)
         e.timestamp = datetime.utcnow()
 
         await self.context.send(embed=e)
@@ -97,7 +97,7 @@ class MidoHelp(commands.HelpCommand):
                         inline=True)
 
         e.set_footer(text=f"{len(_commands)} Commands",
-                     icon_url=self.context.bot.user.avatar.url)
+                     icon_url=self.context.bot.user.display_avatar.url)
         e.timestamp = datetime.utcnow()
 
         await self.context.send(embed=e)
@@ -113,7 +113,7 @@ class MidoHelp(commands.HelpCommand):
             else:
                 embed.description = command.help.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
-        embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.avatar.url)
+        embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.display_avatar.url)
         embed.timestamp = datetime.utcnow()
 
     async def send_command_help(self, command, content=''):
@@ -285,7 +285,7 @@ class Meta(commands.Cog,
                             f"I am open sourced. Check out my code -> {mido_utils.resources.links.github}"
 
         embed.set_author(name=f"{self.bot.user}",
-                         icon_url=self.bot.user.avatar.url,
+                         icon_url=self.bot.user.display_avatar.url,
                          url=mido_utils.links.website)
 
         embed.add_field(name="Uptime",
@@ -323,7 +323,7 @@ class Meta(commands.Cog,
                         inline=True)
 
         if mido:  # intents disabled
-            embed.set_footer(icon_url=mido.avatar.url,
+            embed.set_footer(icon_url=mido.display_avatar.url,
                              text=f"Made by {mido} with ♥")
 
         await ctx.send(embed=embed)
@@ -393,7 +393,7 @@ class Meta(commands.Cog,
                         f"({mido_utils.links.invite_selectable.format(self.bot.user.id)})\n" \
                         f"[With No Permission]" \
                         f"({mido_utils.links.invite_none.format(self.bot.user.id)})"
-        e.set_thumbnail(url=self.bot.user.avatar.url)
+        e.set_thumbnail(url=self.bot.user.display_avatar.url)
 
         await ctx.send(embed=e)
 

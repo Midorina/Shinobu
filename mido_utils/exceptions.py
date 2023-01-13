@@ -1,9 +1,9 @@
-from typing import Any, Tuple, Union
+from typing import Any
 
 from discord.ext.commands import CommandError
 
 
-def better_is_instance(org, cls: Union[Any, Tuple[Any]]):
+def better_is_instance(org, cls: Any | tuple[Any]):
     # importlib.reload bug
     if isinstance(cls, tuple):
         return isinstance(org, cls) or str(type(org)) in [str(x) for x in cls]

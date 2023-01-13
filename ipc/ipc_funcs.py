@@ -5,7 +5,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING, Tuple, Type
+from typing import TYPE_CHECKING, Type
 
 import discord
 import psutil
@@ -208,7 +208,7 @@ class _InternalIPCHandler:
 
             await asyncio.sleep(0.01)  # small sleep to not hog
 
-    async def _get_responses(self, key: str) -> List[IPCMessage]:
+    async def _get_responses(self, key: str) -> list[IPCMessage]:
         ret = []
 
         try:
@@ -240,7 +240,7 @@ class _InternalIPCHandler:
 
         return ret
 
-    async def request(self, endpoint: str, **kwargs) -> List[IPCMessage]:
+    async def request(self, endpoint: str, **kwargs) -> list[IPCMessage]:
         key = self.get_key()
 
         # put the key in the queue so that the response doesn't get ignored
@@ -345,15 +345,15 @@ class IPCServer:
         return await cog.user_has_voted(data.user_id)
 
     async def get_user(self, data: IPCMessage):
-        user: Optional[discord.User] = self.bot.get_user(data.user_id)
+        user: discord.User | None = self.bot.get_user(data.user_id)
         if user:
             return {
-                'name'         : user.name,
-                'id'           : user.id,
-                'avatar'       : {'url': str(user.avatar.url)},
-                'discriminator': user.discriminator,
-                'bot'          : user.bot,
-                'display_name' : user.display_name
+                'name'          : user.name,
+                'id'            : user.id,
+                'display_avatar': {'url': str(user.display_avatar.url)},
+                'discriminator' : user.discriminator,
+                'bot'           : user.bot,
+                'display_name'  : user.display_name
             }
 
     async def reload(self, data: IPCMessage):
@@ -423,13 +423,13 @@ class IPCClient:
         responses = await self.handler.request('user_has_voted', user_id=user_id)
         return any(x.return_value for x in responses)
 
-    async def get_user(self, user_id: int) -> Optional[Type[SerializedObject]]:
+    async def get_user(self, user_id: int) -> Type[SerializedObject] | None:
         responses = await self.handler.request('get_user', user_id=user_id)
         for response in responses:
             if response.return_value:
                 return SerializedObject.from_dict(response.return_value)
 
-    async def reload(self, target_cog: str = None) -> List[Tuple[int, int]]:
+    async def reload(self, target_cog: str = None) -> list[tuple[int, int]]:
         """Returns (Cluster ID, Reloaded Cog Count]"""
         responses = await self.handler.request('reload', target_cog=target_cog)
 
@@ -441,16 +441,16 @@ class IPCClient:
     async def close_ipc(self, reason: str = 'Close called by bot.') -> None:
         await self.handler.close(reason)
 
-    async def get_cluster_stats(self) -> List[IPCMessage]:
+    async def get_cluster_stats(self) -> list[IPCMessage]:
         return await self.handler.request('get_cluster_stats')
 
-    async def get_patron(self, user_id: int) -> Optional[UserAndPledgerCombined]:
+    async def get_patron(self, user_id: int) -> UserAndPledgerCombined | None:
         responses = await self.handler.request('get_patron', user_id=user_id)
         for response in responses:
             if response.return_value is not None:
                 return UserAndPledgerCombined.from_str(response.return_value)
 
-    async def convert_currency(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
+    async def convert_currency(self, amount: float, base_currency: str, target_currency: str) -> tuple[float, float]:
         """Returns result and exchange rate"""
         responses = await self.handler.request('convert_currency',
                                                amount=amount,

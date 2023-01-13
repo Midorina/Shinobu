@@ -1,7 +1,6 @@
 from datetime import datetime
 from enum import Enum, auto
 from io import StringIO
-from typing import Dict, List, Optional, Union
 
 import discord
 from discord.ext import commands, tasks
@@ -34,7 +33,7 @@ class Logging(
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-        self.guild_config_cache: Dict[int, GuildLoggingDB] = dict()
+        self.guild_config_cache: dict[int, GuildLoggingDB] = dict()
 
         self.message_cache = list()
 
@@ -66,16 +65,16 @@ class Logging(
     async def on_cache_to_db_error(self, error):
         await self.bot.get_cog('ErrorHandling').on_error(error)
 
-    async def get_cached_message(self, guild_id: int, channel_id: int, message_id: int) -> Union[
-        discord.Message, LoggedMessage]:
+    async def get_cached_message(self, guild_id: int, channel_id: int,
+                                 message_id: int) -> discord.Message | LoggedMessage:
         for msg in self.message_cache:
             if msg.id == message_id:
                 return msg
 
         return await LoggedMessage.get(self.bot, guild_id, channel_id, message_id)
 
-    async def get_cached_message_bulk(self, guild_id: int, channel_id: int, message_ids: List[int]) -> List[
-        Union[discord.Message, LoggedMessage]]:
+    async def get_cached_message_bulk(self, guild_id: int, channel_id: int, message_ids: list[int]) -> list[
+        discord.Message | LoggedMessage]:
         ret = []
         for msg in self.message_cache:
             if msg.id in message_ids:
@@ -91,12 +90,12 @@ class Logging(
         self.cache_to_db_task.cancel()
 
     @staticmethod
-    def detailed(obj: Union[discord.Member, discord.Role, discord.TextChannel]) -> str:
+    def detailed(obj: discord.Member | discord.Role | discord.TextChannel) -> str:
         return f'{obj.mention} (**{str(obj)}**, `{obj.id}`)'
 
     def get_member_event_embed(self, member: discord.Member) -> mido_utils.Embed:
         e = mido_utils.Embed(bot=self.bot)
-        e.set_author(icon_url=member.avatar.url, name=str(member))
+        e.set_author(icon_url=member.display_avatar.url, name=str(member))
         e.set_footer(text=f"User ID: {member.id}")
         e.timestamp = datetime.utcnow()
 
@@ -141,7 +140,7 @@ class Logging(
 
         if logging_type is LoggedEvents.MEMBER_JOIN:
             member: discord.Member = args[0]
-            account_creation_date = mido_utils.Time(start_date=member.created_at, offset_naive=True)
+            account_creation_date = mido_utils.Time(start_date=member.created_at, offset_naive=False)
             if guild_settings.simple_mode_is_enabled:
                 e = self.get_member_event_embed(member)
                 e.title = "Member Joined"
@@ -166,8 +165,8 @@ class Logging(
 
         elif logging_type is LoggedEvents.VOICE_STATE_UPDATE:
             member: discord.Member
-            before: Optional[discord.VoiceState]
-            after: Optional[discord.VoiceState]
+            before: discord.VoiceState | None
+            after: discord.VoiceState | None
             member, before, after = args
             if before.channel == after.channel:
                 # if its just an event inside the same channel (like mute, deafen etc), return
@@ -216,9 +215,9 @@ class Logging(
 
         elif logging_type is LoggedEvents.MESSAGE_DELETE \
                 or logging_type is LoggedEvents.MESSAGE_EDIT:
-            payload: Union[discord.RawMessageDeleteEvent, discord.RawMessageUpdateEvent] = args[0]
+            payload: discord.RawMessageDeleteEvent | discord.RawMessageUpdateEvent = args[0]
 
-            msg: Union[discord.Message, LoggedMessage] = payload.cached_message or await self.get_cached_message(
+            msg: discord.Message | LoggedMessage = payload.cached_message or await self.get_cached_message(
                 payload.guild_id, payload.channel_id, payload.message_id)
 
             if logging_type is LoggedEvents.MESSAGE_EDIT:
@@ -268,7 +267,7 @@ class Logging(
             payload: discord.RawBulkMessageDeleteEvent = args[0]
             channel: discord.TextChannel = self.bot.get_channel(payload.channel_id)
 
-            msgs: List[Union[discord.Message, LoggedMessage]] = list(
+            msgs: list[discord.Message | LoggedMessage] = list(
                 payload.cached_messages) or await self.get_cached_message_bulk(payload.guild_id, payload.channel_id,
                                                                                payload.message_ids)
 
@@ -357,8 +356,8 @@ class Logging(
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member,
-                                    before: Optional[discord.VoiceState],
-                                    after: Optional[discord.VoiceState]):
+                                    before: discord.VoiceState | None,
+                                    after: discord.VoiceState | None):
         await self.base_logging_func(LoggedEvents.VOICE_STATE_UPDATE, member, before, after)
 
     @commands.hybrid_command(aliases=['log'])

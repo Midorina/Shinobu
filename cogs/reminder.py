@@ -84,7 +84,7 @@ class Reminder(commands.Cog, description='Use `{ctx.prefix}remind` to remind you
             raise commands.UserInputError("You don't have any reminders!")
 
         e = mido_utils.Embed(self.bot)
-        e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.avatar.url)
+        e.set_author(name=f"{ctx.author}'s Reminders", icon_url=ctx.author.display_avatar.url)
 
         blocks = []
         for i, reminder in enumerate(reminders, 1):

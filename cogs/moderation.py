@@ -339,7 +339,7 @@ class Moderation(
             raise commands.UserInputError(f"No logs have been found for user **{target}**.")
 
         e = mido_utils.Embed(self.bot)
-        e.set_author(icon_url=getattr(target, 'avatar', None),
+        e.set_author(icon_url=target.display_avatar.url if hasattr(target, 'display_avatar') else None,
                      name=f"Logs of {target}")
         e.set_footer(text=f"{len(logs)} Logs")
 
@@ -485,7 +485,7 @@ class Moderation(
         target: discord.Member | None
 
         user = target or ctx.author
-        e = mido_utils.Embed(bot=self.bot, image_url=user.avatar.url)
+        e = mido_utils.Embed(bot=self.bot, image_url=user.display_avatar.url)
         await ctx.send(embed=e)
 
     @set_role.before_invoke
@@ -629,7 +629,7 @@ class Moderation(
                 user = ctx.author
 
         embed = mido_utils.Embed(bot=ctx.bot)
-        embed.set_thumbnail(url=user.avatar.url)
+        embed.set_thumbnail(url=user.display_avatar.url)
 
         # name
         embed.add_field(name='Name', value=str(user))

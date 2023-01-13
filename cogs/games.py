@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
-from typing import Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
@@ -199,7 +199,7 @@ class Race:
             if m:
                 self.message_counter += 1
 
-    def add_participant(self, member_db: MemberDB, bet_amount: int) -> Tuple[Participant, bool]:
+    def add_participant(self, member_db: MemberDB, bet_amount: int) -> tuple[Participant, bool]:
         """Add a participant to the race and returns whether the participant just increased bet or not."""
         p = self.get_participant(member_db.id)
         if p:
@@ -229,7 +229,7 @@ class Race:
 
             return p, False
 
-    def get_participant(self, user_id: int) -> Optional[Participant]:
+    def get_participant(self, user_id: int) -> Participant | None:
         try:
             return next(p for p in self.participants if p.id == user_id)
         except StopIteration:
@@ -237,7 +237,7 @@ class Race:
 
     @property
     def prize_pool(self) -> int:
-        return sum(x.bet_amount for x in self.participants)
+        return sum(x.bet_amount for x in self.participants if x is not None and x.bet_amount is not None)
 
     @property
     def has_ended(self):
@@ -280,7 +280,7 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
             for category, words in words.items():
                 await HangmanWord.add_words(self.bot, category, words)
 
-    def get_or_create_race(self, ctx: mido_utils.Context) -> Tuple[Race, bool]:
+    def get_or_create_race(self, ctx: mido_utils.Context) -> tuple[Race, bool]:
         """Returns a race and whether it is just created or not"""
         for race in self.bot.active_races:
             if race.has_ended:

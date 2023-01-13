@@ -1,6 +1,5 @@
 import sys
 import traceback
-from typing import Dict
 
 import discord
 from discord.ext import commands
@@ -14,7 +13,7 @@ class ErrorHandling(commands.Cog):
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-        self.cooldown_warning_cache: Dict[int, mido_utils.Time] = dict()
+        self.cooldown_warning_cache: dict[int, mido_utils.Time] = dict()
 
     # this doesn't fire as a listener
     async def on_error(self, event: str, *args, **kwargs):
@@ -166,12 +165,19 @@ class ErrorHandling(commands.Cog):
                             mido_utils.IncompleteConfigFile)):
                 return await ctx.send_error(error)
 
-            if inform:
+        except (discord.Forbidden, discord.NotFound):
+            # all the checked error types above should just send a message to the user and return as they're expected
+            # so if we encounter any error while trying to inform the user, just return
+            if not inform:
+                return
+            # if we need to inform, we continue
+
+        if inform:
+            try:
                 await ctx.send_error("**A critical error has occurred!** "
                                      "My developer will work on fixing this as soon as possible.")
-
-        except discord.Forbidden:
-            return
+            except (discord.Forbidden, discord.NotFound):
+                pass
 
         exc_info = type(error), error, error.__traceback__
         error_msg = "\n".join(traceback.format_exception(*exc_info))

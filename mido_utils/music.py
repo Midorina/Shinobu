@@ -4,7 +4,7 @@ import asyncio
 import collections
 import itertools
 import random
-from typing import Any, List, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import discord
 import wavelink
@@ -76,7 +76,7 @@ class VoicePlayer(Player):
             else:
                 await self.song_queue.put(song)
 
-    async def _get_tracks_from_query(self, ctx: Context, query: str) -> List[Song]:
+    async def _get_tracks_from_query(self, ctx: Context, query: str) -> list[Song]:
         original_query = query
         if not query.startswith('http'):  # if not a link
             query = f'ytsearch:{query} Audio'

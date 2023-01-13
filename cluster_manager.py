@@ -5,7 +5,6 @@ import multiprocessing
 import os
 import signal
 import types
-from typing import List
 
 import requests
 
@@ -62,7 +61,7 @@ class Launcher:
         self.bot_name = bot_name
         self.bot_token = shinobu.ShinobuBot.get_config(bot_name, warn=True).token
 
-        self.clusters: List[Cluster] = []
+        self.clusters: list[Cluster] = []
         self.cluster_count = 0
 
         self.loop = loop or asyncio.new_event_loop()
@@ -179,7 +178,7 @@ class Launcher:
 
 
 class Cluster:
-    def __init__(self, bot_name: str, cluster_id: int, launcher: Launcher, shard_ids: List[int], max_shards: int,
+    def __init__(self, bot_name: str, cluster_id: int, launcher: Launcher, shard_ids: list[int], max_shards: int,
                  total_clusters: int):
         self.bot_name = bot_name
         self.launcher = launcher

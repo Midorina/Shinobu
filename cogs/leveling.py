@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING
 
 import discord
 from discord.ext import commands
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from shinobu import ShinobuBot
 
 
-def calculate_xp_data(total_xp: int) -> Tuple[int, int, int]:
+def calculate_xp_data(total_xp: int) -> tuple[int, int, int]:
     """Returns level, progress and required xp to level up"""
     base_xp = 30
     used_xp = 0
@@ -39,7 +39,7 @@ class Leveling(
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
 
-    async def get_xp_embed(self, user_or_member, db: Union[MemberDB, UserDB]) -> discord.Embed:
+    async def get_xp_embed(self, user_or_member, db: MemberDB | UserDB) -> discord.Embed:
         e = mido_utils.Embed(bot=self.bot, title=str(user_or_member))
 
         # if in guild
@@ -61,12 +61,12 @@ class Leveling(
                           f"**Global Rank**: #{await db.get_xp_rank()}"
                     )
 
-        e.set_thumbnail(url=user_or_member.avatar.url)
+        e.set_thumbnail(url=user_or_member.display_avatar.url)
         e.timestamp = datetime.utcnow()
 
         return e
 
-    async def send_leaderboard_embed(self, ctx: mido_utils.Context, top: List[Union[UserDB, MemberDB]], title: str):
+    async def send_leaderboard_embed(self, ctx: mido_utils.Context, top: list[UserDB | MemberDB], title: str):
         e = mido_utils.Embed(bot=self.bot, title=title)
 
         e.timestamp = datetime.utcnow()
@@ -76,7 +76,7 @@ class Leveling(
             if i == 1:
                 user_discord = await self.bot.get_user_using_ipc(user.id)
                 if user_discord:
-                    e.set_thumbnail(url=user_discord.avatar.url)
+                    e.set_thumbnail(url=user_discord.display_avatar.url)
 
             level, progress, required_xp_to_level_up = calculate_xp_data(user.total_xp)
             blocks.append(f"`#{i}` **{user.discord_name}**\n"

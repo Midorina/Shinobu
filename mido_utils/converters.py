@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-from typing import Optional, Tuple, Union
 
 import discord
 from discord import ShardInfo
@@ -29,7 +28,7 @@ class MemberConverter(commands.MemberConverter):
 
 
 class UserConverter(commands.UserConverter):
-    async def convert(self, ctx: mido_utils.Context, argument) -> Union[discord.User, discord.Object]:
+    async def convert(self, ctx: mido_utils.Context, argument) -> discord.User | discord.Object:
         user = None
 
         try:
@@ -100,7 +99,7 @@ class BetAmountConverter(Int64):
             return bet_amount
 
 
-def readable_bigint(number: Union[int, float], small_precision=False) -> str:
+def readable_bigint(number: int | float, small_precision=False) -> str:
     if small_precision:
         return '{:,.2f}'.format(number).rstrip('0').rstrip('.')
     else:
@@ -115,7 +114,7 @@ async def parse_text_with_context(text: str, bot,
                                   guild: discord.Guild,
                                   channel: discord.TextChannel,
                                   author: discord.Member = None,
-                                  message_obj: discord.Message = None) -> Tuple[Optional[str], Optional[discord.Embed]]:
+                                  message_obj: discord.Message = None) -> tuple[str | None, discord.Embed | None]:
     # missing or not-properly-working placeholders:
     # misc stuff
     # local time stuff
@@ -128,19 +127,19 @@ async def parse_text_with_context(text: str, bot,
     base_dict.update(
         {
             # old
-            "%mention%"     : bot_member.mention,
-            "%time%"        : datetime.utcnow().strftime('%Y-%m-%d, %H:%M:%S UTC'),
+            "%mention%"    : bot_member.mention,
+            "%time%"       : datetime.utcnow().strftime('%Y-%m-%d, %H:%M:%S UTC'),
 
             # new
-            "%bot.status%"  : str(bot_member.status),
-            "%bot.latency%" : bot.latency,
-            "%bot.name%"    : bot_member.display_name,
-            "%bot.mention%" : bot_member.mention,
+            "%bot.status%" : str(bot_member.status),
+            "%bot.latency%": bot.latency,
+            "%bot.name%"   : bot_member.display_name,
+            "%bot.mention%": bot_member.mention,
             "%bot.fullname%": str(bot_member),
             "%bot.time%"    : datetime.utcnow().strftime('%Y-%m-%d, %H:%M:%S UTC'),
             "%bot.discrim%" : str(bot_member).split('#')[-1],
             "%bot.id%"      : bot_member.id,
-            "%bot.avatar%": bot_member.avatar.url
+            "%bot.avatar%" : bot_member.display_avatar.url
         }
     )
 
@@ -183,7 +182,7 @@ async def parse_text_with_context(text: str, bot,
                 "%user.fullname%"    : str(author),
                 "%user.name%"        : author.display_name,
                 "%user.discrim%"     : str(author).split('#')[-1],
-                "%user.avatar%"      : author.avatar.url,
+                "%user.avatar%"      : author.display_avatar.url,
                 "%user.id%"          : author.id,
                 "%user.created_time%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),
                 "%user.created_date%": author.created_at.strftime('%Y-%m-%d, %H:%M:%S UTC'),

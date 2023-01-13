@@ -7,7 +7,7 @@ import logging
 import random
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Dict, List, Optional, TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING
 
 import aiohttp
 import asyncpraw
@@ -52,7 +52,7 @@ class MidoBotAPI:
                            headers: dict = None,
                            return_url=False,
                            return_json=False,
-                           return_text=False) -> Union[str, dict, ClientResponse]:
+                           return_text=False) -> str | dict | ClientResponse:
         try:
             async with self.session.get(url=url, params=params, headers=headers) as response:
                 if not response.status == 200:
@@ -94,7 +94,7 @@ class CachedImageAPI(MidoBotAPI):
 
         self.db = db
 
-    async def add_to_db(self, api_name: str, urls: List[str], tags: List[str] = None) -> None:
+    async def add_to_db(self, api_name: str, urls: list[str], tags: list[str] = None) -> None:
         if tags is None:
             tags = []
 
@@ -153,7 +153,7 @@ class RedditAPI(CachedImageAPI):
             )
 
     @staticmethod
-    def parse_gfycat_to_red_gif(urls: List[str]):
+    def parse_gfycat_to_red_gif(urls: list[str]):
         def already_replaced(new_word, _replaced_words):
             for _word in _replaced_words:
                 if new_word in _word:
@@ -232,9 +232,9 @@ class RedditAPI(CachedImageAPI):
     @staticmethod
     async def get_reddit_post_from_db(bot,
                                       category: str,
-                                      tags: List[str] = None,
+                                      tags: list[str] = None,
                                       limit: int = 1,
-                                      allow_gif: bool = False) -> List[models.CachedImage]:
+                                      allow_gif: bool = False) -> list[models.CachedImage]:
         subreddits = models.LocalSubreddit.get_with_related_tag(category=category, tags=tags)
         ret = await models.CachedImage.get_random(
             bot=bot,
@@ -293,11 +293,11 @@ class NsfwDAPIs(CachedImageAPI):
             return str(self.value)
 
         @classmethod
-        def get_all_as_dict(cls) -> Dict[str, str]:
+        def get_all_as_dict(cls) -> dict[str, str]:
             return {_dapi.name: _dapi.value for _dapi in cls if _dapi.name not in NsfwDAPIs.DISABLED}
 
         @classmethod
-        def get_all(cls) -> List[NsfwDAPIs.DAPI]:
+        def get_all(cls) -> list[NsfwDAPIs.DAPI]:
             return [_dapi for _dapi in cls if _dapi.name not in NsfwDAPIs.DISABLED]
 
     DISABLED = [DAPI.rule34.name]
@@ -330,7 +330,7 @@ class NsfwDAPIs(CachedImageAPI):
             limit: int = 1,
             allow_video=True,
             guild_id: int = None
-    ) -> List[models.NSFWImage]:
+    ) -> list[models.NSFWImage]:
         tags = await self._parse_tags(tags, guild_id)
 
         # disabled score filtering for gelbooru due to rate limits
@@ -377,7 +377,7 @@ class NsfwDAPIs(CachedImageAPI):
             return fetched_images
 
     async def get_bomb(self, tags, limit=3, allow_video: bool = True, guild_id: int = None, return_all: bool = False) -> \
-            List[models.NSFWImage]:
+            list[models.NSFWImage]:
         dapi_links = self.DAPI.get_all()
 
         sample = limit if limit <= len(dapi_links) else len(dapi_links)
@@ -414,7 +414,7 @@ class NsfwDAPIs(CachedImageAPI):
 
         return nsfw_db.blacklisted_tags + self.BLACKLISTED_TAGS
 
-    async def _parse_tags(self, tags: str, guild_id: int = None) -> List[str]:
+    async def _parse_tags(self, tags: str, guild_id: int = None) -> list[str]:
         if tags is None:
             return []
 
@@ -424,7 +424,7 @@ class NsfwDAPIs(CachedImageAPI):
 
         return list(filter(lambda x: x not in blacklisted_tags, tags))
 
-    async def is_blacklisted(self, tags: List[str], guild_id: int = None):
+    async def is_blacklisted(self, tags: list[str], guild_id: int = None):
         blacklisted_tags = await self.get_blacklisted_tags(guild_id)
 
         for tag in tags:
@@ -438,12 +438,12 @@ class NsfwDAPIs(CachedImageAPI):
 
     async def _get_nsfw_dapi(self,
                              dapi: NsfwDAPIs.DAPI,
-                             tags: List[str],
+                             tags: list[str],
                              allow_video: bool = True,
                              limit: int = 100,
                              score: int = 100,
-                             guild_id: int = None) -> List[models.NSFWImage]:
-        images: List[models.NSFWImage] = []
+                             guild_id: int = None) -> list[models.NSFWImage]:
+        images: list[models.NSFWImage] = []
 
         if f'score:>={score}' in tags:
             pass
@@ -519,14 +519,14 @@ class NsfwDAPIs(CachedImageAPI):
                             tags=None,
                             allow_video: bool = True,
                             limit: int = 100,
-                            guild_id: int = None) -> List[models.NSFWImage]:
+                            guild_id: int = None) -> list[models.NSFWImage]:
         if self.danbooru_credentials:
             key_params = {'api_key': self.danbooru_credentials['api_key'],
                           'login'  : self.danbooru_credentials['username']}
         else:
             key_params = {}
 
-        images: List[models.NSFWImage] = []
+        images: list[models.NSFWImage] = []
 
         response: dict = await self._request_get(NsfwDAPIs.DAPI.danbooru.value, params={
             'limit' : limit,
@@ -602,17 +602,17 @@ class SomeRandomAPI(MidoBotAPI):
             self.name: str = data.pop('name')
             self.id: int = int(data.pop('id'))
 
-            self.type: List[str] = data.pop('type')
-            self.species: List[str] = data.pop('species')
-            self.abilities: List[str] = data.pop('abilities')
+            self.type: list[str] = data.pop('type')
+            self.species: list[str] = data.pop('species')
+            self.abilities: list[str] = data.pop('abilities')
 
             self.height: str = data.pop('height')
             self.weight: str = data.pop('weight')
 
             self.base_experience: int = int(data.pop('base_experience'))
-            self.gender: List[str] = data.pop('gender')
+            self.gender: list[str] = data.pop('gender')
 
-            self.egg_groups: List[str] = data.pop('egg_groups')
+            self.egg_groups: list[str] = data.pop('egg_groups')
             self.stats = self.Stats(data.pop('stats'))
             self.family: dict = data.pop('family')
 
@@ -626,7 +626,7 @@ class SomeRandomAPI(MidoBotAPI):
     def __init__(self, session: ClientSession):
         super().__init__(session)
 
-    async def get_lyrics(self, title: str) -> Tuple[str, List[str], str]:
+    async def get_lyrics(self, title: str) -> tuple[str, list[str], str]:
         response = await self._request_get(self.URLs['lyrics'], params={'title': title}, return_json=True)
 
         title = f"{response['author']} - {response['title']}"
@@ -667,7 +667,7 @@ class SomeRandomAPI(MidoBotAPI):
                                        return_url=True)
 
     @staticmethod
-    def parse_lyrics_for_discord(lyrics: str) -> List[str]:
+    def parse_lyrics_for_discord(lyrics: str) -> list[str]:
         def split_lyrics(_lyrics: str):
             pages = []
 
@@ -782,13 +782,13 @@ class ExchangeAPI(MidoBotAPI):
         super().__init__(session)
 
         self.api_key = api_key
-        self.rate_cache: Optional[ExchangeAPI.Response] = None
+        self.rate_cache: ExchangeAPI.Response | None = None
 
     @property
     def api_url(self) -> str:
         return "https://currencyapi.net/api/v1/rates"
 
-    async def convert(self, amount: float, base_currency: str, target_currency: str) -> Tuple[float, float]:
+    async def convert(self, amount: float, base_currency: str, target_currency: str) -> tuple[float, float]:
         """Converts any amount of currency to the other one and returns both the result and the exchange rate."""
         if not self.rate_cache or self.rate_cache.updated.passed_seconds > 60 * 60:
             await self.update_rate_cache()
@@ -856,7 +856,7 @@ class OAuthAPI(MidoBotAPI):
     def auth_header(self):
         return {'Authorization': f'{self.token_type.title()} {self.token}'}
 
-    async def _request_get(self, link: str, *args, **kwargs) -> Union[str, dict, ClientResponse]:
+    async def _request_get(self, link: str, *args, **kwargs) -> str | dict | ClientResponse:
         """This overwrites the base method"""
         if not self.token or self.expire_date.end_date_has_passed:
             await self.get_token()
@@ -903,7 +903,7 @@ class SpotifyAPI(OAuthAPI):
                 yield next_page_content
                 next_page_url = next_page_content['next']
 
-    async def get_songs(self, ctx: mido_utils.Context, url: str) -> List[mido_utils.BaseSong]:
+    async def get_songs(self, ctx: mido_utils.Context, url: str) -> list[mido_utils.BaseSong]:
         def track_or_item(item):
             return item['track'] if 'track' in item else item
 
@@ -1005,7 +1005,7 @@ class PatreonAPI(OAuthAPI):
         self.token_type = 'Bearer'
         self.expire_date = mido_utils.Time(end_date=datetime.now(timezone.utc) + timedelta(days=30))
 
-        self.cache: List[models.UserAndPledgerCombined] = []
+        self.cache: list[models.UserAndPledgerCombined] = []
 
         self.cache_task = self.bot.loop.create_task(self.refresh_patron_cache_loop())
 
@@ -1061,11 +1061,11 @@ class PatreonAPI(OAuthAPI):
             temp_page = await self._request_get(first_page['links']['next'], **kwargs)
             yield temp_page
 
-    async def refresh_patron_cache(self) -> List[models.UserAndPledgerCombined]:
+    async def refresh_patron_cache(self) -> list[models.UserAndPledgerCombined]:
         responses = self._pagination_get(f'{self.api_url}/campaigns/{self.campaign_id}/pledges',
                                          return_json=True)
-        active_pledgers: List[models.PatreonPledger] = []
-        users: List[models.PatreonUser] = []
+        active_pledgers: list[models.PatreonPledger] = []
+        users: list[models.PatreonUser] = []
 
         async for page in responses:
             page: dict
@@ -1075,7 +1075,7 @@ class PatreonAPI(OAuthAPI):
             active_pledgers += [x for x in pledgers if x.attributes.declined_since is None]
             users += [models.PatreonUser(x) for x in page['included'] if x['type'] == 'user']
 
-        ret: List[models.UserAndPledgerCombined] = []
+        ret: list[models.UserAndPledgerCombined] = []
         for pledger in active_pledgers:
             user = next(x for x in users if x.id == pledger.relationships.patron.data.id)
             ret.append(models.UserAndPledgerCombined(user=user, pledger=pledger))
@@ -1084,7 +1084,7 @@ class PatreonAPI(OAuthAPI):
 
         return ret
 
-    def get_with_discord_id(self, discord_id: int) -> Optional[models.UserAndPledgerCombined]:
+    def get_with_discord_id(self, discord_id: int) -> models.UserAndPledgerCombined | None:
         try:
             return next(x for x in self.cache if x.discord_id == discord_id)
         except StopIteration:

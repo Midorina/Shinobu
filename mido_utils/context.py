@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import discord
 from asyncpg.pool import Pool
 from discord.ext import commands
@@ -28,7 +26,7 @@ class Context(commands.Context):
         self.time_created = Time()
 
     @property
-    def voice_client(self) -> Optional[VoicePlayer]:
+    def voice_client(self) -> VoicePlayer | None:
         return super().voice_client
 
     async def attach_db_objects(self):
@@ -47,7 +45,7 @@ class Context(commands.Context):
         self.bot.logger.debug('Attaching db objects to ctx took:\t' + time.passed_seconds_in_float_formatted)
 
     async def send_error(self,
-                         error_obj: Union[Exception, str],
+                         error_obj: Exception | str,
                          message_to_show_if_no_msg_is_included: str = 'Error!') -> discord.Message:
         msg = str(error_obj) or message_to_show_if_no_msg_is_included
 

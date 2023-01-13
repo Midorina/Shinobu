@@ -1,6 +1,5 @@
 import math
 import random
-from typing import List
 
 from discord.ext import commands
 from discord.ext.commands import UserInputError
@@ -40,7 +39,7 @@ class Waifu(
 
             # if it's the #1 user
             if i == 1 and user:
-                e.set_thumbnail(url=user.avatar.url)
+                e.set_thumbnail(url=user.display_avatar.url)
 
             e.description += f"`#{i}` **{user_db.waifu.price_readable}** " \
                              f"**{user_name}** claimed by **{claimer_name}**\n"
@@ -138,7 +137,7 @@ class Waifu(
             if target_db.waifu.affinity_id else 'Nobody'
 
         e = mido_utils.Embed(ctx.bot)
-        e.set_author(icon_url=target.avatar.url, name=f"Waifu {target}")
+        e.set_author(icon_url=target.display_avatar.url, name=f"Waifu {target}")
 
         e.add_field(name="Price", value=f'{mido_utils.readable_currency(target_db.waifu.price)} ', inline=True)
         e.add_field(name="Claimed by",
@@ -164,7 +163,7 @@ class Waifu(
 
         e.add_field(name="Gifts", value=gift_field_val, inline=False)
 
-        waifus: List[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.bot)
+        waifus: list[UserDB] = await UserDB.get_claimed_waifus_by(target.id, ctx.bot)
         waifus_field_val = '' if waifus else '-'
         if waifus:
             random.shuffle(waifus)

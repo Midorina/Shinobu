@@ -1,6 +1,5 @@
 import math
 import random
-from typing import List, Union
 
 import discord
 import topgg
@@ -47,7 +46,7 @@ class Gambling(
         self.bot = bot
 
         # donut event stuff
-        self.active_donut_events: List[DonutEvent] = list()
+        self.active_donut_events: list[DonutEvent] = list()
         self.active_donut_task = self.bot.loop.create_task(self.get_active_donut_events())
 
         # things that only cluster 0 provides
@@ -298,7 +297,7 @@ class Gambling(
             e.description = f"You flipped {random_side_name} and lost **{mido_utils.readable_currency(amount)}**."
             e.colour = mido_utils.Color.fail()
 
-        e.set_footer(icon_url=ctx.author.avatar.url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
+        e.set_footer(icon_url=ctx.author.display_avatar.url, text=f"Current cash: {ctx.user_db.cash_str_without_emoji}")
 
         return await ctx.send(embed=e)
 
@@ -453,7 +452,7 @@ class Gambling(
 
         e.description += '\n\n' + msg
 
-        e.set_footer(icon_url=ctx.author.avatar.url, text=str(ctx.author))
+        e.set_footer(icon_url=ctx.author.display_avatar.url, text=str(ctx.author))
 
         await ctx.send(embed=e)
 
@@ -471,7 +470,7 @@ class Gambling(
             if i == 1:
                 user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
-                    e.set_thumbnail(url=user_obj.avatar.url)
+                    e.set_thumbnail(url=user_obj.display_avatar.url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
                           f"{user.cash_str}")
@@ -497,7 +496,7 @@ class Gambling(
 
     @mido_utils.is_owner()
     @commands.command(name="award", aliases=['addcash'], hidden=True)
-    async def add_cash(self, ctx: mido_utils.Context, amount: Union[int, str], *, member: mido_utils.MemberConverter()):
+    async def add_cash(self, ctx: mido_utils.Context, amount: int | str, *, member: mido_utils.MemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
         await other_usr.add_cash(amount, reason="Rewarded by the bot owner.")
@@ -506,7 +505,7 @@ class Gambling(
 
     @mido_utils.is_owner()
     @commands.command(name="punish", aliases=['withdraw, removecash'], hidden=True)
-    async def remove_cash(self, ctx: mido_utils.Context, amount: Union[int, str], *,
+    async def remove_cash(self, ctx: mido_utils.Context, amount: int | str, *,
                           member: mido_utils.MemberConverter()):
         other_usr = await UserDB.get_or_create(bot=ctx.bot, user_id=member.id)
 
@@ -546,7 +545,7 @@ class Gambling(
         user = target or ctx.author
 
         e = mido_utils.Embed(bot=ctx.bot)
-        e.set_author(icon_url=user.avatar.url, name=f"Transaction History of {user}:")
+        e.set_author(icon_url=user.display_avatar.url, name=f"Transaction History of {user}:")
 
         blocks = []
         for transaction in await TransactionLog.get_users_logs(bot=ctx.bot, user_id=user.id):
@@ -597,7 +596,7 @@ class Gambling(
             if i == 1:
                 user_obj = await self.bot.get_user_using_ipc(user.id)
                 if user_obj:
-                    e.set_thumbnail(url=user_obj.avatar.url)
+                    e.set_thumbnail(url=user_obj.display_avatar.url)
 
             blocks.append(f"`#{i}` **{user.discord_name}**\n"
                           f"{user.eaten_cash_str}")

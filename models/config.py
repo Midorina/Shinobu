@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Dict, List, Union
 
 
 class ConfigFile:
@@ -10,7 +9,7 @@ class ConfigFile:
         # mandatory
         self.token: str = data.get('token')
         self.ipc_port: int = data.get('ipc_port')
-        self.db_credentials: Dict[str, str] = data.get('db_credentials')
+        self.db_credentials: dict[str, str] = data.get('db_credentials')
 
         # optional
         self.default_prefix: str = data.get('default_prefix', 's.')
@@ -25,18 +24,18 @@ class ConfigFile:
 
         self.base_waifu_price: int = data.get('base_waifu_price', 200)
 
-        self.owner_ids: List[int] = data.get('owner_ids', [90076279646212096])
+        self.owner_ids: list[int] = data.get('owner_ids', [90076279646212096])
 
-        self.cooldowns: Dict[str, int] = data.get('cooldowns', {"daily": 43200, "xp": 60})
+        self.cooldowns: dict[str, int] = data.get('cooldowns', {"daily": 43200, "xp": 60})
 
-        self.lavalink_nodes_credentials: List[Dict[str, Union[str, int]]] = data.get('lavalink_nodes_credentials')
-        self.topgg_credentials: Dict[str, Union[bool, str, int]] = data.get('topgg_credentials')
-        self.spotify_credentials: Dict[str, str] = data.get('spotify_credentials')
-        self.reddit_credentials: Dict[str, str] = data.get('reddit_credentials')
-        self.blizzard_credentials: Dict[str, str] = data.get('blizzard_credentials')
-        self.patreon_credentials: Dict[str, Union[str, int]] = data.get('patreon_credentials')
-        self.danbooru_credentials: Dict[str, str] = data.get('danbooru_credentials')
-        self.gelbooru_credentials: Dict[str, str] = data.get('gelbooru_credentials')
+        self.lavalink_nodes_credentials: list[dict[str, str | int]] = data.get('lavalink_nodes_credentials')
+        self.topgg_credentials: dict[str, bool | str | int] = data.get('topgg_credentials')
+        self.spotify_credentials: dict[str, str] = data.get('spotify_credentials')
+        self.reddit_credentials: dict[str, str] = data.get('reddit_credentials')
+        self.blizzard_credentials: dict[str, str] = data.get('blizzard_credentials')
+        self.patreon_credentials: dict[str, str | int] = data.get('patreon_credentials')
+        self.danbooru_credentials: dict[str, str] = data.get('danbooru_credentials')
+        self.gelbooru_credentials: dict[str, str] = data.get('gelbooru_credentials')
 
         self.currency_api_key: str = data.get('currency_api_key')
 

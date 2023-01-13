@@ -6,7 +6,7 @@ import random
 import re
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
-from typing import Dict, List, Optional, Set, TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING
 
 import aiohttp
 import asyncpg
@@ -336,7 +336,7 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
         return result['count']
 
     @classmethod
-    async def get_top_cash_eaten_people(cls, bot, limit: int = 10) -> List[UserDB]:
+    async def get_top_cash_eaten_people(cls, bot, limit: int = 10) -> list[UserDB]:
         top = await bot.db.fetch("""SELECT * FROM users ORDER BY eaten_cash DESC LIMIT $1;""", limit)
         return [UserDB(user, bot) for user in top]
 
@@ -368,12 +368,12 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
         return result['count']
 
     @classmethod
-    async def get_top_xp_people(cls, bot, limit: int = 10) -> List[UserDB]:
+    async def get_top_xp_people(cls, bot, limit: int = 10) -> list[UserDB]:
         top = await bot.db.fetch("""SELECT * FROM users ORDER BY xp DESC LIMIT $1;""", limit)
         return [UserDB(user, bot) for user in top]
 
     @classmethod
-    async def get_claimed_waifus_by(cls, user_id: int, bot) -> List:
+    async def get_claimed_waifus_by(cls, user_id: int, bot) -> list:
         ret = await bot.db.fetch("SELECT * FROM users WHERE waifu_claimer_id=$1;", user_id)
         return [cls(user, bot) for user in ret]
 
@@ -512,19 +512,19 @@ class GuildNSFWDB(BaseDBModel):
     def __init__(self, nsfw_db: Record, bot):
         super().__init__(nsfw_db, bot)
 
-        self.blacklisted_tags: List[str] = [tag.replace(' ', '_') for tag in nsfw_db.get('blacklisted_tags', [])]
+        self.blacklisted_tags: list[str] = [tag.replace(' ', '_') for tag in nsfw_db.get('blacklisted_tags', [])]
 
         # auto hentai
         self.auto_hentai_channel_id: int = nsfw_db.get('auto_hentai_channel_id')
-        self.auto_hentai_tags: List[str] = nsfw_db.get('auto_hentai_tags')
+        self.auto_hentai_tags: list[str] = nsfw_db.get('auto_hentai_tags')
         self.auto_hentai_interval: int = nsfw_db.get('auto_hentai_interval')
 
         # auto porn
         self.auto_porn_channel_id: int = nsfw_db.get('auto_porn_channel_id')
-        self.auto_porn_tags: List[str] = nsfw_db.get('auto_porn_tags')
+        self.auto_porn_tags: list[str] = nsfw_db.get('auto_porn_tags')
         self.auto_porn_interval: int = nsfw_db.get('auto_porn_interval')
 
-    def get_auto_nsfw_properties(self, nsfw_type: NSFWImage.Type) -> Tuple[int, List[str], int]:
+    def get_auto_nsfw_properties(self, nsfw_type: NSFWImage.Type) -> tuple[int, list[str], int]:
         if nsfw_type is NSFWImage.Type.hentai:
             return self.auto_hentai_channel_id, self.auto_hentai_tags, self.auto_hentai_interval
         elif nsfw_type is NSFWImage.Type.porn:
@@ -546,7 +546,7 @@ class GuildNSFWDB(BaseDBModel):
                                   "SET blacklisted_tags=ARRAY_REMOVE(blacklisted_tags, $1) WHERE id=$2;",
                                   tag.lower(), self.id)
 
-    async def set_auto_nsfw(self, nsfw_type: NSFWImage.Type, channel_id: int = None, tags: List[str] = None,
+    async def set_auto_nsfw(self, nsfw_type: NSFWImage.Type, channel_id: int = None, tags: list[str] = None,
                             interval: int = None):
         if nsfw_type is NSFWImage.Type.hentai:
             self.auto_hentai_channel_id = channel_id
@@ -627,7 +627,7 @@ class GuildDB(BaseDBModel):
         self.delete_commands: bool = guild_db.get('delete_commands')
         self.level_up_notifs_silenced: bool = guild_db.get('level_up_notifs_silenced')
         self.last_message_date: mido_utils.Time = mido_utils.Time(guild_db.get('last_message_date'))
-        self.xp_excluded_channels: List[int] = guild_db.get('xp_excluded_channels')
+        self.xp_excluded_channels: list[int] = guild_db.get('xp_excluded_channels')
 
         # welcome
         self.welcome_role_id: int = guild_db.get('welcome_role_id')
@@ -641,7 +641,7 @@ class GuildDB(BaseDBModel):
         self.bye_delete_after: int = guild_db.get('bye_delete_after') or None
 
         # assignable roles
-        self.assignable_role_ids: List[int] = guild_db.get('assignable_role_ids')
+        self.assignable_role_ids: list[int] = guild_db.get('assignable_role_ids')
         self.assignable_roles_are_exclusive: bool = guild_db.get('exclusive_assignable_roles')
 
         # music
@@ -656,7 +656,7 @@ class GuildDB(BaseDBModel):
         return [cls(guild, bot) for guild in ret]
 
     @staticmethod
-    async def update_active_guilds(bot, guild_id_list: List[int]):
+    async def update_active_guilds(bot, guild_id_list: list[int]):
         await bot.db.execute("UPDATE guilds SET last_message_date=NOW() WHERE id=ANY($1);", guild_id_list)
 
     @classmethod
@@ -707,7 +707,7 @@ class GuildDB(BaseDBModel):
         self.level_up_notifs_silenced = not self.level_up_notifs_silenced
         return self.level_up_notifs_silenced
 
-    async def get_top_xp_people(self, limit: int = 10) -> List[MemberDB]:
+    async def get_top_xp_people(self, limit: int = 10) -> list[MemberDB]:
         top = await self.db.fetch("""SELECT * FROM members WHERE members.guild_id=$1 ORDER BY xp DESC LIMIT $2;""",
                                   self.id, limit)
         return [await MemberDB.get_or_create(bot=self.bot, guild_id=member['guild_id'], member_id=member['user_id'])
@@ -828,7 +828,7 @@ class GuildLoggingDB(BaseDBModel):
         await self.db.execute("UPDATE guilds_logging SET modlog_channel_id=$1 WHERE id=$2;",
                               self.modlog_channel_id, self.id)
 
-    async def set_log_channel(self, channel_id: Optional[int]):
+    async def set_log_channel(self, channel_id: int | None):
         self.log_channel_id = channel_id
         await self.db.execute("UPDATE guilds_logging SET log_channel_id=$1 WHERE id=$2;",
                               self.log_channel_id, self.id)
@@ -862,12 +862,12 @@ class LoggedMessage(BaseDBModel):
         def __init__(self):
             self.id = 0
             self.mention = '__UNKNOWN__'
-            self.avatar = self.Avatar('https://cdn.discordapp.com/embed/avatars/0.png')
+            self.display_avatar = self.Avatar('https://cdn.discordapp.com/embed/avatars/0.png')
 
         def __str__(self):
             return '**UNKNOWN**'
 
-    def __init__(self, data: Union[Record, dict], bot):
+    def __init__(self, data: Record | dict, bot):
         super().__init__(data, bot)
         self.id: int = data.get('message_id')
 
@@ -877,7 +877,7 @@ class LoggedMessage(BaseDBModel):
 
         self.content: str = data.get('message_content') or '**UNKNOWN**'
 
-        self.embeds: List[discord.Embed] = [discord.Embed.from_dict(json.loads(x))
+        self.embeds: list[discord.Embed] = [discord.Embed.from_dict(json.loads(x))
                                             for x in data.get('message_embeds', [])]
 
         self.created_at: datetime = data.get('created_at') or datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -891,7 +891,7 @@ class LoggedMessage(BaseDBModel):
         return self.guild.get_channel(self.channel_id)
 
     @property
-    def author(self) -> Union[discord.Member, LoggedMessage.UnknownUser]:
+    def author(self) -> discord.Member | LoggedMessage.UnknownUser:
         return self.guild.get_member(self.author_id) or self.UnknownUser()
 
     @property
@@ -912,7 +912,7 @@ class LoggedMessage(BaseDBModel):
 
     @classmethod
     async def get_bulk(cls, bot, guild_id: int, channel_id: int,
-                       message_ids: Union[Set[int], List[int]]) -> List[LoggedMessage]:
+                       message_ids: set[int] | list[int]) -> list[LoggedMessage]:
         ret = []
 
         msgs = await bot.db.fetch("SELECT * FROM message_log WHERE message_id=ANY($1);", message_ids)
@@ -933,7 +933,7 @@ class LoggedMessage(BaseDBModel):
         await cls.insert_bulk(bot, [message])
 
     @classmethod
-    async def insert_bulk(cls, bot, messages: List[discord.Message]):
+    async def insert_bulk(cls, bot, messages: list[discord.Message]):
         tup = (
             (message.id,
              message.author.id,
@@ -1171,7 +1171,7 @@ class NSFWImage:
         porn = auto()
         hentai = auto()
 
-    def __init__(self, url: str, tags: List[str] = None, api_name: str = None):
+    def __init__(self, url: str, tags: list[str] = None, api_name: str = None):
         self.url = url
         self.tags = tags or []
         self.api_name = api_name
@@ -1252,7 +1252,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
         super().__init__(data, bot)
 
         self.url: str = data.get('url')
-        self.tags: List[str] = data.get('tags', [])
+        self.tags: list[str] = data.get('tags', [])
         # self.api_name: str = data.get('api_name')
         self.api_name: str = 'Shinobu NSFW API'
 
@@ -1261,9 +1261,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
     @classmethod
     async def get_random(cls,
                          bot,
-                         subreddits: List[models.LocalSubreddit],
+                         subreddits: list[models.LocalSubreddit],
                          limit: int = 1,
-                         allow_gif=False) -> List[CachedImage]:
+                         allow_gif=False) -> list[CachedImage]:
         if not allow_gif:
             ret = await bot.db.fetch("SELECT * FROM api_cache "
                                      "WHERE api_name = ANY($1) AND is_gif IS FALSE "
@@ -1283,7 +1283,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
         await self.bot.db.execute("UPDATE api_cache SET report_count = report_count + 1 WHERE id=$1;", self.id)
 
     @classmethod
-    async def get_oldest_checked_images(cls, bot, limit: int = 100) -> List[CachedImage]:
+    async def get_oldest_checked_images(cls, bot, limit: int = 100) -> list[CachedImage]:
         images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check DESC LIMIT $1;", limit)
 
         return [cls(img, bot) for img in images]
@@ -1291,7 +1291,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
     async def delete(self):
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
-    async def url_is_working(self) -> Optional[bool]:
+    async def url_is_working(self) -> bool | None:
         self.bot.logger.debug(f"Checking image: {self.url}")
         try:
             async with self.bot.http_session.get(url=self.url) as response:
@@ -1345,13 +1345,13 @@ class DonutEvent(BaseDBModel):
 
         self.start_date: mido_utils.Time = mido_utils.Time(start_date=data.get('start_date'))
         self.end_date: mido_utils.Time = mido_utils.Time(end_date=data.get('end_date'))
-        self.attenders: Set[int] = set(data.get('attenders'))
+        self.attenders: set[int] = set(data.get('attenders'))
 
     @property
     def channel(self) -> discord.TextChannel:
         return self.bot.get_channel(self.channel_id)
 
-    async def fetch_message_object(self) -> Optional[discord.Message]:
+    async def fetch_message_object(self) -> discord.Message | None:
         if self.channel:
             try:
                 return await self.channel.fetch_message(self.message_id)
@@ -1364,14 +1364,14 @@ class DonutEvent(BaseDBModel):
                   event_id: int = None,
                   guild_id: int = None,
                   channel_id: int = None,
-                  message_id: int = None) -> List[DonutEvent]:
+                  message_id: int = None) -> list[DonutEvent]:
         ret = await bot.db.fetch("""SELECT * FROM donut_events 
         WHERE id=$1 OR guild_id=$2 OR channel_id=$3 OR message_id=$4;""", event_id, guild_id, channel_id, message_id)
 
         return [cls(x, bot) for x in ret]
 
     @classmethod
-    async def get_active_ones(cls, bot) -> List[DonutEvent]:
+    async def get_active_ones(cls, bot) -> list[DonutEvent]:
         ret = await bot.db.fetch("SELECT * FROM donut_events "
                                  "WHERE guild_id=ANY($1) AND message_is_deleted IS FALSE;",
                                  [x.id for x in bot.guilds])
@@ -1458,7 +1458,7 @@ class TransactionLog(BaseDBModel):
         self.date: mido_utils.Time = mido_utils.Time(start_date=data.get('date'))
 
     @classmethod
-    async def get_users_logs(cls, bot, user_id: int) -> List[TransactionLog]:
+    async def get_users_logs(cls, bot, user_id: int) -> list[TransactionLog]:
         ret = await bot.db.fetch("SELECT * FROM transaction_history WHERE user_id=$1 ORDER BY date DESC;", user_id)
 
         return [cls(x, bot) for x in ret]
@@ -1545,7 +1545,7 @@ class XpRoleReward(BaseDBModel):
         return cls(ret, bot)
 
     @classmethod
-    async def get_level_reward(cls, bot, guild_id: int, level: int) -> Optional[XpRoleReward]:
+    async def get_level_reward(cls, bot, guild_id: int, level: int) -> XpRoleReward | None:
         ret = await bot.db.fetchrow("SELECT * FROM guilds_xp_role_rewards WHERE guild_id=$1 AND level=$2;",
                                     guild_id, level)
         if ret:
@@ -1554,7 +1554,7 @@ class XpRoleReward(BaseDBModel):
             return None
 
     @classmethod
-    async def get_all(cls, bot, guild_id) -> List[XpRoleReward]:
+    async def get_all(cls, bot, guild_id) -> list[XpRoleReward]:
         ret = await bot.db.fetch("SELECT * FROM guilds_xp_role_rewards WHERE guild_id=$1;", guild_id)
         return [cls(reward, bot) for reward in ret]
 
@@ -1587,7 +1587,7 @@ class HangmanWord(BaseDBModel):
         return self.word
 
     @classmethod
-    async def get_categories_and_counts(cls, bot) -> Dict[str, int]:
+    async def get_categories_and_counts(cls, bot) -> dict[str, int]:
         ret = await bot.db.fetch("SELECT category, COUNT(category) AS count FROM hangman_words GROUP BY category;")
         return {category: count for category, count in ret}
 
@@ -1598,7 +1598,7 @@ class HangmanWord(BaseDBModel):
         return cls(ret, bot)
 
     @classmethod
-    async def add_words(cls, bot, category: str, words: List[str]) -> None:
+    async def add_words(cls, bot, category: str, words: list[str]) -> None:
         await bot.db.executemany(
             "INSERT INTO hangman_words(category, word) VALUES ($1, $2) ON CONFLICT DO NOTHING;",
             ((category, word) for word in words)
@@ -1649,11 +1649,11 @@ CREATE TABLE IF NOT EXISTS guilds_repeat
         self.created_by_id: int = data.get('created_by')
 
     @property
-    def guild(self) -> Optional[discord.Guild]:
+    def guild(self) -> discord.Guild | None:
         return self.bot.get_guild(self.guild_id)
 
     @property
-    def channel(self) -> Optional[discord.TextChannel]:
+    def channel(self) -> discord.TextChannel | None:
         return self.bot.get_channel(self.channel_id)
 
     @classmethod
@@ -1674,14 +1674,14 @@ CREATE TABLE IF NOT EXISTS guilds_repeat
         return cls(created, bot)
 
     @classmethod
-    async def get_all(cls, bot) -> List[RepeatDB]:
+    async def get_all(cls, bot) -> list[RepeatDB]:
         guild_ids = [x.id for x in bot.guilds]
         ret = await bot.db.fetch("SELECT * FROM guilds_repeat WHERE guild_id=ANY($1);", guild_ids)
 
         return [cls(repeat, bot) for repeat in ret]
 
     @classmethod
-    async def get_of_a_guild(cls, bot, guild_id: int) -> List[RepeatDB]:
+    async def get_of_a_guild(cls, bot, guild_id: int) -> list[RepeatDB]:
         ret = await bot.db.fetch("SELECT * FROM guilds_repeat WHERE guild_id=$1;", guild_id)
 
         return sorted((cls(repeat, bot) for repeat in ret), key=lambda x: x.creation_date.start_date)

@@ -1,6 +1,5 @@
 import asyncio
 import math
-from typing import Optional
 
 import discord
 import wavelink
@@ -17,7 +16,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
 
         self.forcekip_by_default = True
 
-        self.spotify_api: Optional[mido_utils.SpotifyAPI] = None
+        self.spotify_api: mido_utils.SpotifyAPI | None = None
 
         if self.bot.config.spotify_credentials:
             self.spotify_api = mido_utils.SpotifyAPI(self.bot.http_session, self.bot.config.spotify_credentials)

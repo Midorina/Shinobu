@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import List
-
 from mido_utils.exceptions import NotFoundError
 
 __all__ = ['LocalSubreddit']
 
 
 class LocalSubreddit:
-    def __init__(self, exact_subreddit_name: str, tags: List[str]):
+    def __init__(self, exact_subreddit_name: str, tags: list[str]):
         self.subreddit_name = exact_subreddit_name
 
         self.tags = tags
@@ -18,7 +16,7 @@ class LocalSubreddit:
         return f'reddit_{self.subreddit_name}'
 
     @classmethod
-    def get_with_related_tag(cls, category: str, tags: List[str] = None) -> List[LocalSubreddit]:
+    def get_with_related_tag(cls, category: str, tags: list[str] = None) -> list[LocalSubreddit]:
         if category == 'porn':
             subreddits = _PORN_SUBREDDITS
         elif category == 'hentai':
@@ -44,7 +42,7 @@ class LocalSubreddit:
         return ret
 
     @classmethod
-    def get_all(cls) -> List[LocalSubreddit]:
+    def get_all(cls) -> list[LocalSubreddit]:
         base = list(_PORN_SUBREDDITS)
         base.extend(_HENTAI_SUBREDDITS)
         base.extend(_MEME_SUBREDDITS)

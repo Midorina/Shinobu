@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
 
 __all__ = ['Waifu', 'Item']
 
@@ -48,7 +47,7 @@ class Item:
             return None
 
     @classmethod
-    def get_emotes_and_amounts(cls, items: List[Item]) -> List[Tuple[str, int]]:
+    def get_emotes_and_amounts(cls, items: list[Item]) -> list[tuple[str, int]]:
         items = list(sorted(items, key=lambda x: x.price))
         clean_dict = {}
         for item in items:
@@ -113,7 +112,7 @@ class Waifu:
         self.affinity_changes: int = self.user.data.get('waifu_affinity_changes')
         self.divorce_count: int = self.user.data.get('waifu_divorce_count')
 
-        self.items: List[Item] = [Item.get_with_id(x) for x in self.user.data.get('waifu_items')]
+        self.items: list[Item] = [Item.get_with_id(x) for x in self.user.data.get('waifu_items')]
 
     @property
     def price_readable(self) -> str:

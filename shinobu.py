@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import re
 from functools import cached_property
-from typing import Dict, Optional, TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Type
 
 import aiohttp
 import asyncpg
@@ -71,7 +71,7 @@ class ShinobuBot(commands.AutoShardedBot):
         self.before_invoke(self.attach_db_objects_to_ctx)
 
         self.prefix_cache = dict()
-        self.webhook_cache: Dict[int, discord.Webhook] = dict()
+        self.webhook_cache: dict[int, discord.Webhook] = dict()
 
         self.exit_code: int = 1  # 1 == restart me
         self.updated_status: bool = False
@@ -92,7 +92,7 @@ class ShinobuBot(commands.AutoShardedBot):
         return models.ConfigFile.get_config(bot_name, warn=warn)
 
     @property
-    def log_channel(self) -> Optional[discord.TextChannel]:
+    def log_channel(self) -> discord.TextChannel | None:
         return self.get_channel(self.config.log_channel_id)
 
     async def get_prefix(self, message):
@@ -176,7 +176,7 @@ class ShinobuBot(commands.AutoShardedBot):
 
         await self.process_commands(message)
 
-    async def get_context(self, origin: Union[discord.Message, discord.Interaction],
+    async def get_context(self, origin: discord.Message | discord.Interaction,
                           cls: Type[commands.Context] = None) -> mido_utils.Context:
         """
         This function overwrites the libraries get_context() function to always use the custom Context class we have.
@@ -275,7 +275,7 @@ class ShinobuBot(commands.AutoShardedBot):
         """
         await ctx.attach_db_objects()
 
-    async def get_user_using_ipc(self, user_id: int) -> Optional[Union[discord.User, ipc.SerializedObject]]:
+    async def get_user_using_ipc(self, user_id: int) -> discord.User | ipc.SerializedObject | None:
         return super().get_user(user_id) or await self.ipc.get_user(user_id)
 
     async def send_as_webhook(self, channel: discord.TextChannel, *args, **kwargs):
@@ -289,7 +289,8 @@ class ShinobuBot(commands.AutoShardedBot):
                 except StopIteration:
                     webhook = self.webhook_cache[channel.id] = await channel.create_webhook(name=self.user.display_name)
 
-            await webhook.send(*args, **kwargs, username=self.user.display_name, avatar_url=self.user.avatar.url)
+            await webhook.send(*args, **kwargs, username=self.user.display_name,
+                               avatar_url=self.user.display_avatar.url)
 
         except discord.Forbidden as e:
             # probably no manage webhooks permission
