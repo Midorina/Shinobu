@@ -273,6 +273,7 @@ class ShinobuBot(commands.AutoShardedBot):
         This func is used as a before_invoke function
         which attaches db objects when a command is about to be called.
         """
+        await ctx.defer()  # always defer for commands that take long time to execute
         await ctx.attach_db_objects()
 
     async def get_user_using_ipc(self, user_id: int) -> discord.User | ipc.SerializedObject | None:
