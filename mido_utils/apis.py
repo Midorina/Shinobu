@@ -396,6 +396,8 @@ class NsfwDAPIs(CachedImageAPI):
                 images.extend(result)
 
         try:
+            # raise same error as random.sample() would raise if "return_all" is requested
+            # because it will be handled below
             if return_all:
                 raise ValueError
 
@@ -403,8 +405,8 @@ class NsfwDAPIs(CachedImageAPI):
         except ValueError:
             if not images:
                 raise mido_utils.NotFoundError
-            else:
-                return images
+
+            return images
 
     async def get_blacklisted_tags(self, guild_id: int = None):
         if not guild_id:
