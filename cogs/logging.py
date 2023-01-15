@@ -37,8 +37,9 @@ class Logging(
 
         self.message_cache = list()
 
-        # delete old messages
-        self.bot.loop.create_task(LoggedMessage.delete_old_messages(self.bot))
+        # delete old messages if we're the first cluster
+        if self.bot.cluster_id == 0:
+            self.bot.loop.create_task(LoggedMessage.delete_old_messages(self.bot))
 
         self.cache_to_db_task.start()
 
