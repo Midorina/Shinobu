@@ -88,7 +88,7 @@ class BetAmountConverter(Int64):
                 raise commands.BadArgument("Please input a proper amount! (`all` or `half`)")
 
         # make sure it's within 64 bits
-        bet_amount = await super(BetAmountConverter, self).convert(ctx, str(bet_amount))
+        bet_amount = await super().convert(ctx, str(bet_amount))
 
         if bet_amount > ctx.user_db.cash:
             raise mido_utils.InsufficientCash

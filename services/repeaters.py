@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 class RepeaterService(BaseShinobuService):
     def __init__(self, bot: ShinobuBot):
-        super(RepeaterService, self).__init__(bot)
+        super().__init__(bot)
 
         self.active_repeaters = list()
 

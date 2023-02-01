@@ -94,7 +94,7 @@ def redis_falls_back_to_local(func):
 
 class RedisCache(LocalCache):
     def __init__(self, bot: ShinobuBot):
-        super(RedisCache, self).__init__(bot)
+        super().__init__(bot)
 
         self._pool: ConnectionPool = aioredis.ConnectionPool.from_url(
             self.bot.config.redis_host,

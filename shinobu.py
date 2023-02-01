@@ -181,7 +181,7 @@ class ShinobuBot(commands.AutoShardedBot):
         """
         This function overwrites the libraries get_context() function to always use the custom Context class we have.
         """
-        return await super(ShinobuBot, self).get_context(origin, cls=mido_utils.Context)
+        return await super().get_context(origin, cls=mido_utils.Context)
 
     async def process_commands(self, message: discord.Message):
         ctx: mido_utils.Context = await self.get_context(message, cls=mido_utils.Context)

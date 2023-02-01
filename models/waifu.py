@@ -42,7 +42,7 @@ class Item:
     @classmethod
     def find(cls, item_name: str):
         try:
-            return next(x for x in _ITEMS if x.name.lower() == item_name)
+            return next(x for x in _ITEMS if x.name.lower() == item_name.lower())
         except StopIteration:
             return None
 

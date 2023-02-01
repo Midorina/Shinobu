@@ -80,7 +80,7 @@ class Race:
 
             self.emoji = emoji
 
-            self._bet_amount = bet_amount
+            self._bet_amount = bet_amount or 0
             self.previous_bet = bet_amount
 
             self.progress = 0
@@ -204,7 +204,7 @@ class Race:
         p = self.get_participant(member_db.id)
         if p:
             # if they entered the same or less amount
-            if bet_amount <= p.bet_amount:
+            if p.bet_amount is not None and bet_amount <= p.bet_amount:
                 raise mido_utils.RaceError(
                     f"{p.emoji} **You can only increase your bet.** "
                     f"Your current bet amount is **{mido_utils.readable_currency(p.bet_amount)}**.")
@@ -379,10 +379,10 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
                 raise mido_utils.TimedOut(f"No one tried to solve the last Hangman game, so its shut down. "
                                           f"You can start a new game by typing `{ctx.prefix}hangman`.")
 
-            user_guess: str = user_input.content
+            user_guess: str = user_input.content.lower()
 
             if len(user_guess) != 1:  # tried to guess the word or a random msg
-                if user_guess.lower() == word:  # found it
+                if user_guess == word.lower():  # found it
                     end = True
                     update = True
                 continue
@@ -402,9 +402,9 @@ class Games(commands.Cog, description="Play race with friends (with bets if you 
 
                 guessed_letters.append(user_guess)
 
-                if user_guess in word:
+                if user_guess in word.lower():
                     for i, c in enumerate(word):  # update the censored word
-                        if c == user_guess:
+                        if c.lower() == user_guess:
                             word_censored = word_censored[:i] + c + word_censored[i + 1:]
 
                     e.colour = mido_utils.Color.success()

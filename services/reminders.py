@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 class ReminderService(BaseShinobuService):
     def __init__(self, bot: ShinobuBot):
-        super(ReminderService, self).__init__(bot)
+        super().__init__(bot)
 
         self.active_reminders = list()
 
