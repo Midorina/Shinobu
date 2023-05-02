@@ -568,26 +568,26 @@ class NsfwDAPIs(CachedImageAPI):
 class SomeRandomAPI(MidoBotAPI):
     URLs = {
         # animals
-        "dog"      : "https://some-random-api.ml/img/dog",
-        "cat"      : "https://some-random-api.ml/img/cat",
-        "panda"    : "https://some-random-api.ml/img/panda",
-        "fox"      : "https://some-random-api.ml/img/fox",
-        "bird"     : "https://some-random-api.ml/img/birb",
+        "dog"      : "https://some-random-api.com/img/dog",
+        "cat"      : "https://some-random-api.com/img/cat",
+        "panda"    : "https://some-random-api.com/img/panda",
+        "fox"      : "https://some-random-api.com/img/fox",
+        "bird"     : "https://some-random-api.com/img/birb",
 
         # shitposting
-        "gay"      : "https://some-random-api.ml/canvas/gay",
-        "wasted"   : "https://some-random-api.ml/canvas/wasted",
+        "gay"      : "https://some-random-api.com/canvas/gay",
+        "wasted"   : "https://some-random-api.com/canvas/wasted",
 
-        "triggered": "https://some-random-api.ml/canvas/triggered",
-        "youtube"  : "https://some-random-api.ml/canvas/youtube-comment",
+        "triggered": "https://some-random-api.com/canvas/triggered",
+        "youtube"  : "https://some-random-api.com/canvas/youtube-comment",
 
-        "meme"     : "https://some-random-api.ml/meme",  # shit memes
-        "joke"     : "https://some-random-api.ml/joke",  # shit jokes
+        "meme"     : "https://some-random-api.com/meme",  # shit memes
+        "joke"     : "https://some-random-api.com/joke",  # shit jokes
 
         # searches
-        'lyrics'   : 'https://some-random-api.ml/lyrics',
-        "pokemon"  : "https://some-random-api.ml/pokedex",
-        "color"    : "https://some-random-api.ml/canvas/colorviewer"
+        'lyrics'   : 'https://some-random-api.com/lyrics',
+        "pokemon"  : "https://some-random-api.com/pokedex",
+        "color"    : "https://some-random-api.com/canvas/colorviewer"
     }
 
     class Pokemon:
