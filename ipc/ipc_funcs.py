@@ -91,7 +91,10 @@ class SerializedObject:
     @classmethod
     def from_dict(cls, data: dict) -> Type[SerializedObject]:
         for key, value in data.items():
-            setattr(cls, key, value)
+            if isinstance(value, dict):
+                setattr(cls, key, SerializedObject.from_dict(value))
+            else:
+                setattr(cls, key, value)
 
         return cls
 
