@@ -76,7 +76,7 @@ class PatreonUser(BasePatreonModel):
 
             self.about = data.pop('about')
             self.created = data.pop('created')
-            self.default_country_code = data.pop('default_country_code')
+            # self.default_country_code = data.pop('default_country_code')
             self.email: str = data.pop('email')
             self.gender = data.pop('gender')
             self.is_email_verified = data.pop('is_email_verified')
@@ -97,7 +97,7 @@ class PatreonUser(BasePatreonModel):
 
         self.attributes = self.Attributes(data.pop('attributes'))
         self.id: int = int(data.pop('id'))
-        self.relationships: dict = data.pop('relationships')
+        # self.relationships: dict = data.pop('relationships')
         self.type: str = data.pop('type')
 
 
