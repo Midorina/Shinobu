@@ -27,15 +27,19 @@ class BaseCache(ABC):
         pass
 
     @abstractmethod
-    async def get_key_length(self, key: str):
+    async def set(self, key: str, value: str | int, expires_in_seconds: int = None):
         pass
 
     @abstractmethod
-    async def pop_random(self, key: str):
+    async def get_length_of_set(self, key: str):
         pass
 
     @abstractmethod
-    async def append(self, key: str, *values: str):
+    async def pop_random_from_set(self, key: str):
+        pass
+
+    @abstractmethod
+    async def append_to_set(self, key: str, expires_in_seconds: int = None, *values: str) -> None:
         pass
 
     async def disconnect(self):
@@ -46,7 +50,7 @@ class LocalCache(BaseCache):
     def __init__(self, bot):
         super(LocalCache, self).__init__(bot)
 
-        self.cache: dict[str, set] = dict()
+        self.cache: dict[str, set | str | int] = dict()
 
     async def get_keys(self):
         return self.cache.keys()
@@ -54,13 +58,17 @@ class LocalCache(BaseCache):
     async def get(self, key: str):
         return self.cache[key]
 
-    async def get_key_length(self, key: str):
+    async def set(self, key: str, value: str | int, expires_in_seconds: int = None):
+        self.cache[key] = value
+        # TODO implement expiration for local cache
+
+    async def get_length_of_set(self, key: str):
         return len(self.cache[key])
 
-    async def pop_random(self, key: str) -> str:
+    async def pop_random_from_set(self, key: str) -> str:
         return self.cache[key].pop()
 
-    async def append(self, key: str, *values: str) -> None:
+    async def append_to_set(self, key: str, expires_in_seconds: int = None, *values: str) -> None:
         try:
             self.cache[key].add(values)
         except (KeyError, IndexError):
@@ -111,20 +119,26 @@ class RedisCache(LocalCache):
         return await self.redis_cache.get(key)
 
     @redis_falls_back_to_local
-    async def get_key_length(self, key: str) -> int:
+    async def set(self, key: str, value: str | int, expires_in_seconds: int = None):
+        await self.redis_cache.set(key, value, ex=expires_in_seconds)
+
+    @redis_falls_back_to_local
+    async def get_length_of_set(self, key: str) -> int:
         return await self.redis_cache.scard(key)
 
     @redis_falls_back_to_local
-    async def pop_random(self, key: str) -> str:
+    async def pop_random_from_set(self, key: str) -> str:
         # for some unknown reason, sometimes spop returns all values???
         # so specify a count to make sure to receive a tuple
         # and only return the first one
         return (await self.redis_cache.spop(key, 1))[0]
 
     @redis_falls_back_to_local
-    async def append(self, key: str, *values: str) -> None:
+    async def append_to_set(self, key: str, expires_in_seconds: int = None, *values: str) -> None:
         await self.redis_cache.sadd(key, *values)
-        await self.redis_cache.expire(key, 3600)  # expire after one hour
+
+        if expires_in_seconds:
+            await self.redis_cache.expire(key, expires_in_seconds)
 
     @redis_falls_back_to_local
     async def disconnect(self) -> None:

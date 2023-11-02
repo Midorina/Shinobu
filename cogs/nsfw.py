@@ -33,6 +33,7 @@ class NSFW(commands.Cog,
             self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
 
         self.cache: RedisCache = RedisCache(self.bot)
+        self.cache_expiration_in_seconds = 3600
 
     async def get_nsfw_image(self, nsfw_type: NSFWImage.Type, tags_str: str, limit=1, allow_video=True,
                              guild_id: int = None, nsfw_source: NsfwDAPIs.DAPI = None) -> list[NSFWImage]:
@@ -50,10 +51,10 @@ class NSFW(commands.Cog,
         while len(ret) < limit:
             try:
                 # if we don't have enough images in the cache, raise IndexError to get more images
-                if limit >= await self.cache.get_key_length(cache_key):
+                if limit >= await self.cache.get_length_of_set(cache_key):
                     raise IndexError
 
-                pulled = NSFWImage.convert_from_cache(await self.cache.pop_random(cache_key))
+                pulled = NSFWImage.convert_from_cache(await self.cache.pop_random_from_set(cache_key))
 
                 image_is_blacklisted = len(set(pulled.tags).intersection(blacklisted_tags)) > 0
                 if not image_is_blacklisted:
@@ -94,13 +95,20 @@ class NSFW(commands.Cog,
 
                 ret.append(new_images.pop())  # use one of the new images
                 if new_images:  # add to cache if there are remaining new images
-                    await self.cache.append(cache_key, *(image.cache_value for image in new_images))
+                    await self.cache.append_to_set(
+                        cache_key,
+                        self.cache_expiration_in_seconds,
+                        *(image.cache_value for image in new_images)
+                    )
 
                     # if a source is provided, add the images to the cache without the source key as well
                     # bad for us but good for external apis, this may be solved in a more efficient way
                     if nsfw_source:
-                        await self.cache.append(cache_key.replace(nsfw_source.name, ''),
-                                                *(image.cache_value for image in new_images))
+                        await self.cache.append_to_set(
+                            cache_key.replace(nsfw_source.name, ''),
+                            3600,
+                            *(image.cache_value for image in new_images)
+                        )
 
         return ret
 

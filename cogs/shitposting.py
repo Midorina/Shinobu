@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 import mido_utils
+from services import RedisCache
 
 if TYPE_CHECKING:
     from shinobu import ShinobuBot
@@ -20,6 +21,10 @@ class Shitposting(
                 "Image filters using `{ctx.prefix}gay`, `{ctx.prefix}wasted`, `{ctx.prefix}triggered` and `{ctx.prefix}ytcomment`."):
     def __init__(self, bot: ShinobuBot):
         self.bot = bot
+
+        self.cache: RedisCache = RedisCache(self.bot)
+        self.penis_cache = 30
+        self.gay_cache = 30
 
     @discord.utils.cached_property
     def random_api(self) -> mido_utils.SomeRandomAPI:
@@ -57,16 +62,23 @@ class Shitposting(
         """Learn the size of penis of someone."""
         user = target or ctx.author
 
+        # decide prefix
         prefix = "8"
-
         if user.id == 340918740134658052:  # taylan
             prefix = "o"
 
-        if isinstance(user, discord.Member):
-            user = user.display_name
+        # decide length
+        key = str(user.id) + "_pen"
+        if await self.cache.get(key):
+            length = int(await self.cache.get(key))
+        else:
+            length = random.randrange(25)
+            await self.cache.set(key, length, self.penis_cache)
 
-        embed = mido_utils.Embed(ctx.bot, title=f"{user}'s Penis Size")
-        embed.description = prefix + "=" * random.randrange(20) + "D"
+        # prepare embed
+        embed = mido_utils.Embed(ctx.bot,
+                                 title=f"{user.display_name if isinstance(user, discord.Member) else user}'s Penis Size")
+        embed.description = prefix + "=" * length + "D"
 
         await ctx.send(embed=embed)
 
@@ -74,12 +86,18 @@ class Shitposting(
     async def howgay(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Learn how gay someone is."""
         user = target or ctx.author
-        if isinstance(user, discord.Member):
-            user = user.display_name
 
+        # decide how gay
+        key = str(user.id) + "_gay"
+        if await self.cache.get(key):
+            how_gay = int(await self.cache.get(key))
+        else:
+            how_gay = random.randrange(101)
+            await self.cache.set(key, how_gay, self.gay_cache)
+
+        # prepare embed
         embed = mido_utils.Embed(ctx.bot)
-
-        embed.description = f"{user} is **{random.randrange(101)}% gay 🏳️‍🌈**"
+        embed.description = f"{user.display_name if isinstance(user, discord.Member) else user} is **{how_gay}% gay 🏳️‍🌈**"
 
         await ctx.send(embed=embed)
 
