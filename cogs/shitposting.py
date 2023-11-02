@@ -23,8 +23,8 @@ class Shitposting(
         self.bot = bot
 
         self.cache: RedisCache = RedisCache(self.bot)
-        self.penis_cache = 30
-        self.gay_cache = 30
+        self.penis_cache = 1800  # half an hour
+        self.gay_cache = 1800  # half an hour
 
     @discord.utils.cached_property
     def random_api(self) -> mido_utils.SomeRandomAPI:
