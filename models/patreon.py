@@ -13,40 +13,40 @@ class BasePatreonModel:
 
 class Data(BasePatreonModel):
     def __init__(self, data: dict):
-        self.id: int = int(data.pop('id'))
-        self.type: str = data.pop('type')
+        self.id: int = int(data.pop('id', 0))
+        self.type: str = data.pop('type', 'Unknown')
 
 
 class PatreonPledger(BasePatreonModel):
     class Attributes(BasePatreonModel):
         def __init__(self, data: dict):
-            self.amount_cents: int = data.pop('amount_cents')
-            self.currency: str = data.pop('currency')
-            self.patron_pays_fees: bool = data.pop('patron_pays_fees')
-            self.pledge_cap_cents: int = data.pop('pledge_cap_cents')
+            self.amount_cents: int = data.pop('amount_cents', 0)
+            self.currency: str = data.pop('currency', 'Unknown')
+            self.patron_pays_fees: bool = data.pop('patron_pays_fees', False)
+            self.pledge_cap_cents: int = data.pop('pledge_cap_cents', 0)
 
-            self.declined_since = data.pop('declined_since')
-            self.created_at = data.pop('created_at')
+            self.declined_since = data.pop('declined_since', None)
+            self.created_at = data.pop('created_at', None)
 
     class Relationships(BasePatreonModel):
         class Patron(BasePatreonModel):
-            def __init__(self, data):
-                self.data = Data(data.pop('data'))
-                self.links: dict = data.pop('links')
+            def __init__(self, data: dict):
+                self.data = Data(data.pop('data', {}))
+                self.links: dict = data.pop('links', {})
 
         def __init__(self, data: dict):
-            self.address: dict = data.pop('address')
-            self.creator: dict = data.pop('creator')
-            self.patron = self.Patron(data.pop('patron'))
-            self.rewards: dict = data.pop('rewards', None)
+            self.address: dict = data.pop('address', {})
+            self.creator: dict = data.pop('creator', {})
+            self.patron = self.Patron(data.pop('patron', {}))
+            self.rewards: dict = data.pop('rewards', {})
 
     def __init__(self, data: dict):
         self._data = copy.deepcopy(data)
 
-        self.attributes = self.Attributes(data.pop('attributes'))
-        self.id: int = int(data.pop('id'))
-        self.relationships = self.Relationships(data.pop('relationships'))
-        self.type: str = data.pop('type')
+        self.attributes = self.Attributes(data.pop('attributes', {}))
+        self.id: int = int(data.pop('id', -1))
+        self.relationships = self.Relationships(data.pop('relationships', {}))
+        self.type: str = data.pop('type', 'Unknown')
 
 
 class PatreonUser(BasePatreonModel):
@@ -54,51 +54,51 @@ class PatreonUser(BasePatreonModel):
         class SocialConnections(BasePatreonModel):
             class Discord(BasePatreonModel):
                 def __init__(self, data: dict):
-                    self.url = data.pop('url') if data else None
-                    self.user_id = int(data.pop('user_id')) if data else None
+                    self.url = data.pop('url', None) if data else None
+                    self.user_id = int(data.pop('user_id', -1)) if data else None
 
             def __init__(self, data: dict):
-                self.deviantart = data.pop('deviantart')
-                self.discord = self.Discord(data.pop('discord'))
-                self.facebook = data.pop('facebook')
-                self.google = data.pop('google')
-                self.twitch = data.pop('twitch')
-                self.twitter = data.pop('twitter')
-                self.youtube = data.pop('youtube')
-                self.instagram = data.pop('instagram')
-                self.reddit = data.pop('reddit')
-                self.spotify = data.pop('spotify')
+                self.deviantart = data.pop('deviantart', None)
+                self.discord = self.Discord(data.pop('discord', {}))
+                self.facebook = data.pop('facebook', None)
+                self.google = data.pop('google', None)
+                self.twitch = data.pop('twitch', None)
+                self.twitter = data.pop('twitter', None)
+                self.youtube = data.pop('youtube', None)
+                self.instagram = data.pop('instagram', None)
+                self.reddit = data.pop('reddit', None)
+                self.spotify = data.pop('spotify', None)
 
         def __init__(self, data: dict):
-            self.full_name: str = data.pop('full_name')
-            self.first_name: str = data.pop('first_name')
-            self.last_name: str = data.pop('last_name')
+            self.full_name: str = data.pop('full_name', 'Unknown')
+            self.first_name: str = data.pop('first_name', 'Unknown')
+            self.last_name: str = data.pop('last_name', 'Unknown')
 
-            self.about = data.pop('about')
-            self.created = data.pop('created')
-            # self.default_country_code = data.pop('default_country_code')
-            self.email: str = data.pop('email')
-            self.gender = data.pop('gender')
-            self.is_email_verified = data.pop('is_email_verified')
-            self.social_connections = self.SocialConnections(data.pop('social_connections'))
-            self.vanity = data.pop('vanity')
+            self.about = data.pop('about', None)
+            self.created = data.pop('created', None)
+            self.default_country_code = data.pop('default_country_code', None)
+            self.email: str = data.pop('email', 'Unknown')
+            self.gender = data.pop('gender', None)
+            self.is_email_verified = data.pop('is_email_verified', None)
+            self.social_connections = self.SocialConnections(data.pop('social_connections', {}))
+            self.vanity = data.pop('vanity', None)
 
-            self.profile_url: str = data.pop('url')
-            self.image_url: str = data.pop('image_url')
-            self.thumb_url: str = data.pop('thumb_url')
+            self.profile_url: str = data.pop('url', 'Unknown')
+            self.image_url: str = data.pop('image_url', 'Unknown')
+            self.thumb_url: str = data.pop('thumb_url', 'Unknown')
 
-            self.facebook = data.pop('facebook')
-            self.twitch = data.pop('twitch')
-            self.twitter = data.pop('twitter')
-            self.youtube = data.pop('youtube')
+            self.facebook = data.pop('facebook', None)
+            self.twitch = data.pop('twitch', None)
+            self.twitter = data.pop('twitter', None)
+            self.youtube = data.pop('youtube', None)
 
     def __init__(self, data: dict):
         self._data = copy.deepcopy(data)
 
-        self.attributes = self.Attributes(data.pop('attributes'))
-        self.id: int = int(data.pop('id'))
-        # self.relationships: dict = data.pop('relationships')
-        self.type: str = data.pop('type')
+        self.attributes = self.Attributes(data.pop('attributes', {}))
+        self.id: int = int(data.pop('id', -1))
+        self.relationships: dict = data.pop('relationships', {})
+        self.type: str = data.pop('type', 'Unknown')
 
 
 class Level:
