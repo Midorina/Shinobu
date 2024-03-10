@@ -910,7 +910,11 @@ class SpotifyAPI(OAuthAPI):
         def track_or_item(item):
             return item['track'] if 'track' in item else item
 
-        url_type = url.split('/')[3]
+        if 'intl-' in url:  # if it's a spotify link with a country code (like intl-tr), skip it
+            url_type = url.split('/')[4]
+        else:
+            url_type = url.split('/')[3]
+
         _id = url.split('/')[-1]
 
         # remove the 'si' tag if it's an artist

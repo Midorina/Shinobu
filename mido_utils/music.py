@@ -3,19 +3,21 @@ from __future__ import annotations
 import asyncio
 import collections
 import itertools
+import logging
 import random
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 import discord
 import wavelink
 from async_timeout import timeout
-from wavelink import InvalidIDProvided, Player, Track
+from wavelink import Player, Playable
 
 from .exceptions import IncompleteConfigFile, NotFoundError, OnCooldownError
 from .resources import images
 from .time import Time
 
 if TYPE_CHECKING:
+    from wavelink.types.tracks import TrackPayload
     from .context import Context
 
 
@@ -27,6 +29,7 @@ class VoicePlayer(Player):
         self.next = asyncio.Event()
 
         self.loop = False
+        self.mido_autoplay = False  # wavelink's own autoplay uses their own queue, but we have our own queue
         self.skip_votes = []
 
         self.last_song: Song | None = None
@@ -35,21 +38,21 @@ class VoicePlayer(Player):
 
     @property
     def position(self):
-        if not self.is_playing() \
+        if not self.playing \
                 or not self.current \
-                or not self.last_update \
-                or self.last_update.timestamp() == 0:
+                or not self._last_update \
+                or self._last_update == 0:
             return 0
 
         return super().position
 
     @property
     def current(self) -> Song | None:
-        return self.source
+        return super().current
 
     @current.setter
     def current(self, current: Song | None) -> None:
-        self._source = current
+        self._current = current
 
     @property
     def position_str(self):
@@ -58,7 +61,7 @@ class VoicePlayer(Player):
     async def destroy(self) -> None:
         try:
             await super().disconnect(force=True)
-        except (InvalidIDProvided, KeyError):
+        except KeyError:
             pass
         finally:
             self.task.cancel()
@@ -68,7 +71,7 @@ class VoicePlayer(Player):
             if len(self.song_queue) > 5000:
                 raise OnCooldownError("You can't add more than 5000 songs.")
 
-            if isinstance(song, Track):
+            if isinstance(song, Playable):
                 song = Song.convert(song, ctx)
 
             if add_to_beginning is True:
@@ -79,13 +82,14 @@ class VoicePlayer(Player):
     async def _get_tracks_from_query(self, ctx: Context, query: str) -> list[Song]:
         original_query = query
         if not query.startswith('http'):  # if not a link
-            query = f'ytsearch:{query} Audio'
+            # query = f'ytsearch:{query} Audio'
+            query = f'ytsearch:{query}'
 
         song = None
         while not song:
             attempt = 0
             while attempt < 5:
-                if song := await self.node.get_tracks(query=query, cls=wavelink.Track):
+                if song := await wavelink.Pool.fetch_tracks(query):
                     break
                 await asyncio.sleep(0.5)
                 attempt += 1
@@ -101,10 +105,13 @@ class VoicePlayer(Player):
             raise NotFoundError(f"Couldn't find anything that matches the query:\n"
                                 f"`{original_query}`.")
 
-        if isinstance(song, wavelink.YouTubePlaylist):
+        songs: List[Playable]
+        if isinstance(song, wavelink.Playlist):
             songs = song.tracks
-        else:
+        elif isinstance(song, list):
             songs = [song[0]]
+        else:
+            raise Exception(f"Unexpected song type: {type(song)}")
 
         return list(map(lambda x: Song.convert(x, ctx), songs))
 
@@ -120,15 +127,26 @@ class VoicePlayer(Player):
 
         return songs
 
-    async def skip(self):
-        await self.stop()
-
     async def parse_and_get_the_next_song(self) -> Song:
         song = await self.song_queue.get()
 
         if not isinstance(song, Song):
             song: Song = (await self._get_tracks_from_query(song.ctx, song.search_query))[0]
+
         return song
+
+    async def get_recommended_song(self) -> Song:
+        """Gets a recommended song from the last song that was played. This is usually used if autoplay is enabled."""
+        if not self.last_song:
+            raise NotFoundError("No song has been played yet.")
+
+        seed = self.last_song.identifier
+        song = await self._get_tracks_from_query(
+            self.last_song.ctx,
+            f"https://music.youtube.com/watch?v={seed}8&list=RD{seed}"
+        )
+
+        return song[0]
 
     async def player_loop(self):
         await self.client.wait_until_ready()
@@ -136,6 +154,14 @@ class VoicePlayer(Player):
         while True:
             self.next.clear()
             self.skip_votes.clear()
+
+            if self.mido_autoplay is True and len(self.song_queue) == 0:
+                try:
+                    song = await self.get_recommended_song()
+                except NotFoundError:
+                    pass
+                else:
+                    await self.add_songs(song.ctx, song)
 
             if self.loop is True:
                 await self.song_queue.put(self.last_song)
@@ -153,7 +179,11 @@ class VoicePlayer(Player):
             except asyncio.TimeoutError:
                 return await self.destroy()
 
-            await self.play(self.current)
+            try:
+                await self.play(self.current)
+            except Exception as e:
+                await self.client.get_cog('ErrorHandling').on_error(e)
+                continue
 
             # if loop is disabled or the song queue contains multiple songs
             if self.loop is False or len(self.song_queue) > 0:
@@ -172,8 +202,8 @@ class BaseSong:
     def __init__(self, ctx: Context, title: str, duration_in_seconds: int, url: str):
         self.ctx = ctx
 
-        self.title: str = title
-        self.url: str = url
+        self._title: str = title
+        self._uri: str = url
         self.duration: int = duration_in_seconds
 
     @property
@@ -190,7 +220,7 @@ class BaseSong:
 
     @property
     def search_query(self) -> str:
-        return self.title
+        return self._title
 
     @classmethod
     def convert_from_spotify_track(cls, ctx: Context, track: dict) -> BaseSong | None:
@@ -208,14 +238,14 @@ class BaseSong:
         return cls(ctx, title, duration, url)
 
 
-class Song(Track, BaseSong):
+class Song(Playable, BaseSong):
     def __init__(
             self,
-            _id: str,
-            info: dict[str, Any],
+            info: TrackPayload,
             ctx: Context
     ):
-        super().__init__(_id, info)
+        Playable.__init__(self, info)
+        BaseSong.__init__(self, ctx, info['info']['title'], int(info['info']['length'] / 1000), info['info']['uri'])
 
         self.ctx: Context = ctx
         self.player: VoicePlayer = ctx.voice_client
@@ -226,10 +256,10 @@ class Song(Track, BaseSong):
 
     @classmethod
     def convert(cls,
-                track: Track,
+                track: Playable,
                 ctx: Context):
-        """Converts a native wavelink track object to a local Song object."""
-        return cls(track.id, track.info, ctx)
+        """Converts a native wavelink playable object to a local Song object."""
+        return cls(track._raw_data, ctx)
 
     @property
     def thumbnail(self) -> str:

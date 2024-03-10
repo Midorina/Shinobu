@@ -23,11 +23,9 @@
   },
   "lavalink_nodes_credentials": [
     {
-      "host"      : "0.0.0.0",
-      "port"      : 80,
+      "uri"       : "http://0.0.0.0:80",
       "password"  : "CHANGE_THIS",
-      "identifier": "identifier",
-      "region"    : "europe"
+      "identifier": "identifier"
     }
   ],
   "topgg_credentials"         : {

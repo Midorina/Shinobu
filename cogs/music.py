@@ -1,13 +1,21 @@
+from __future__ import annotations
+
 import asyncio
 import math
+from typing import List
+from typing import TYPE_CHECKING
 
 import discord
 import wavelink
 from discord.ext import commands
+from wavelink import Node
 
 import mido_utils
 from cogs.searches import Searches
 from shinobu import ShinobuBot
+
+if TYPE_CHECKING:
+    from mido_utils import VoicePlayer
 
 
 class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Spotify is supported.**'):
@@ -30,24 +38,16 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
     async def start_nodes(self):
         await self.bot.wait_until_ready()
 
+        nodes: List[Node] = []
         # initiate each node specified in the cfg file
         for node_credentials in self.bot.config.lavalink_nodes_credentials:
-            await self._initiate_node(**node_credentials)
+            nodes.append(Node(**node_credentials))
 
-    async def _initiate_node(self, **kwargs):
-        try:
-            node = await wavelink.NodePool.create_node(bot=self.bot, **kwargs)
-        except wavelink.NodeOccupied:
-            self.bot.logger.warn(f"The Lavalink node {kwargs['identifier']} seems to be already initiated. Ignoring.")
-        else:
-            if not node.is_connected():
-                self.bot.logger.error(
-                    f"Looks like the Lavalink node {kwargs['identifier']} could not establish a connection. "
-                    "Please make sure you entered proper credentials to the config file.")
+        await wavelink.Pool.connect(nodes=nodes, client=self.bot)
 
     async def reload_nodes(self):
         # destroy existing nodes
-        for node in wavelink.NodePool().nodes.values():
+        for node in wavelink.Pool().nodes.values():
             await node.disconnect(force=True)
 
         # initiate the new ones
@@ -67,19 +67,26 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
 
     async def cog_command_error(self, ctx: mido_utils.Context, error):
         error = getattr(error, 'original', error)
-        if mido_utils.better_is_instance(error, wavelink.ZeroConnectedNodes):
+
+        if mido_utils.better_is_instance(error, wavelink.InvalidNodeException):
             await self.reload_nodes()
             await asyncio.sleep(1)
             await ctx.reinvoke()
 
     @commands.Cog.listener()
-    async def on_wavelink_track_exception(self, player: mido_utils.VoicePlayer, track: mido_utils.Song, error):
-        await player.last_song.text_channel.send(f"There has been an error while playing `{track}`:\n"
-                                                 f"```{error}```")
+    async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
+        # get our own player from the guild
+        player: VoicePlayer = payload.player.guild.voice_client
+
+        await player.last_song.text_channel.send(f"There has been an error while playing `{payload.track}`:\n"
+                                                 f"```{payload.exception}```")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, player: mido_utils.VoicePlayer, track: mido_utils.Song, reason):
-        player.next.set()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        if payload.player:  # if we have a player, set next
+            # get our own player from the guild
+            player: VoicePlayer = payload.player.guild.voice_client
+            player.next.set()
 
     @commands.command(name='connect')  # not hybrid because of slash command limit
     async def _connect(self, ctx: mido_utils.Context):
@@ -152,12 +159,12 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
     @commands.hybrid_command(name='pause')
     async def _pause_or_resume(self, ctx: mido_utils.Context):
         """Pause or resume the song."""
-        await ctx.voice_client.set_pause(pause=not ctx.voice_client.is_paused())
+        await ctx.voice_client.pause(not ctx.voice_client.paused)
 
         try:
             await ctx.message.add_reaction("⏯")
         except discord.NotFound:
-            await ctx.send_success("Paused." if ctx.voice_client.is_paused() else "Resuming...")
+            await ctx.send_success("Paused." if ctx.voice_client.paused else "Resuming...")
 
     @commands.hybrid_command(name='seek')
     async def _seek(self, ctx: mido_utils.Context, seconds: mido_utils.Int32):
@@ -178,7 +185,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
         elif new_position < 0:
             new_position = 0
 
-        await ctx.voice_client.seek(position=new_position * 1000)
+        await ctx.voice_client.seek(new_position * 1000)
 
         # prepare the embed
         e = mido_utils.Embed(ctx.bot)
@@ -202,7 +209,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
         if seconds < 0:
             seconds = 0
 
-        await ctx.voice_client.seek(position=seconds * 1000)
+        await ctx.voice_client.seek(seconds * 1000)
 
         # prepare the embed
         song = ctx.voice_client.get_current_or_last_song()
@@ -362,11 +369,27 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
 
         await self.songs_added_message(ctx, songs)
 
+    @commands.hybrid_command(name='autoplay', aliases=['ap'])
+    async def _autoplay(self, ctx: mido_utils.Context):
+        """Turn on or off autoplay."""
+        await self.ensure_voice_client(ctx)
+
+        if not ctx.voice_client.mido_autoplay:
+            ctx.voice_client.mido_autoplay = True
+
+            # add a song to kickstart it if we have no songs in the queue
+            if len(ctx.voice_client.song_queue) == 0 and ctx.voice_client.last_song is not None:
+                await ctx.voice_client.add_songs(ctx, await ctx.voice_client.get_recommended_song())
+
+            await ctx.send_success("Autoplay has been enabled.")
+        else:
+            ctx.voice_client.mido_autoplay = False
+            await ctx.send_success("Autoplay has been disabled.")
+
     @commands.hybrid_command(name='youtube', aliases=['yt'])
     async def _find_video(self, ctx: mido_utils.Context, *, query: str):
         """Find a YouTube video with the given query."""
-        song: list[wavelink.Track] = await wavelink.NodePool.get_node().get_tracks(query=f'ytsearch:{query}',
-                                                                                   cls=wavelink.Track)
+        song: list[wavelink.Playable] = await wavelink.Pool.fetch_tracks(f'ytsearch:{query}')
         if not song:
             raise mido_utils.NotFoundError(f"Couldn't find anything that matches the query:\n"
                                            f"`{query}`.")
@@ -409,7 +432,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
     @_seek.before_invoke
     async def ensure_playing(self, ctx: mido_utils.Context):
         """This func ensures that the voice player is playing something."""
-        if not ctx.voice_client.is_playing():
+        if not ctx.voice_client.playing:
             if len(ctx.voice_client.song_queue) >= 0:
                 # if voice_player.task.done() is True:
                 #     voice_player.task = ctx.bot.loop.create_task(voice_player.player_loop(),
@@ -461,7 +484,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
                                          f'***{shuffle_emote} You\'ve successfully shuffled the queue.***')
 
         else:
-            if ctx.voice_client.is_playing() and len(ctx.voice_client.song_queue) >= 1:
+            if ctx.voice_client.playing and len(ctx.voice_client.song_queue) >= 1:
                 await ctx.send_success(
                     f'**{songs[0].title}** has been successfully added to the queue.\n\n'
                     f'You can type `{ctx.prefix}queue` to see it.'
