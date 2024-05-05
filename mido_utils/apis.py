@@ -208,12 +208,12 @@ class RedditAPI(CachedImageAPI):
         try:
             async for submission in category(*args, **kwargs):
                 urls.append(submission.url)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(3)
 
         except asyncprawcore.ResponseException as e:
-            if e.response.status == 451:
+            if e.response.status in [404, 451]:
                 logging.warning(
-                    f"Got 451 while fetching images from {subreddit_name} "
+                    f"Got {e.response.status} while fetching images from {subreddit_name} "
                     f"with category: {submission_category}. Returning silently.")
                 return
 
@@ -275,8 +275,9 @@ class RedditAPI(CachedImageAPI):
                     await self.get_images_from_subreddit(sub_name, 'top', 'year', limit=10000)
                     await self.get_images_from_subreddit(sub_name, 'top', 'month', limit=1000)
                     await self.get_images_from_subreddit(sub_name, 'top', 'week', limit=10)
-            except Exception:
-                break
+            except Exception as e:
+                logging.error(f"Error while fetching images from {sub_name}: {e}")
+                continue
 
             finally:
                 await asyncio.sleep(10.0)
