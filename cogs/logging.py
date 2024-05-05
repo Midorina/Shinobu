@@ -98,14 +98,14 @@ class Logging(
         e = mido_utils.Embed(bot=self.bot)
         e.set_author(icon_url=member.display_avatar.url, name=str(member))
         e.set_footer(text=f"User ID: {member.id}")
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         return e
 
     def get_guild_event_embed(self, guild: discord.Guild) -> mido_utils.Embed:
         e = mido_utils.Embed(bot=self.bot)
         e.set_author(icon_url=guild.icon.url, name=str(guild))
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         return e
 

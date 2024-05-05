@@ -68,7 +68,7 @@ class MidoHelp(commands.HelpCommand):
 
         e.set_footer(text=f"{cmd_counter} Commands",
                      icon_url=self.context.bot.user.display_avatar.url)
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         await self.context.send(embed=e)
 
@@ -98,7 +98,7 @@ class MidoHelp(commands.HelpCommand):
 
         e.set_footer(text=f"{len(_commands)} Commands",
                      icon_url=self.context.bot.user.display_avatar.url)
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         await self.context.send(embed=e)
 
@@ -114,7 +114,7 @@ class MidoHelp(commands.HelpCommand):
                 embed.description = command.help.format(ctx=self.context, bot=self.context.bot, mido_utils=mido_utils)
 
         embed.set_footer(text=f'{command.cog.qualified_name} Module', icon_url=self.context.bot.user.display_avatar.url)
-        embed.timestamp = datetime.utcnow()
+        embed.timestamp = datetime.now()
 
     async def send_command_help(self, command, content=''):
         if command.hidden:

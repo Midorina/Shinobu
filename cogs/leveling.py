@@ -62,14 +62,13 @@ class Leveling(
                     )
 
         e.set_thumbnail(url=user_or_member.display_avatar.url)
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         return e
 
     async def send_leaderboard_embed(self, ctx: mido_utils.Context, top: list[UserDB | MemberDB], title: str):
         e = mido_utils.Embed(bot=self.bot, title=title)
-
-        e.timestamp = datetime.utcnow()
+        e.timestamp = datetime.now()
 
         blocks = []
         for i, user in enumerate(top, 1):

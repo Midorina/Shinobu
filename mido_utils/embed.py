@@ -26,7 +26,7 @@ class Embed(discord.Embed):
         if use_default_footer is True:
             self.set_footer(text=self.bot.user.name, icon_url=self.bot.user.display_avatar.url)
 
-            self.timestamp = self.timestamp or datetime.utcnow()
+            self.timestamp = self.timestamp or datetime.now()
 
         if image_url:
             self.set_image(url=image_url)
