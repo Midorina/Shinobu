@@ -56,7 +56,7 @@ class VoicePlayer(Player):
 
     @property
     def position_str(self):
-        return Time.parse_seconds_to_str(self.position, short=True, sep=':')
+        return Time.parse_seconds_to_str(self.position / 1000, short=True, sep=':')
 
     async def destroy(self) -> None:
         try:

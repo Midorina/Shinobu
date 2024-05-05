@@ -179,13 +179,13 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
         song = ctx.voice_client.get_current_or_last_song()
 
         # calculate new position and change it
-        new_position = ctx.voice_client.position + seconds
+        new_position = ctx.voice_client.position / 1000 + seconds
         if new_position > song.duration:
             new_position = song.duration
         elif new_position < 0:
             new_position = 0
 
-        await ctx.voice_client.seek(new_position * 1000)
+        await ctx.voice_client.seek(int(new_position * 1000))
 
         # prepare the embed
         e = mido_utils.Embed(ctx.bot)
