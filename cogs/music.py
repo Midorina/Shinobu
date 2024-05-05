@@ -304,6 +304,9 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
         if ctx.voice_client.loop is True:
             footer_text += "  |  Loop Enabled 🔄"
 
+        if ctx.voice_client.mido_autoplay is True:
+            footer_text += "  |  Autoplay Enabled 🔃"
+
         embed = (mido_utils.Embed(self.bot)
                  .set_author(icon_url=ctx.guild.icon.url, name=f"{ctx.guild.name} Music Queue ")
                  .set_footer(text=footer_text,
@@ -378,7 +381,7 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
             ctx.voice_client.mido_autoplay = True
 
             # add a song to kickstart it if we have no songs in the queue
-            if len(ctx.voice_client.song_queue) == 0 and ctx.voice_client.last_song is not None:
+            if len(ctx.voice_client.song_queue) == 0 and ctx.voice_client.last_song is not None and not ctx.voice_client.playing:
                 await ctx.voice_client.add_songs(ctx, await ctx.voice_client.get_recommended_song())
 
             await ctx.send_success("Autoplay has been enabled.")

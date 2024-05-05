@@ -27,12 +27,13 @@ class VoicePlayer(Player):
 
         self.song_queue: SongQueue = SongQueue()
         self.next = asyncio.Event()
-
-        self.loop = False
-        self.mido_autoplay = False  # wavelink's own autoplay uses their own queue, but we have our own queue
-        self.skip_votes = []
-
         self.last_song: Song | None = None
+
+        self.skip_votes = []
+        self.loop = False
+
+        self._mido_autoplay = False  # wavelink's own autoplay feature uses their own queue, but we have our own queue
+        self.autoplay_queue: List[Song] = []
 
         self.task = self.client.loop.create_task(self.player_loop(), name=f"Music Player of {self.channel.guild.id}")
 
@@ -53,6 +54,15 @@ class VoicePlayer(Player):
     @current.setter
     def current(self, current: Song | None) -> None:
         self._current = current
+
+    @property
+    def mido_autoplay(self) -> bool:
+        return self._mido_autoplay
+
+    @mido_autoplay.setter
+    def mido_autoplay(self, autoplay_active: bool) -> None:
+        self._mido_autoplay = autoplay_active
+        self.autoplay_queue.clear()
 
     @property
     def position_str(self):
@@ -140,13 +150,16 @@ class VoicePlayer(Player):
         if not self.last_song:
             raise NotFoundError("No song has been played yet.")
 
-        seed = self.last_song.identifier
-        song = await self._get_tracks_from_query(
-            self.last_song.ctx,
-            f"https://music.youtube.com/watch?v={seed}8&list=RD{seed}"
-        )
+        # if the autoplay queue is empty, get the recommended songs from the last song
+        if len(self.autoplay_queue) == 0:
+            seed = self.last_song.identifier
+            self.autoplay_queue = (await self._get_tracks_from_query(
+                self.last_song.ctx,
+                f"https://music.youtube.com/watch?v={seed}8&list=RD{seed}"
+            ))[1:]  # remove the first song, because it's the same song
 
-        return song[0]
+        # return the first song in the autoplay queue
+        return self.autoplay_queue.pop(0)
 
     async def player_loop(self):
         await self.client.wait_until_ready()
