@@ -220,6 +220,14 @@ class BaseSong:
         self.duration: int = duration_in_seconds
 
     @property
+    def title(self) -> str:
+        return self._title
+
+    @property
+    def url(self) -> str:
+        return self._uri
+
+    @property
     def duration_str(self) -> str:
         return Time.parse_seconds_to_str(self.duration, short=True, sep=':')
 
