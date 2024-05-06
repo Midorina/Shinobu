@@ -29,8 +29,7 @@ class NSFW(commands.Cog,
         self.active_auto_nsfw_services = list()
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
 
-        if self.bot.name != 'midobot':  # disabled for beta, no need
-            self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
+        self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
 
         self.cache: RedisCache = RedisCache(self.bot)
         self.cache_expiration_in_seconds = 3600
@@ -125,8 +124,8 @@ class NSFW(commands.Cog,
                 except Exception as e:
                     await self.bot.get_cog('ErrorHandling').on_error(str(e))
                 finally:
-                    self.bot.logger.debug(f"Checking 1 image took:\t\t{time.passed_seconds_in_float_formatted}")
-                    await asyncio.sleep(1.0)
+                    self.bot.logger.debug(f"Checking image with URL '{image.url}' took:\t\t{time.passed_seconds_in_float_formatted}")
+                    await asyncio.sleep(2.0)
 
             await asyncio.sleep(3.0)
 

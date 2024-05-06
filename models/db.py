@@ -1180,10 +1180,10 @@ class NSFWImage:
     def cache_value(self) -> str:
         # TODO: maybe give up on detailed cache value to save processing power?
         return self.url \
-               + NSFWImage.SEPARATOR \
-               + '+'.join(tag for tag in self.tags if tag) \
-               + NSFWImage.SEPARATOR \
-               + self.api_name
+            + NSFWImage.SEPARATOR \
+            + '+'.join(tag for tag in self.tags if tag) \
+            + NSFWImage.SEPARATOR \
+            + self.api_name
 
     @classmethod
     def convert_from_cache(cls, value: str) -> NSFWImage:
@@ -1237,12 +1237,13 @@ class CachedImage(BaseDBModel, NSFWImage):
     id             bigserial
         CONSTRAINT api_cache_pk
             PRIMARY KEY,
-    api_name       text                         NOT NULL,
-    url            text                         NOT NULL,
-    tags           text[]  DEFAULT '{}'::text[] NOT NULL,
-    report_count   integer DEFAULT 0,
-    is_gif         boolean DEFAULT FALSE,
-    last_url_check timestamp WITH TIME ZONE
+    api_name       text     DEFAULT 'Shinobu NSFW API'  NOT NULL,
+    url            text                                 NOT NULL,
+    tags           text[]   DEFAULT '{}'::text[]        NOT NULL,
+    report_count   integer  DEFAULT 0                   NOT NULL,
+    is_gif         boolean  DEFAULT FALSE               NOT NULL,
+    created        timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    last_url_check timestamp WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
@@ -1251,12 +1252,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
     def __init__(self, data: Record, bot):
         super().__init__(data, bot)
 
-        self.url: str = data.get('url')
+        self.api_name: str = data.get('api_name', 'Shinobu NSFW API')
+        self._url: str = data.get('url')
         self.tags: list[str] = data.get('tags', [])
-        # self.api_name: str = data.get('api_name')
-        self.api_name: str = 'Shinobu NSFW API'
-
         self.report_count: int = data.get('report_count')
+        self.is_gif: bool = data.get('is_gif')
+        self.created: mido_utils.Time = mido_utils.Time(data.get('created', datetime.now()))
+        self.last_url_check: mido_utils.Time = mido_utils.Time(data.get('last_url_check', datetime.now()))
+
+    @property
+    def url(self):
+        # fix old redgifs links.
+        # 'https://thumbs.redgifs.com/ZigzagPalatableAfricanelephant-size_restricted.gif' -> 'https://redgifs.com/watch/zigzagpalatableafricanelephant'
+        # 'https://thcf7.redgifs.com/WeeklyWellinformedBarasingha-size_restricted.gif' -> 'https://redgifs.com/watch/weeklywellinformedbarasingha'
+        if 'thumbs.redgifs.com' in self._url or 'thcf7.redgifs.com' in self._url:
+            self._url = f"https://redgifs.com/watch/{self._url.split('/')[-1].split('-')[0].lower()}"
+
+        return self._url
 
     @classmethod
     async def get_random(cls,
@@ -1284,7 +1296,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
 
     @classmethod
     async def get_oldest_checked_images(cls, bot, limit: int = 100) -> list[CachedImage]:
-        images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check DESC LIMIT $1;", limit)
+        images = await bot.db.fetch("SELECT * FROM api_cache ORDER BY last_url_check ASC LIMIT $1;", limit)
 
         return [cls(img, bot) for img in images]
 
@@ -1292,9 +1304,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
         await self.bot.db.execute("DELETE FROM api_cache WHERE id=$1;", self.id)
 
     async def url_is_working(self) -> bool | None:
-        self.bot.logger.debug(f"Checking image: {self.url}")
         try:
             async with self.bot.http_session.get(url=self.url) as response:
+                self.bot.logger.debug(f"Image with URL '{self.url}' has status code {response.status}.")
+
                 if response.status == 200:
                     await self.url_is_just_checked()
                     return True
@@ -1303,17 +1316,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS api_cache_url_uindex
                     # 400 is an indication of bad request but how could be a simple get check
                     # to a public image is a bad request? we ignore those too
                     return None
-                elif response.status in (404, 403):
+                elif response.status in (404, 403):  # not found or forbidden, return false
                     return False
                 else:
                     raise Exception(f"Unknown status code {response.status} for link: {self.url}")
-        except (asyncio.TimeoutError, aiohttp.ClientOSError):
-            return None
-        except aiohttp.ClientConnectorError:
+        except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):  # website dead
+            self.bot.logger.debug(f"Image with URL '{self.url}' is not working.")
             return False
 
+        except (asyncio.TimeoutError, aiohttp.ClientOSError):  # we try again later on
+            return None
+
+        except Exception as e:
+            self.bot.logger.error(
+                f"Unexpected error while checking image with URL '{self.url}': {e.__class__.__name__} {e}")
+            return None
+
     async def url_is_just_checked(self):
-        await self.bot.db.execute("UPDATE api_cache SET last_url_check=NOW() WHERE id=$1;", self.id)
+        # also update URL in case we fixed some links in getters
+        await self.bot.db.execute("UPDATE api_cache SET url=$1, last_url_check=NOW() WHERE id=$2;", self.url, self.id)
 
 
 class DonutEvent(BaseDBModel):
