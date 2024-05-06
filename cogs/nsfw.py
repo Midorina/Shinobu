@@ -114,6 +114,8 @@ class NSFW(commands.Cog,
     async def start_checking_urls_in_db(self):
         await self.bot.wait_until_ready()
 
+        self.bot.logger.info("Dead image checking service has started.")
+
         while True:
             images = await CachedImage.get_oldest_checked_images(self.bot, limit=100)
             for image in images:
