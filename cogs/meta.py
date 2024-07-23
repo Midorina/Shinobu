@@ -337,8 +337,12 @@ class Meta(commands.Cog,
         responses = await self.bot.ipc.reload(target_cog=cog_name)
 
         e = mido_utils.Embed(ctx.bot, description="")
-        for cluster_id, reloaded_cogs in responses:
-            e.description += f"Cluster**#{cluster_id}**: Reloaded **{reloaded_cogs}** cog(s)\n"
+
+        if not responses:
+            e.description = "No cogs were reloaded."
+        else:
+            for cluster_id, reloaded_cogs in responses:
+                e.description += f"Cluster**#{cluster_id}**: Reloaded **{reloaded_cogs}** cog(s)\n"
 
         await ctx.send(embed=e)
 

@@ -92,7 +92,7 @@ _PORN_SUBREDDITS = (
 
     # blowjob
     LocalSubreddit('GirlsFinishingTheJob', ['blowjob', 'cum']),
-    LocalSubreddit('Blowjobs', ['blowjob']),
+    # LocalSubreddit('Blowjobs', ['blowjob']),
 
     LocalSubreddit('GWCouples', ['couple']),
     LocalSubreddit('lesbians', ['lesbian']),
