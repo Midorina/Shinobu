@@ -13,8 +13,6 @@ import shinobu
 cluster_logger = logging.getLogger('Cluster Manager')
 
 
-# TODO: use ipc or a pipe to listen to clusters and use that to stop/start/restart clusters
-
 def _get_packages_to_reload(package):
     assert (hasattr(package, "__package__"))
 
