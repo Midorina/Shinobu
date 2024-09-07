@@ -59,7 +59,7 @@ async def is_patron(bot, user_id: int, required_level: int = 1, allow_owner=True
     if (allow_owner is True and user_id in bot.owner_ids) or (bot.config.patreon_credentials is None):
         return True
 
-    patron: models.UserAndPledgerCombined = await bot.ipc.get_patron(user_id)
+    patron: models.PatreonPledger = await bot.ipc.get_patron(user_id)
     if not patron:
         if raise_exceptions is True:
             raise mido_utils.NotPatron(

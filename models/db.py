@@ -387,7 +387,7 @@ CREATE INDEX IF NOT EXISTS user_xp_leaderboard_index
         await self.db.execute("DELETE FROM users WHERE id=$1;", self.id)
         await self.db.execute("DELETE FROM members WHERE user_id=$1;", self.id)
 
-    async def claim_patreon_reward(self, patron_obj: models.UserAndPledgerCombined):
+    async def claim_patreon_reward(self, patron_obj: models.PatreonPledger):
         amount_to_give = patron_obj.level_status.monthly_donut_reward
         if not self.last_patreon_claim_date.end_date_has_passed:
             if self.last_patreon_claim_amount < patron_obj.level_status.monthly_donut_reward:
