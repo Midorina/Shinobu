@@ -14,7 +14,7 @@ from async_timeout import timeout
 
 from ipc import ipc_errors
 from mido_utils import Time
-from models.patreon import UserAndPledgerCombined
+from models.patreon import PatreonPledger
 
 __all__ = ['IPCClient', 'SerializedObject']
 
@@ -447,11 +447,11 @@ class IPCClient:
     async def get_cluster_stats(self) -> list[IPCMessage]:
         return await self.handler.request('get_cluster_stats')
 
-    async def get_patron(self, user_id: int) -> UserAndPledgerCombined | None:
+    async def get_patron(self, user_id: int) -> PatreonPledger | None:
         responses = await self.handler.request('get_patron', user_id=user_id)
         for response in responses:
             if response.return_value is not None:
-                return UserAndPledgerCombined.from_str(response.return_value)
+                return PatreonPledger.from_str(response.return_value)
 
     async def convert_currency(self, amount: float, base_currency: str, target_currency: str) -> tuple[float, float]:
         """Returns result and exchange rate"""

@@ -1013,7 +1013,7 @@ class PatreonAPI(OAuthAPI):
         self.token_type = 'Bearer'
         self.expire_date = mido_utils.Time(end_date=datetime.now(timezone.utc) + timedelta(days=30))
 
-        self.cache: list[models.UserAndPledgerCombined] = []
+        self.cache: list[models.PatreonPledger] = []
 
         self.cache_task = self.bot.loop.create_task(self.refresh_patron_cache_loop())
 
@@ -1043,7 +1043,7 @@ class PatreonAPI(OAuthAPI):
 
     @property
     def api_url(self) -> str:
-        return "https://www.patreon.com/api/oauth2/api"
+        return "https://www.patreon.com/api/oauth2/v2"
 
     @property
     def url_to_get_token(self) -> str:
@@ -1064,35 +1064,53 @@ class PatreonAPI(OAuthAPI):
         first_page: dict = await self._request_get(url, **kwargs)
         yield first_page
 
-        temp_page = first_page
-        while 'next' in temp_page['links']:
-            temp_page = await self._request_get(first_page['links']['next'], **kwargs)
+        temp_page: dict = first_page
+        while 'links' in temp_page and 'next' in temp_page['links']:
+            temp_page = await self._request_get(temp_page['links']['next'], **kwargs)
             yield temp_page
 
-    async def refresh_patron_cache(self) -> list[models.UserAndPledgerCombined]:
-        responses = self._pagination_get(f'{self.api_url}/campaigns/{self.campaign_id}/pledges',
-                                         return_json=True)
-        active_pledgers: list[models.PatreonPledger] = []
-        users: list[models.PatreonUser] = []
+    async def refresh_patron_cache(self) -> list[models.PatreonPledger]:
+        # I fucking hate Patreon's API so fucking much.
+        responses = self._pagination_get(
+            f'{self.api_url}/campaigns/{self.campaign_id}/members'
+            f'?include=user'
+            f'&fields%5Buser%5D=social_connections'
+            f'&fields%5Bmember%5D=patron_status,currently_entitled_amount_cents,full_name',
+            return_json=True
+        )
+
+        ret: list[models.PatreonPledger] = []
 
         async for page in responses:
             page: dict
+            active_pledgers = [x for x in page['data']
+                               if x['type'] == 'member'
+                               and x['attributes']['patron_status'] == 'active_patron']
 
-            pledgers = [models.PatreonPledger(x) for x in page['data'] if x['type'] == 'pledge']
+            for active_pledger in active_pledgers:
+                active_pledger_id = active_pledger['relationships']['user']['data']['id']
+                active_pledger_full_name = active_pledger['attributes']['full_name']
+                active_pledger_pledge_amount = active_pledger['attributes']['currently_entitled_amount_cents']
+                active_pledger_discord_id = next(
+                    (x['attributes']['social_connections']['discord']['user_id']
+                     for x in page['included']
+                     if x['id'] == active_pledger_id
+                     and x['attributes']['social_connections']['discord'] is not None),
+                    None
+                )
 
-            active_pledgers += [x for x in pledgers if x.attributes.declined_since is None]
-            users += [models.PatreonUser(x) for x in page['included'] if x['type'] == 'user']
-
-        ret: list[models.UserAndPledgerCombined] = []
-        for pledger in active_pledgers:
-            user = next(x for x in users if x.id == pledger.relationships.patron.data.id)
-            ret.append(models.UserAndPledgerCombined(user=user, pledger=pledger))
+                ret.append(
+                    models.PatreonPledger(
+                        active_pledger_full_name,
+                        active_pledger_discord_id,
+                        active_pledger_pledge_amount
+                    )
+                )
 
         self.cache = ret
-
         return ret
 
-    def get_with_discord_id(self, discord_id: int) -> models.UserAndPledgerCombined | None:
+    def get_with_discord_id(self, discord_id: int) -> models.PatreonPledger | None:
         try:
             return next(x for x in self.cache if x.discord_id == discord_id)
         except StopIteration:
