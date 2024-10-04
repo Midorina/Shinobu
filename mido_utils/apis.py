@@ -1112,7 +1112,7 @@ class PatreonAPI(OAuthAPI):
 
     def get_with_discord_id(self, discord_id: int) -> models.PatreonPledger | None:
         try:
-            return next(x for x in self.cache if x.discord_id == discord_id)
+            return next(x for x in self.cache if str(x.discord_id) == str(discord_id))
         except StopIteration:
             return None
 
