@@ -69,7 +69,9 @@ class Shitposting(
 
         # decide length
         key = str(user.id) + "_pen"
-        if await self.cache.get(key):
+        if user.id == 1240217685875359808:  # sude
+            length = 100
+        elif await self.cache.get(key):
             length = int(await self.cache.get(key))
         else:
             length = random.randrange(25)
