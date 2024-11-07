@@ -40,6 +40,8 @@
     "client_id"    : "client_id",
     "client_secret": "client_secret"
   },
+  "reddit_automatically_pull_hot_posts": false,
+  "reddit_automatically_check_saved_posts": false,
   "reddit_credentials"        : {
     "client_id"    : "client_id",
     "client_secret": "client_secret"

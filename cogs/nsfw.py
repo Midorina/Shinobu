@@ -21,15 +21,18 @@ class NSFW(commands.Cog,
         self.neko = mido_utils.NekosLifeAPI(session=self.bot.http_session, db=self.bot.db)
 
         self.reddit = mido_utils.RedditAPI(self.bot.config.reddit_credentials, self.bot.http_session, self.bot.db)
-        self.fill_the_database.start()
 
-        self._cd: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(rate=1, per=2,
-                                                                                    type=commands.BucketType.guild)
+        self._cd: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(
+            rate=1, per=2, type=commands.BucketType.guild)
 
         self.active_auto_nsfw_services = list()
         self.start_auto_nsfw_task = self.bot.loop.create_task(self.start_auto_nsfw_services())
 
-        self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
+        if self.bot.config.reddit_automatically_pull_hot_posts:
+            self.fetch_and_save_hot_posts_from_reddit.start()
+
+        if self.bot.config.reddit_automatically_check_saved_posts:
+            self.start_checking_urls_task = self.bot.loop.create_task(self.start_checking_urls_in_db())
 
         self.cache: RedisCache = RedisCache(self.bot)
         self.cache_expiration_in_seconds = 3600
@@ -216,7 +219,7 @@ class NSFW(commands.Cog,
                 f"crashed due to the following exception:")
 
     @tasks.loop(hours=12.0)
-    async def fill_the_database(self):
+    async def fetch_and_save_hot_posts_from_reddit(self):
         time = mido_utils.Time()
 
         # if credentials are set
@@ -225,11 +228,11 @@ class NSFW(commands.Cog,
 
         self.bot.logger.debug('Checking hot posts from Reddit took:\t' + time.passed_seconds_in_float_formatted)
 
-    @fill_the_database.before_loop
+    @fetch_and_save_hot_posts_from_reddit.before_loop
     async def wait_for_bot_before_loop(self):
         await self.bot.wait_until_ready()
 
-    @fill_the_database.error
+    @fetch_and_save_hot_posts_from_reddit.error
     async def task_error(self, error):
         await self.bot.get_cog('ErrorHandling').on_error(error)
 
@@ -249,7 +252,7 @@ class NSFW(commands.Cog,
 
         self.start_auto_nsfw_task.cancel()
         self.start_checking_urls_task.cancel()
-        self.fill_the_database.cancel()
+        self.fetch_and_save_hot_posts_from_reddit.cancel()
 
         for task in self.active_auto_nsfw_services:
             task.cancel()

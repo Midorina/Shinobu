@@ -32,6 +32,8 @@ class ConfigFile:
         self.topgg_credentials: dict[str, bool | str | int] = data.get('topgg_credentials')
         self.spotify_credentials: dict[str, str] = data.get('spotify_credentials')
         self.reddit_credentials: dict[str, str] = data.get('reddit_credentials')
+        self.reddit_automatically_pull_hot_posts: bool = data.get('reddit_automatically_pull_hot_posts', False)
+        self.reddit_automatically_check_saved_posts: bool = data.get('reddit_automatically_check_saved_posts', False)
         self.blizzard_credentials: dict[str, str] = data.get('blizzard_credentials')
         self.patreon_credentials: dict[str, str | int] = data.get('patreon_credentials')
         self.danbooru_credentials: dict[str, str] = data.get('danbooru_credentials')
