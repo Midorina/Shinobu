@@ -15,13 +15,13 @@ module.exports = {
         {
             name: "midobot",
             script: "./run.py",
-            interpreter: "./env/bin/python",
+            interpreter: "./venv/bin/python",
             args: "midobot"
         },
         {
             name: "midobot_ipc",
             script: "./ipc/ipc.py",
-            interpreter: "./env/bin/python",
+            interpreter: "./venv/bin/python",
             args: "--port 13338"
         }
     ]
