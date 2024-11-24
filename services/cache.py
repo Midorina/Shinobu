@@ -5,8 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-import aioredis
-from aioredis import ConnectionPool, Redis
+from redis.asyncio import ConnectionPool, Redis, ConnectionError
 
 if TYPE_CHECKING:
     from shinobu import ShinobuBot
@@ -88,7 +87,7 @@ def redis_falls_back_to_local(func):
 
             return await func(self, *args, **kwargs)
 
-        except aioredis.ConnectionError:
+        except ConnectionError:
             if not REDIS_NOT_WORKING:
                 REDIS_NOT_WORKING = True
 
@@ -104,11 +103,11 @@ class RedisCache(LocalCache):
     def __init__(self, bot: ShinobuBot):
         super().__init__(bot)
 
-        self._pool: ConnectionPool = aioredis.ConnectionPool.from_url(
+        self._pool: ConnectionPool = ConnectionPool.from_url(
             self.bot.config.redis_host,
             max_connections=20,
             decode_responses=True)
-        self.redis_cache: Redis = aioredis.Redis(connection_pool=self._pool)
+        self.redis_cache: Redis = Redis(connection_pool=self._pool)
 
     @redis_falls_back_to_local
     async def get_keys(self):

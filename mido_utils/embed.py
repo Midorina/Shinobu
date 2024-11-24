@@ -59,13 +59,13 @@ class Embed(discord.Embed):
 
         remove_reaction_mode = ctx.guild is not None
 
-        def reaction_check(_reaction, _user):
+        def reaction_check(_reaction, _user) -> bool:
             if _user == ctx.author:
                 if _reaction.message.id == message.id:
                     if str(_reaction.emoji) in arrows:
                         return True
 
-        def message_check(m):
+        def message_check(m) -> int:
             if m.author == ctx.author:
                 if m.channel == ctx.channel:
                     try:
@@ -143,14 +143,19 @@ class Embed(discord.Embed):
 
         while True:
             if remove_reaction_mode is True:
+                # noinspection PyTypeChecker
                 done, pending = await asyncio.wait([
-                    self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
-                    self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
+                    asyncio.create_task(self.bot.wait_for('reaction_add', timeout=60, check=reaction_check)),
+                    asyncio.create_task(self.bot.wait_for('message', timeout=60, check=message_check))
+                ], return_when=asyncio.FIRST_COMPLETED)
             else:
+                # noinspection PyTypeChecker
                 done, pending = await asyncio.wait([
-                    self.bot.wait_for('reaction_add', timeout=60, check=reaction_check),
-                    self.bot.wait_for('reaction_remove', timeout=60, check=reaction_check),
-                    self.bot.wait_for('message', timeout=60, check=message_check)], return_when=asyncio.FIRST_COMPLETED)
+                    asyncio.create_task(self.bot.wait_for('reaction_add', timeout=60, check=reaction_check)),
+                    asyncio.create_task(self.bot.wait_for('reaction_remove', timeout=60, check=reaction_check)),
+                    asyncio.create_task(self.bot.wait_for('message', timeout=60, check=message_check))
+                ], return_when=asyncio.FIRST_COMPLETED)
+
             try:
                 for thing in done:
                     thing.exception()  # this is to retrieve exceptions
@@ -161,7 +166,7 @@ class Embed(discord.Embed):
                 return await clear_message_reactions(message)
 
             else:
-                if isinstance(stuff, tuple):
+                if isinstance(stuff, tuple):  # reaction response
                     if not reactions:
                         continue
 
@@ -193,7 +198,7 @@ class Embed(discord.Embed):
                         except discord.Forbidden:
                             pass
 
-                else:
+                else:  # message response
                     if 0 < int(stuff.content) <= total_pages:
                         page = int(stuff.content)
                         await update_message(message)
