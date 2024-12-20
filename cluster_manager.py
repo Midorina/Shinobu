@@ -53,7 +53,7 @@ def reload_package(package):
 
 
 class Launcher:
-    SHARDS_PER_CLUSTER = 2
+    SHARDS_PER_CLUSTER = 8
 
     def __init__(self, bot_name: str = 'shinobu', loop=None):
         self.bot_name = bot_name
