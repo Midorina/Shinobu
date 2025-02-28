@@ -67,8 +67,6 @@ class Gambling(
                     creds["webhook_path"], creds["webhook_auth"])
                 self.topgg_webhook.run(creds["webhook_port"])
 
-                self.votes = set()
-
                 if creds["post_guild_count"]:
                     self.post_guild_count.start()
 
@@ -121,11 +119,6 @@ class Gambling(
                 for user in users:
                     if donut_event.user_is_eligible(user):  # if we missed their reaction
                         await donut_event.reward_attender(attender_id=user.id)
-
-    @commands.Cog.listener()
-    async def on_dbl_vote(self, data):
-        self.votes.add(int(data['user']))
-        self.bot.logger.info(f'Received an upvote and its been added to the set! {data}')
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -185,17 +178,15 @@ class Gambling(
             ret = self.patreon_api.is_patron_and_can_claim_daily(user_id)
 
         if not ret:
-            if hasattr(self, 'topgg'):
-                ret = user_id in self.votes
-                if not ret:
-                    try:
-                        ret = await self.topgg.get_user_vote(user_id)
-                    except topgg.HTTPException:
-                        # TODO: this is sometimes 403. inform the host properly
-                        raise mido_utils.APIError("Top.gg API is down. Please try again later.")
-            else:
+            if not hasattr(self, 'topgg'):
                 # if its cluster 0 but topgg attribute doesn't exist, return True
                 return self.bot.cluster_id == 0
+
+            try:
+                ret = await self.topgg.get_user_vote(user_id)
+            except topgg.HTTPException:
+                # TODO: this is sometimes 403. inform the host properly
+                raise mido_utils.APIError("Top.gg API is down. Please try again later.")
 
         return ret
 
@@ -221,12 +212,6 @@ class Gambling(
                     f"to get your **{mido_utils.readable_currency(daily_amount)}**!\n\n"
                     f"*You can receive dailies without voting and **{mido_utils.readable_currency(1500)}** "
                     f"by [donating just $1!]({mido_utils.links.patreon})*")
-
-        if hasattr(self, 'votes'):
-            try:
-                self.votes.remove(ctx.author.id)
-            except KeyError:
-                pass
 
         await ctx.user_db.add_cash(daily_amount, reason="Claimed daily.", daily=True)
 
