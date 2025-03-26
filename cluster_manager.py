@@ -53,7 +53,7 @@ def reload_package(package):
 
 
 class Launcher:
-    SHARDS_PER_CLUSTER = 8
+    SHARDS_PER_CLUSTER = 40  # 1 shard per 1000 guilds
 
     def __init__(self, bot_name: str = 'shinobu', loop=None):
         self.bot_name = bot_name
