@@ -101,7 +101,8 @@ class CachedImageAPI(MidoBotAPI):
 
         if urls:
             await self.db.executemany(
-                """INSERT INTO api_cache(api_name, url, tags) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;""",
+                """INSERT INTO api_cache(api_name, url, tags)
+                   VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;""",
                 ((api_name, url, tags) for url in urls)
             )
 
@@ -569,26 +570,26 @@ class NsfwDAPIs(CachedImageAPI):
 class SomeRandomAPI(MidoBotAPI):
     URLs = {
         # animals
-        "dog"      : "https://some-random-api.com/img/dog",
-        "cat"      : "https://some-random-api.com/img/cat",
-        "panda"    : "https://some-random-api.com/img/panda",
-        "fox"      : "https://some-random-api.com/img/fox",
-        "bird"     : "https://some-random-api.com/img/birb",
+        "dog"      : "https://api.some-random-api.com/img/dog",
+        "cat"      : "https://api.some-random-api.com/img/cat",
+        "panda"    : "https://api.some-random-api.com/img/panda",
+        "fox"      : "https://api.some-random-api.com/img/fox",
+        "bird"     : "https://api.some-random-api.com/img/birb",
 
         # shitposting
-        "gay"      : "https://some-random-api.com/canvas/gay",
-        "wasted"   : "https://some-random-api.com/canvas/wasted",
+        "gay"      : "https://api.some-random-api.com/canvas/gay",
+        "wasted"   : "https://api.some-random-api.com/canvas/wasted",
 
-        "triggered": "https://some-random-api.com/canvas/triggered",
-        "youtube"  : "https://some-random-api.com/canvas/youtube-comment",
+        "triggered": "https://api.some-random-api.com/canvas/triggered",
+        "youtube"  : "https://api.some-random-api.com/canvas/youtube-comment",
 
-        "meme"     : "https://some-random-api.com/meme",  # shit memes
-        "joke"     : "https://some-random-api.com/joke",  # shit jokes
+        "meme"     : "https://api.some-random-api.com/meme",  # shit memes
+        "joke"     : "https://api.some-random-api.com/joke",  # shit jokes
 
         # searches
-        'lyrics'   : 'https://some-random-api.com/lyrics',
-        "pokemon"  : "https://some-random-api.com/pokedex",
-        "color"    : "https://some-random-api.com/canvas/colorviewer"
+        'lyrics'   : 'https://api.some-random-api.com/lyrics',
+        "pokemon"  : "https://api.some-random-api.com/pokedex",
+        "color"    : "https://api.some-random-api.com/canvas/colorviewer"
     }
 
     class Pokemon:
@@ -627,48 +628,77 @@ class SomeRandomAPI(MidoBotAPI):
             self.description: str = data.pop('description')
             self.generation: int = int(data.pop('generation'))
 
-    def __init__(self, session: ClientSession):
+    def __init__(self, session: ClientSession, api_key: str | None = None):
         super().__init__(session)
+        self.api_key = api_key
+        self.headers = {'Authorization': self.api_key} if self.api_key else {}
 
-    async def get_lyrics(self, title: str) -> tuple[str, list[str], str]:
-        response = await self._request_get(self.URLs['lyrics'], params={'title': title}, return_json=True)
+    async def get_lyrics(self, title: str) -> tuple[str, list[str], str | None]:
+        response = await self._request_get(
+            self.URLs['lyrics'],
+            params={'title': title},
+            return_json=True,
+            headers=self.headers
+        )
 
-        title = f"{response['author']} - {response['title']}"
+        title = f"{response['artist']} - {response['title']}"
         lyrics = self.parse_lyrics_for_discord(response['lyrics'])
-        thumbnail = list(response['thumbnail'].values())[0]
+        thumbnail = response['thumbnail'] if 'thumbnail' in response else None
 
         return title, lyrics, thumbnail
 
     async def get_animal(self, animal_name: str) -> str:
-        response = await self._request_get(self.URLs[animal_name], return_json=True)
+        response = await self._request_get(
+            self.URLs[animal_name],
+            return_json=True,
+            headers=self.headers
+        )
         return response['link']
 
     async def view_color(self, color: str):
-        return await self._request_get(self.URLs['color'], params={'hex': color}, return_url=True)
+        return await self._request_get(
+            self.URLs['color'],
+            params={'hex': color},
+            return_url=True,
+            headers=self.headers
+        )
 
     async def get_pokemon(self, pokemon_name: str) -> Pokemon:
-        pokemon = await self._request_get(self.URLs["pokemon"], params={"pokemon": pokemon_name}, return_json=True)
+        pokemon = await self._request_get(
+            self.URLs["pokemon"],
+            params={"pokemon": pokemon_name},
+            return_json=True,
+            headers=self.headers
+        )
 
         return self.Pokemon(pokemon)
 
     async def get_meme(self) -> str:
-        response = await self._request_get(self.URLs["meme"], return_json=True)
+        response = await self._request_get(self.URLs["meme"], return_json=True, headers=self.headers)
         return response['image']
 
     async def get_joke(self) -> str:
-        response = await self._request_get(self.URLs["joke"], return_json=True)
+        response = await self._request_get(self.URLs["joke"], return_json=True, headers=self.headers)
         return response['joke']
 
     async def wasted_gay_or_triggered(self, avatar_url: str, _type: str = "wasted") -> str:
-        return await self._request_get(self.URLs[_type], params={'avatar': avatar_url}, return_url=True)
+        return await self._request_get(
+            self.URLs[_type],
+            params={'avatar': avatar_url},
+            return_url=True,
+            headers=self.headers
+        )
 
     async def youtube_comment(self, avatar_url: str, username: str, comment: str):
-        return await self._request_get(self.URLs["youtube"],
-                                       params={'avatar'  : avatar_url,
-                                               "username": username[:25],
-                                               "comment" : comment,
-                                               "dark"    : 'true'},
-                                       return_url=True)
+        return await self._request_get(
+            self.URLs["youtube"],
+            params={'avatar'  : avatar_url,
+                    "username": username[:25],
+                    "comment" : comment,
+                    "dark"    : 'true'},
+            return_url=True,
+            headers=self.headers
+        )
 
     @staticmethod
     def parse_lyrics_for_discord(lyrics: str) -> list[str]:

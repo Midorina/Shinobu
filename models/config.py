@@ -40,6 +40,7 @@ class ConfigFile:
         self.gelbooru_credentials: dict[str, str] = data.get('gelbooru_credentials')
 
         self.currency_api_key: str = data.get('currency_api_key')
+        self.some_random_api_key: str | None = data.get('some_random_api_key')
 
         self.redis_host: str = data.get('redis_host')
 
@@ -61,6 +62,7 @@ class ConfigFile:
         self.check_danbooru_credentials_validity(warn)
         self.check_gelbooru_credentials_validity(warn)
         self.check_currency_api_key_validity(warn)
+        self.check_some_random_api_key(warn)
 
         # mandatory field check
         mandatory_fields = {
@@ -150,6 +152,11 @@ class ConfigFile:
         # if not self.currency_api_key and warn is True:
         #     logging.info("ExchangeAPI key is not set. "
         #                  "Although I am designed to function without one, using one would be better.")
+
+    def check_some_random_api_key(self, warn: bool):
+        if self.some_random_api_key and self.some_random_api_key == "api_key":
+            self.some_random_api_key = None
+
 
     @classmethod
     def get_config(cls, bot_name: str, warn: bool = False) -> ConfigFile:

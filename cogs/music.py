@@ -418,7 +418,8 @@ class Music(commands.Cog, description='Play music using `{ctx.prefix}play`. **Sp
                                            f"Try writing the title in a simpler form.")
 
         e = mido_utils.Embed(bot=self.bot, title=song_title[:256], use_default_footer=True)
-        e.set_thumbnail(url=thumbnail)
+        if thumbnail:
+            e.set_thumbnail(url=thumbnail)
 
         await e.paginate(
             ctx=ctx,
