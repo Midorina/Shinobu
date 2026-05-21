@@ -104,6 +104,35 @@ class Shitposting(
         await ctx.send(embed=embed)
 
     @commands.hybrid_command()
+    async def bodycount(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
+        """Learn someone's body count."""
+        user = target or ctx.author
+
+        # decide how gay
+        key = str(user.id) + "_bodycount"
+        if await self.cache.get(key):
+            body_count = int(await self.cache.get(key))
+        else:
+            body_count = random.randrange(20)
+            await self.cache.set(key, body_count, self.gay_cache)
+
+        # prepare embed
+        embed = mido_utils.Embed(ctx.bot)
+        embed.description = f"{user.display_name if isinstance(user, discord.Member) else user}'s body count is **{body_count}.**"
+        if body_count == 0:
+            embed.description += " Holy mother of virgins. What a fucking loser."
+        elif body_count == 1:
+            embed.description += " Either extremely loyal or an idiot."
+        elif 1 < body_count <= 5:
+            embed.description += " Quite normal."
+        elif 5 < body_count <= 10:
+            embed.description += " Slut."
+        elif body_count > 10:
+            embed.description += " WHORE."
+
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command()
     async def gay(self, ctx: mido_utils.Context, *, target: mido_utils.MemberConverter = None):
         """Place a pride flag on someone's avatar."""
         user = target or ctx.author
